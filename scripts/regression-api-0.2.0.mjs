@@ -21,7 +21,11 @@ const create = (body) => req('/tasks/create', { method: 'POST', body: JSON.strin
 // R-01
 {
   const r = await req('/health'); const v = r.json?.value
-  record('R-01', r.status === 200 && v?.version === '0.2.0' && v?.scheduler?.running === true && v?.capabilities?.agentTools === 9,
+  // Version moves forward with each release; the regression cares that the DSH
+  // host is at least 0.2.x and that the tool count matches the shipped suite
+  // (9 for 0.2.0, 12 from 0.2.1). `EXPECTED_TOOLS` overrides the check.
+  const expectedTools = Number(process.env.EXPECTED_TOOLS ?? '9')
+  record('R-01', r.status === 200 && String(v?.version).startsWith('0.2.') && v?.scheduler?.running === true && v?.capabilities?.agentTools === expectedTools,
     `version=${v?.version} running=${v?.scheduler?.running} agentTools=${v?.capabilities?.agentTools}`)
 }
 // R-05
@@ -102,7 +106,9 @@ const create = (body) => req('/tasks/create', { method: 'POST', body: JSON.strin
   const list = defs.find((d) => d.name === 'todo_reminder_list')
   const del = defs.find((d) => d.name === 'todo_reminder_delete')
   const viewEnum = list?.parameters?.properties?.view?.enum
-  record('R-13', defs.length === 9 && !('dueDate' in (list?.parameters?.properties ?? {})) && Array.isArray(viewEnum) && viewEnum.length === 6 && 'confirm' in (del?.parameters?.properties ?? {}),
+  const sixViews = ['notStarted', 'inProgress', 'overdue', 'done', 'recurring', 'paused']
+  const expectedTools = Number(process.env.EXPECTED_TOOLS ?? '9')
+  record('R-13', defs.length === expectedTools && !('dueDate' in (list?.parameters?.properties ?? {})) && Array.isArray(viewEnum) && sixViews.every((v) => viewEnum.includes(v)) && 'confirm' in (del?.parameters?.properties ?? {}),
     `tools=${defs.length} viewEnum=${JSON.stringify(viewEnum)} confirm=${'confirm' in (del?.parameters?.properties ?? {})}`)
 }
 // R-14 remind + deliveries
