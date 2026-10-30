@@ -1,0 +1,242 @@
+/**
+ * Weekly / monthly report aggregation (F11.1–F11.4).
+ *
+ * Pure functions only: the route feeds in tasks, archived tasks, completion
+ * events and a clock, and gets back a `ReportData` value. Nothing here writes
+ * to the store, and no LLM is involved — the report is a deterministic view.
+ */
+
+import type { CompletionEvent } from './state.js'
+import type { Task, TaskKind } from './rules/types.js'
+import { stageOf } from './rules/priority.js'
+import { addDays, daysInMonth, formatLocalDate, isoWeekday, localToInstant, parseLocalDate, type LocalDate } from './rules/timezone.js'
+
+/** One row in a report section. */
+export interface ReportItem {
+  id: string
+  title: string
+  kind: TaskKind
+  /** Occurrences completed in the period (recurring); 1 for one-off tasks. */
+  count?: number
+  dueAt?: string | null
+  completedAt?: string | null
+  overdueDays?: number
+  nextAt?: string | null
+}
+
+/** The JSON contract of `GET /reports`. */
+export interface ReportData {
+  period: { kind: 'weekly' | 'monthly'; start: string; end: string; timeZone: string }
+  completed: ReportItem[]
+  overdue: ReportItem[]
+  created: ReportItem[]
+  upcoming: ReportItem[]
+  stats: {
+    completed: number
+    overdue: number
+    inProgress: number
+    recurring: number
+    completionRate: number | null
+  }
+  generatedAt: string
+}
+
+/** What {@link buildReport} needs. */
+export interface ReportInput {
+  kind: 'weekly' | 'monthly'
+  anchor: string
+  timeZone: string
+  now: Date
+  tasks: readonly Task[]
+  archived: readonly Task[]
+  events: readonly CompletionEvent[]
+  /** Resolve the next fire instant for a recurring task. */
+  nextAtFor?: (task: Task) => string | null
+}
+
+/** A resolved reporting window (end is inclusive, nextStart is exclusive). */
+export interface ReportPeriod {
+  kind: 'weekly' | 'monthly'
+  start: string
+  end: string
+  nextStart: string
+  nextEnd: string
+  localStart: string
+  localEnd: string
+}
+
+/**
+ * First day of a month as a local date.
+ * @param date - Any day in the month.
+ * @returns The 1st.
+ */
+function firstOfMonth(date: LocalDate): LocalDate {
+  return { year: date.year, month: date.month, day: 1 }
+}
+
+/**
+ * Advance a local date by whole months, landing on the 1st.
+ * @param date - Start month.
+ * @param months - Months to add.
+ * @returns First day of the resulting month.
+ */
+function addMonthsFirst(date: LocalDate, months: number): LocalDate {
+  const total = date.year * 12 + (date.month - 1) + months
+  return { year: Math.floor(total / 12), month: (total % 12) + 1, day: 1 }
+}
+
+/**
+ * Resolve the reporting window around an anchor day.
+ * @param kind - `weekly` (Mon–Sun) or `monthly` (natural month).
+ * @param anchor - `YYYY-MM-DD` in `timeZone`.
+ * @param timeZone - IANA zone.
+ * @returns Instants plus display dates.
+ * @throws Error when the anchor is not a valid local date.
+ */
+export function periodOf(kind: 'weekly' | 'monthly', anchor: string, timeZone: string): ReportPeriod {
+  const parsed = parseLocalDate(anchor)
+  if (parsed === undefined) throw new Error(`invalid anchor date: ${anchor}`)
+  const startDate = kind === 'weekly'
+    ? addDays(parsed, -(isoWeekday(parsed) - 1))
+    : firstOfMonth(parsed)
+  const nextStartDate = kind === 'weekly' ? addDays(startDate, 7) : addMonthsFirst(startDate, 1)
+  const nextEndDate = kind === 'weekly' ? addDays(nextStartDate, 7) : addMonthsFirst(nextStartDate, 1)
+  const startMs = localToInstant({ ...startDate, hour: 0, minute: 0 }, timeZone)
+  const nextStartMs = localToInstant({ ...nextStartDate, hour: 0, minute: 0 }, timeZone)
+  const nextEndMs = localToInstant({ ...nextEndDate, hour: 0, minute: 0 }, timeZone)
+  if (startMs === undefined || nextStartMs === undefined || nextEndMs === undefined) {
+    throw new Error('report period falls in a DST gap')
+  }
+  const lastDay = kind === 'weekly'
+    ? addDays(nextStartDate, -1)
+    : { year: startDate.year, month: startDate.month, day: daysInMonth(startDate.year, startDate.month) }
+  return {
+    kind,
+    start: new Date(startMs).toISOString(),
+    end: new Date(nextStartMs - 1).toISOString(),
+    nextStart: new Date(nextStartMs).toISOString(),
+    nextEnd: new Date(nextEndMs - 1).toISOString(),
+    localStart: formatLocalDate(startDate),
+    localEnd: formatLocalDate(lastDay),
+  }
+}
+
+/** Whether an ISO instant lies inside `[start, end]`. */
+function within(iso: string | null | undefined, startMs: number, endMs: number): boolean {
+  if (iso === null || iso === undefined) return false
+  const at = Date.parse(iso)
+  return !Number.isNaN(at) && at >= startMs && at <= endMs
+}
+
+/** Round to a 0–1 rate with three decimals. */
+function rate(completed: number, overdue: number): number | null {
+  const total = completed + overdue
+  if (total === 0) return null
+  return Math.round((completed / total) * 1000) / 1000
+}
+
+/**
+ * Build a report from already-loaded data.
+ * @param input - Tasks, archive tasks, events and clock.
+ * @returns The report value.
+ */
+export function buildReport(input: ReportInput): ReportData {
+  const period = periodOf(input.kind, input.anchor, input.timeZone)
+  const startMs = Date.parse(period.start)
+  const endMs = Date.parse(period.end)
+  const nextEndMs = Date.parse(period.nextEnd)
+  const nowMs = input.now.getTime()
+  // A task may exist in both the main file and a quarter file only during a
+  // crash window; de-duplicate by id so reports never double-count it.
+  const byId = new Map<string, Task>()
+  for (const task of [...input.archived, ...input.tasks]) byId.set(task.id, task)
+  const all = [...byId.values()]
+
+  const completed: ReportItem[] = []
+  for (const task of all) {
+    if (task.kind !== 'once' || task.doneAt === null) continue
+    if (!within(task.doneAt, startMs, endMs)) continue
+    completed.push({
+      id: task.id,
+      title: task.title,
+      kind: 'once',
+      count: 1,
+      dueAt: task.once?.endAt ?? null,
+      completedAt: task.doneAt,
+    })
+  }
+  const recurring = new Map<string, ReportItem>()
+  for (const event of input.events) {
+    if (event.kind !== 'recurring') continue
+    if (!within(event.completedAt, startMs, endMs)) continue
+    const current = recurring.get(event.taskId)
+    if (current === undefined) {
+      recurring.set(event.taskId, {
+        id: event.taskId,
+        title: event.taskTitle,
+        kind: 'recurring',
+        count: 1,
+        dueAt: event.dueAt,
+        completedAt: event.completedAt,
+      })
+    } else {
+      current.count = (current.count ?? 1) + 1
+      if (event.completedAt > (current.completedAt ?? '')) current.completedAt = event.completedAt
+    }
+  }
+  completed.push(...recurring.values())
+  completed.sort((left, right) => (left.completedAt ?? '') < (right.completedAt ?? '') ? 1 : -1)
+
+  const overdue: ReportItem[] = []
+  const inProgress = all.filter((task) => task.status === 'active' && stageOf(task, input.now) === 'inProgress').length
+  for (const task of all) {
+    if (task.kind !== 'once' || task.status !== 'active' || task.once === null) continue
+    const dueMs = Date.parse(task.once.endAt)
+    if (Number.isNaN(dueMs) || dueMs >= nowMs) continue
+    overdue.push({
+      id: task.id,
+      title: task.title,
+      kind: 'once',
+      dueAt: task.once.endAt,
+      overdueDays: Math.max(0, Math.floor((nowMs - dueMs) / 86_400_000)),
+    })
+  }
+  overdue.sort((left, right) => (left.dueAt ?? '') < (right.dueAt ?? '') ? -1 : 1)
+
+  const created: ReportItem[] = []
+  for (const task of all) {
+    if (task.status === 'archived') continue
+    if (!within(task.createdAt, startMs, endMs)) continue
+    created.push({ id: task.id, title: task.title, kind: task.kind, dueAt: task.kind === 'once' ? task.once?.endAt ?? null : null })
+  }
+  created.sort((left, right) => (left.id < right.id ? -1 : 1))
+
+  const upcoming: ReportItem[] = []
+  for (const task of all) {
+    if (task.status !== 'active') continue
+    const nextAt = task.kind === 'recurring' ? input.nextAtFor?.(task) ?? null : task.once?.endAt ?? null
+    if (nextAt === null) continue
+    const at = Date.parse(nextAt)
+    if (Number.isNaN(at) || at < Date.parse(period.nextStart) || at > nextEndMs) continue
+    upcoming.push({ id: task.id, title: task.title, kind: task.kind, nextAt })
+  }
+  upcoming.sort((left, right) => (left.nextAt ?? '') < (right.nextAt ?? '') ? -1 : 1)
+
+  const completedCount = completed.reduce((sum, item) => sum + (item.count ?? 1), 0)
+  const recurringActive = all.filter((task) => task.kind === 'recurring' && task.status === 'active').length
+  return {
+    period: { kind: input.kind, start: period.start, end: period.end, timeZone: input.timeZone },
+    completed,
+    overdue,
+    created,
+    upcoming,
+    stats: {
+      completed: completedCount,
+      overdue: overdue.length,
+      inProgress,
+      recurring: recurringActive,
+      completionRate: rate(completedCount, overdue.length),
+    },
+    generatedAt: input.now.toISOString(),
+  }
+}

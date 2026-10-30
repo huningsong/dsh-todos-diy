@@ -25,6 +25,7 @@ export interface PanelHeaderProps {
   totals: { once: number; recurring: number; done: number }
   readOnly: boolean
   onSettings: () => void
+  onReport: () => void
   onNew: () => void
   onSelect: (view: ViewName) => void
 }
@@ -51,6 +52,16 @@ export function PanelHeader(props: PanelHeaderProps) {
             onClick: props.onSettings,
           },
           t('panel.settings'),
+        ),
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'dtd-btn ghost',
+            'aria-label': t('report.title'),
+            onClick: props.onReport,
+          },
+          t('report.title'),
         ),
         h(
           'button',

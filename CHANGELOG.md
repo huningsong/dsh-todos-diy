@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0] 2026-10-31 — 周报 / 月报（F11）
+
+### Added
+- `CompletionEvent` + `schemaVersion 3`：单次与循环任务每次完成都追加一条事件（F11.2）；保留最近 5000 条/24 个月；v2→v3 迁移补空数组，不伪造历史。
+- `GET /reports?kind=weekly|monthly&anchor=YYYY-MM-DD`：只读聚合本周期完成、逾期、新增、下周期计划与统计（F11.3/F11.4）；完成项合并主文件与归档 quarter 并去重。
+- 顶部「生成报告」按钮 + `ReportModal`：周报/月报 Tab、本周/上周/本月/上月周期、Markdown 预览、复制、导出 `.md`（F11.5/F11.6）。
+- 导出文件名 `工作周报-YYYY-MM-DD.md` / `工作月报-YYYY-MM.md`；空章节保留标题并显示「无」（F11.8）。
+- 报告路由不调用 `touch()`，调用前后 `tasks.json` 字节不变（F11.3）。
+- 需求 v1.7 新增 F11.1–F11.8 / AC-REP-01–08。
+
+### Changed
+- `schemaVersion` 2 → 3（主文件、归档 quarter、`archive/index.json`、`POST /import` 同一迁移链）。
+- 路由表 29 → 30（新增 `/reports`）。
+- 版本号 `0.5.0`。
+
 ## [0.4.0] 2026-10-30 — 自然语言录入（F10）
 
 ### Added
@@ -14,7 +29,7 @@
 
 ### Changed
 - NF8 隐私口径修订：默认不联网；仅用户手动开启 F10 后发送当次解析文本，不发送任务库/设置/历史。
-- 版本号 `0.4.0`（0.3.0 已规划为周报/月报）；`/health.capabilities.agentTools` 仍为 12。
+- 版本号 `0.4.0`；`/health.capabilities.agentTools` 仍为 12。周报/月报见 0.5.0。
 - 路由表 28 → 29（新增 `/parse`）。
 
 ## [0.2.1] 2026-10-30 — Agent 体验补齐（F7.14–F7.18）

@@ -255,7 +255,7 @@ describe('D-25 #7: v1→v2 migration across all four paths', () => {
 
   it('migrates a main-file document', () => {
     const migrated = migrateDocumentV2({ schemaVersion: 1, tasks: [v1Task], settings: {}, meta: {}, deliveries: [] })
-    assert.equal(migrated['schemaVersion'], SCHEMA_VERSION)
+    assert.equal(migrated['schemaVersion'], 2)
     const tasks = migrated['tasks'] as Record<string, unknown>[]
     assert.equal(tasks.length, 1)
     const task = tasks[0] as Record<string, unknown>
@@ -270,14 +270,14 @@ describe('D-25 #7: v1→v2 migration across all four paths', () => {
 
   it('migrates an archive quarter document', () => {
     const migrated = migrateDocumentV2({ schemaVersion: 1, quarter: '2026-Q3', tasks: [v1Task] })
-    assert.equal(migrated['schemaVersion'], SCHEMA_VERSION)
+    assert.equal(migrated['schemaVersion'], 2)
     assert.equal((migrated['tasks'] as Record<string, unknown>[])[0]?.['dueDate'], undefined)
   })
 
   it('migrates an index document without touching the entries', () => {
     const entries = [{ quarter: '2026-Q3', file: 'completed-2026-Q3.json', count: 2, start: '', end: '' }]
     const migrated = migrateIndexV2({ schemaVersion: 1, quarters: entries })
-    assert.equal(migrated['schemaVersion'], SCHEMA_VERSION)
+    assert.equal(migrated['schemaVersion'], 2)
     assert.deepEqual(migrated['quarters'], entries)
   })
 
@@ -304,10 +304,10 @@ describe('D-25 #7: v1→v2 migration across all four paths', () => {
     })
   })
 
-  it('exposes schemaVersion 2 in an export bundle', () => {
+  it('exposes the current schemaVersion in an export bundle', () => {
     const state = emptyState(NOW)
     state.tasks.push(makeOnceTask('2026-11-05T14:00:00+08:00', '2026-11-05T18:00:00+08:00'))
-    assert.equal(buildExport(state, NOW).schemaVersion, 2)
+    assert.equal(buildExport(state, NOW).schemaVersion, SCHEMA_VERSION)
   })
 })
 

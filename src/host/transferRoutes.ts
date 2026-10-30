@@ -68,8 +68,14 @@ export function transferRoutes(
         if (mode === 'replace') {
           current.tasks = candidate.tasks
           current.deliveries = candidate.deliveries
+          current.completionEvents = candidate.completionEvents
           if (candidate.settings !== null) current.settings = { ...defaultSettings(), ...candidate.settings }
         } else {
+          const byId = new Map(current.completionEvents.map((event) => [event.id, event]))
+          for (const event of candidate.completionEvents) byId.set(event.id, event)
+          current.completionEvents = [...byId.values()]
+            .sort((left, right) => (left.completedAt < right.completedAt ? -1 : left.completedAt > right.completedAt ? 1 : 0))
+            .slice(-5000)
           const merged = mergeTasks(current.tasks, candidate.tasks)
           current.tasks = merged.tasks
           // `imported` must report what the merge actually added, not the

@@ -15,6 +15,15 @@ const here = dirname(fileURLToPath(import.meta.url))
 const matrix = readFileSync(join(here, '../../docs/testing/AC-覆盖矩阵.md'), 'utf8')
 
 describe('AC coverage matrix', () => {
+  it('lists every acceptance criterion AC-REP-01…08 exactly once', () => {
+    const text = readFileSync(join(here, '../../docs/testing/AC-覆盖矩阵.md'), 'utf8')
+    for (let index = 1; index <= 8; index += 1) {
+      const id = `AC-REP-${String(index).padStart(2, '0')}`
+      const rows = text.split('\n').filter((line) => line.startsWith(`| ${id} |`))
+      assert.equal(rows.length, 1, `${id} must have exactly one table row`)
+    }
+  })
+
   it('lists every acceptance criterion AC-01…AC-58 exactly once', () => {
     for (let index = 1; index <= 58; index += 1) {
       const id = `AC-${String(index).padStart(2, '0')}`

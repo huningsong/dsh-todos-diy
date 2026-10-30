@@ -282,7 +282,8 @@ export function readQuarter(
     // F6.8 / AC-41: a v1 quarter file goes through the same task migration as
     // the main document. A task that cannot be migrated safely leaves the file
     // untouched and the quarter unreadable rather than guessed at.
-    const tasks = (parsed.schemaVersion ?? 1) < SCHEMA_VERSION
+    // Task shape only changes in v1→v2; v2 and v3 share it.
+    const tasks = (parsed.schemaVersion ?? 1) < 2
       ? rawTasks.map((task) => migrateTaskV2(task as unknown as Record<string, unknown>) as unknown as Task)
       : rawTasks
     return { tasks, entry }

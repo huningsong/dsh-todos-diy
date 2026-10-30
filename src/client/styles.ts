@@ -136,6 +136,11 @@ export const CSS = `
 .dtd-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .dtd-check-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dsw-alias-label-secondary)}
 .dtd-preview{margin:0;padding:10px 12px;border-radius:10px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font-size:12px;line-height:20px;white-space:pre-wrap}
+.dtd-reportTabs{display:flex;gap:6px;margin-bottom:10px}
+.dtd-reportTab{height:32px;padding:0 14px;border-radius:16px;border:.5px solid var(--dsw-alias-border-l3);background:0 0;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;cursor:pointer}
+.dtd-reportTab[aria-selected="true"]{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-tertiary)}
+.dtd-reportPeriods{margin-bottom:10px}
+.dtd-reportPreview{margin:0;max-height:420px;overflow:auto;padding:14px 16px;border-radius:10px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:20px;white-space:pre-wrap}
 .dtd-nlp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dtd-nlpToggle{display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:16px;border:.5px solid var(--dsw-alias-border-l3);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}
 .dtd-nlpToggle:hover{background:var(--dsw-alias-interactive-bg-hover)}

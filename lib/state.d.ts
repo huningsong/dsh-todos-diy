@@ -11,7 +11,24 @@
  */
 import type { Task } from './rules/types.js';
 /** Current on-disk schema version. Bump together with a migration. */
-export declare const SCHEMA_VERSION = 2;
+export declare const SCHEMA_VERSION = 3;
+/** One completion record (F11.2 / schema v3).
+ *
+ * Unlike `Task.doneAt` (one-off tasks only), this keeps the history needed to
+ * count recurring-task completions in weekly/monthly reports.
+ */
+export interface CompletionEvent {
+    id: string;
+    taskId: string;
+    /** Snapshot of the title so a deleted task still shows up in reports. */
+    taskTitle: string;
+    kind: 'once' | 'recurring';
+    occurrenceKey: string;
+    completedAt: string;
+    /** Deadline (one-off `once.endAt`) or the occurrence instant for recurring. */
+    dueAt: string | null;
+    timeZone: string;
+}
 /** One record of the delivery log (F5.5 / D-16). */
 export interface DeliveryRecord {
     occurrenceKey: string;
@@ -78,6 +95,8 @@ export interface PersistedState {
     settings: Settings;
     tasks: Task[];
     deliveries: DeliveryRecord[];
+    /** Completion history, newest last (F11.2). */
+    completionEvents: CompletionEvent[];
 }
 /** Why a loaded state was rejected, when it was. */
 export type LoadProblem = {

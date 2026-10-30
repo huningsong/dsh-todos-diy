@@ -16,6 +16,7 @@ export interface ExportBundle {
     settings: Settings;
     tasks: Task[];
     deliveries: PersistedState['deliveries'];
+    completionEvents: PersistedState['completionEvents'];
 }
 /** Result of an import. */
 export interface ImportResult {
@@ -44,6 +45,7 @@ export interface ImportCandidate {
     tasks: Task[];
     settings: Settings | null;
     deliveries: PersistedState['deliveries'];
+    completionEvents: PersistedState['completionEvents'];
     warnings: string[];
     /** Number of structurally invalid task entries that were skipped. */
     skipped: number;

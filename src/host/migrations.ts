@@ -9,6 +9,7 @@
 
 import { SCHEMA_VERSION, type PersistedState } from './state.js'
 import { migrateDocumentV2, migrateIndexV2 } from './migrationV2.js'
+import { migrateDocumentV3 } from './migrationV3.js'
 
 /** One upgrade step: from `from` to `from + 1`. */
 export interface Migration {
@@ -28,12 +29,18 @@ export interface Migration {
  *
  * v1 → v2 is the D-25 model change: drop `dueDate`, add `startAtSource` and
  * `endReminder`, and fill in the extended `TaskState`.
+ * v2 → v3 adds the `completionEvents` log used by weekly/monthly reports.
  */
 export const MIGRATIONS: readonly Migration[] = [
   {
     from: 1,
     describe: 'v1→v2: D-25 task time and status model',
     run: (raw, warnings) => migrateDocumentV2(raw, warnings),
+  },
+  {
+    from: 2,
+    describe: 'v2→v3: completion-event log (F11.2)',
+    run: (raw, warnings) => migrateDocumentV3(raw, warnings),
   },
 ]
 

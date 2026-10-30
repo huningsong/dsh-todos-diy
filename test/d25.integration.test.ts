@@ -110,7 +110,7 @@ describe('D-25 storage: a v1 tasks.json migrates on load', () => {
     deliveries: [],
   }
 
-  it('upgrades the file in place and reports schemaVersion 2', () => {
+  it('upgrades the file in place and reports the current schemaVersion', () => {
     const fs = createMemoryFs()
     fs.mkdir(DATA_DIR)
     fs.files.set(`${DATA_DIR}/tasks.json`, JSON.stringify(v1))
@@ -123,7 +123,7 @@ describe('D-25 storage: a v1 tasks.json migrates on load', () => {
     assert.equal(state.tasks[0]?.once?.startAtSource, 'explicit')
     assert.equal(state.tasks[0]?.notify.endReminder, true)
     const written = JSON.parse(fs.files.get(`${DATA_DIR}/tasks.json`) as string)
-    assert.equal(written.schemaVersion, 2)
+    assert.equal(written.schemaVersion, SCHEMA_VERSION)
   })
 
   it('keeps the original file when a one-off task has no endAt', () => {
@@ -184,7 +184,7 @@ describe('D-25 storage: archive quarter files migrate on read', () => {
     assert.ok(Array.isArray(afterRebuild.quarters))
   })
 
-  it('writes schemaVersion 2 for a new quarter file', () => {
+  it('writes the current schemaVersion for a new quarter file', () => {
     const fs = createMemoryFs()
     fs.mkdir(DATA_DIR)
     fs.mkdir(`${DATA_DIR}/archive`)
@@ -194,7 +194,7 @@ describe('D-25 storage: archive quarter files migrate on read', () => {
     ]
     archiveCompleted(state, { paths: storagePaths(DATA_DIR), fs, now: new Date('2027-01-05T00:00:00Z'), timeZone: 'Asia/Shanghai' })
     const written = JSON.parse(fs.files.get(`${DATA_DIR}/archive/completed-2026-Q3.json`) as string)
-    assert.equal(written.schemaVersion, 2)
+    assert.equal(written.schemaVersion, SCHEMA_VERSION)
   })
 })
 
@@ -355,7 +355,7 @@ describe('D-25: /health no longer exposes a daily priority refresh (AC-32)', () 
 })
 
 describe('D-25 #7b: a v1 archive quarter file is migrated on disk at startup', () => {
-  it('rewrites the quarter file to schemaVersion 2 during the index rebuild', () => {
+  it('rewrites the quarter file to the current schemaVersion during the index rebuild', () => {
     const fs = createMemoryFs()
     fs.mkdir(DATA_DIR)
     fs.mkdir(`${DATA_DIR}/archive`)
@@ -386,7 +386,7 @@ describe('D-25 #7b: a v1 archive quarter file is migrated on disk at startup', (
     fs.files.set(`${DATA_DIR}/archive/completed-2026-Q3.json`, JSON.stringify(quarter))
     rebuildIndex(storagePaths(DATA_DIR), fs)
     const written = JSON.parse(fs.files.get(`${DATA_DIR}/archive/completed-2026-Q3.json`) as string)
-    assert.equal(written.schemaVersion, 2)
+    assert.equal(written.schemaVersion, SCHEMA_VERSION)
     assert.equal(Object.hasOwn(written.tasks[0], 'dueDate'), false)
     assert.equal(written.tasks[0].once.startAtSource, 'explicit')
   })

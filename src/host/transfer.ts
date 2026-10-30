@@ -23,6 +23,7 @@ export interface ExportBundle {
   settings: Settings
   tasks: Task[]
   deliveries: PersistedState['deliveries']
+  completionEvents: PersistedState['completionEvents']
 }
 
 /** Result of an import. */
@@ -48,6 +49,7 @@ export function buildExport(state: PersistedState, now: Date): ExportBundle {
     settings: state.settings,
     tasks: state.tasks,
     deliveries: state.deliveries.slice(-1000),
+    completionEvents: state.completionEvents,
   }
 }
 
@@ -70,6 +72,7 @@ export interface ImportCandidate {
   tasks: Task[]
   settings: Settings | null
   deliveries: PersistedState['deliveries']
+  completionEvents: PersistedState['completionEvents']
   warnings: string[]
   /** Number of structurally invalid task entries that were skipped. */
   skipped: number
@@ -141,8 +144,10 @@ export function parseImport(payload: unknown): ImportCandidate {
   }
   const deliveriesRaw = document['deliveries']
   const deliveries = Array.isArray(deliveriesRaw) ? (deliveriesRaw as PersistedState['deliveries']) : []
+  const eventsRaw = document['completionEvents']
+  const completionEvents = Array.isArray(eventsRaw) ? (eventsRaw as PersistedState['completionEvents']) : []
   if (skipped > 0) warnings.push(`${String(skipped)} task(s) skipped`)
-  return { tasks, settings, deliveries, warnings, skipped }
+  return { tasks, settings, deliveries, completionEvents, warnings, skipped }
 }
 
 /**

@@ -85,6 +85,9 @@ export interface SettingsPayload {
   nlp: { enabled: boolean }
 }
 
+/** One report from `GET /reports` (F11). */
+export type ReportPayload = import('../../src/host/reports').ReportData
+
 /** One parsed draft from `POST /parse` (F10). */
 export interface NlpParsePayload {
   draft: Record<string, unknown>
@@ -253,6 +256,10 @@ export const api = {
   /** Update settings. */
   updateSettings(patch: Partial<SettingsPayload>): Promise<SettingsPayload> {
     return request<SettingsPayload>('/settings/update', { method: 'POST', body: JSON.stringify(patch) })
+  },
+  /** Fetch the weekly/monthly report (F11.3). */
+  report(kind: 'weekly' | 'monthly', anchor: string): Promise<ReportPayload> {
+    return request<ReportPayload>(`/reports?kind=${kind}&anchor=${anchor}`)
   },
   /** Parse one natural-language sentence into a draft (F10.1). */
   parse(text: string): Promise<NlpParsePayload> {

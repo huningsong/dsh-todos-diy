@@ -12,11 +12,29 @@
 
 import type { Task, TaskStatus } from './rules/types.js'
 import { coerceSettings, isKnownZone } from './stateSettings.js'
-import { coerceDelivery, coerceRecovery } from './stateRecords.js'
+import { coerceCompletionEvent, coerceDelivery, coerceIdempotency, coerceRecovery } from './stateRecords.js'
 import { parseCron } from './rules/cron.js'
 
 /** Current on-disk schema version. Bump together with a migration. */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
+
+/** One completion record (F11.2 / schema v3).
+ *
+ * Unlike `Task.doneAt` (one-off tasks only), this keeps the history needed to
+ * count recurring-task completions in weekly/monthly reports.
+ */
+export interface CompletionEvent {
+  id: string
+  taskId: string
+  /** Snapshot of the title so a deleted task still shows up in reports. */
+  taskTitle: string
+  kind: 'once' | 'recurring'
+  occurrenceKey: string
+  completedAt: string
+  /** Deadline (one-off `once.endAt`) or the occurrence instant for recurring. */
+  dueAt: string | null
+  timeZone: string
+}
 
 /** One record of the delivery log (F5.5 / D-16). */
 export interface DeliveryRecord {
@@ -88,6 +106,8 @@ export interface PersistedState {
   settings: Settings
   tasks: Task[]
   deliveries: DeliveryRecord[]
+  /** Completion history, newest last (F11.2). */
+  completionEvents: CompletionEvent[]
 }
 
 /** Why a loaded state was rejected, when it was. */
@@ -132,6 +152,7 @@ export function emptyState(now: Date, settings: Settings = defaultSettings()): P
     settings,
     tasks: [],
     deliveries: [],
+    completionEvents: [],
   }
 }
 
@@ -181,6 +202,7 @@ export function coerceState(raw: unknown): ParseResult {
   const settingsRaw = isRecord(raw['settings']) ? raw['settings'] : {}
   const tasksRaw = Array.isArray(raw['tasks']) ? raw['tasks'] : []
   const deliveriesRaw = Array.isArray(raw['deliveries']) ? raw['deliveries'] : []
+  const eventsRaw = Array.isArray(raw['completionEvents']) ? raw['completionEvents'] : []
 
   if (!Array.isArray(raw['tasks'])) warnings.push('tasks is not an array; starting with an empty list')
   if (!Array.isArray(raw['deliveries'])) warnings.push('deliveries is not an array; starting with an empty log')
@@ -201,6 +223,12 @@ export function coerceState(raw: unknown): ParseResult {
     if (record !== null) deliveries.push(record)
   }
 
+  const completionEvents: CompletionEvent[] = []
+  for (const candidate of eventsRaw) {
+    const event = coerceCompletionEvent(candidate)
+    if (event !== null) completionEvents.push(event)
+  }
+
   const nowIso = new Date(0).toISOString()
   const state: PersistedState = {
     schemaVersion: SCHEMA_VERSION,
@@ -214,6 +242,7 @@ export function coerceState(raw: unknown): ParseResult {
     settings: coerceSettings(settingsRaw),
     tasks,
     deliveries,
+    completionEvents,
   }
   return { problem: { kind: 'ok' }, state, warnings }
 }
@@ -362,24 +391,3 @@ function coerceDateList(value: unknown): string[] {
 }
 
 export { coerceSettings } from './stateSettings.js'
-
-/**
- * Coerce the idempotency index, dropping malformed entries.
- * @param raw - Candidate map from a stored file.
- * @returns A clean map (empty when absent).
- */
-function coerceIdempotency(raw: unknown): Record<string, IdempotencyRecord> {
-  if (!isRecord(raw)) return {}
-  const out: Record<string, IdempotencyRecord> = {}
-  for (const [key, value] of Object.entries(raw)) {
-    if (!isRecord(value)) continue
-    const taskId = value['taskId']
-    const fingerprint = value['fingerprint']
-    const at = nullableIso(value['at'])
-    if (typeof taskId !== 'string' || taskId === '') continue
-    if (typeof fingerprint !== 'string' || fingerprint === '') continue
-    if (at === null) continue
-    out[key] = { taskId, fingerprint, at }
-  }
-  return out
-}

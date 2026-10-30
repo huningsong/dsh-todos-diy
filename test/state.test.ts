@@ -165,20 +165,21 @@ describe('coerceSettings', () => {
 })
 
 describe('migrations', () => {
-  it('ships with schema v2 and the v1→v2 migration registered', () => {
-    assert.equal(SCHEMA_VERSION, 2)
-    assert.equal(MIGRATIONS.length, 1)
+  it('ships with schema v3 and the v1→v2→v3 migrations registered', () => {
+    assert.equal(SCHEMA_VERSION, 3)
+    assert.equal(MIGRATIONS.length, 2)
     assert.equal(MIGRATIONS[0]?.from, 1)
+    assert.equal(MIGRATIONS[1]?.from, 2)
   })
 
   it('is a no-op when the document is already current', () => {
-    const result = migrateState({ schemaVersion: 2, tasks: [] })
+    const result = migrateState({ schemaVersion: 3, tasks: [] })
     assert.equal(result.ok, true)
     if (result.ok) assert.deepEqual(result.applied, [])
   })
 
   it('refuses to migrate a newer document downwards', () => {
-    const result = migrateState({ schemaVersion: 3 })
+    const result = migrateState({ schemaVersion: 4 })
     assert.equal(result.ok, false)
     if (!result.ok) assert.match(result.message, /newer/)
   })
@@ -239,7 +240,8 @@ describe('migrations', () => {
     assert.equal(isKnownVersion(1), true)
     assert.equal(isKnownVersion(0), false)
     assert.equal(isKnownVersion(2), true)
-    assert.equal(isKnownVersion(3), false)
+    assert.equal(isKnownVersion(3), true)
+    assert.equal(isKnownVersion(4), false)
     assert.equal(isKnownVersion(1.5), false)
   })
 })

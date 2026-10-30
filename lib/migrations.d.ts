@@ -24,6 +24,7 @@ export interface Migration {
  *
  * v1 → v2 is the D-25 model change: drop `dueDate`, add `startAtSource` and
  * `endReminder`, and fill in the extended `TaskState`.
+ * v2 → v3 adds the `completionEvents` log used by weekly/monthly reports.
  */
 export declare const MIGRATIONS: readonly Migration[];
 /** Result of running the chain. */

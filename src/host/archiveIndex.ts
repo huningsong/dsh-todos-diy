@@ -13,7 +13,7 @@ import type { ArchiveFs, ArchiveIndex, ArchiveIndexEntry, QuarterFile } from './
 import { compareQuarters, quarterBounds } from './archive.js'
 import { SCHEMA_VERSION } from './state.js'
 import type { StoragePaths } from './paths.js'
-import { migrateDocumentV2, migrateIndexV2 } from './migrationV2.js'
+import { migrateDocumentToCurrent, migrateIndexToCurrent } from './migrationV3.js'
 import type { Task } from './rules/types.js'
 
 /**
@@ -46,7 +46,7 @@ export function readArchiveIndex(
     if (version < SCHEMA_VERSION) {
       // F6.8 / F9.5: the index uses the same migration function as the other
       // files and is upgraded on disk so it never stays at an old version.
-      const migrated = migrateIndexV2(parsed as unknown as Record<string, unknown>)
+      const migrated = migrateIndexToCurrent(parsed as unknown as Record<string, unknown>)
       try {
         writeJsonAtomic(fs, paths.archiveIndex, migrated)
       } catch (error) {
@@ -106,7 +106,7 @@ export function rebuildIndex(
       // a separate maintenance command.
       if ((file.schemaVersion ?? 1) < SCHEMA_VERSION) {
         try {
-          const migrated = migrateDocumentV2({ ...file, tasks })
+          const migrated = migrateDocumentToCurrent({ ...file, tasks })
           tasks = migrated['tasks'] as Task[]
           writeJsonAtomic(fs, join(paths.archiveDir, name), migrated)
           logger?.warn?.(`todos-diy: migrated archive file ${name} to schemaVersion ${String(SCHEMA_VERSION)}`)

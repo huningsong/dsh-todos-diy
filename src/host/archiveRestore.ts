@@ -19,7 +19,8 @@ import { readArchiveIndex } from './archive.js'
 import type { StoragePaths } from './paths.js'
 import type { PersistedState } from './state.js'
 import { SCHEMA_VERSION } from './state.js'
-import { migrateIndexV2, migrateTaskV2 } from './migrationV2.js'
+import { migrateTaskV2 } from './migrationV2.js'
+import { migrateIndexToCurrent } from './migrationV3.js'
 import type { Task } from './rules/types.js'
 
 /** Outcome of one archive restore. */
@@ -90,7 +91,7 @@ export function restoreArchivedTask(
   // A v1 quarter file is migrated through the shared task migration first.
   let migratedTask: Task
   try {
-    const source = (parsed.schemaVersion ?? 1) < SCHEMA_VERSION
+    const source = (parsed.schemaVersion ?? 1) < 2
       ? (migrateTaskV2(found.task as unknown as Record<string, unknown>) as unknown as Task)
       : found.task
     migratedTask = source
@@ -125,7 +126,7 @@ export function restoreArchivedTask(
     if (remaining.length === 0) {
       index.quarters = index.quarters.filter((candidate) => candidate.quarter !== found.quarter)
     }
-    const nextIndex = migrateIndexV2({ schemaVersion: index.schemaVersion, quarters: index.quarters })
+    const nextIndex = migrateIndexToCurrent({ schemaVersion: index.schemaVersion, quarters: index.quarters })
     const indexTmp = `${paths.archiveIndex}.tmp`
     fs.writeFile(indexTmp, `${JSON.stringify(nextIndex, null, 2)}\n`)
     fs.rename(indexTmp, paths.archiveIndex)

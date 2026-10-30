@@ -31,7 +31,7 @@ describe('buildExport', () => {
     assert.equal(bundle.kind, 'dsh-todos-diy/export')
     assert.equal(bundle.exportedAt, NOW.toISOString())
     assert.equal(bundle.tasks.length, 2)
-    assert.equal(bundle.schemaVersion, 2)
+    assert.equal(bundle.schemaVersion, SCHEMA_VERSION)
   })
 
   it('caps the delivery log at the last 1000 rows', () => {

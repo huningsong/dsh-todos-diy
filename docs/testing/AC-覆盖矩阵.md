@@ -1,6 +1,6 @@
 # AC 覆盖矩阵（v1.3 / 0.2.0）
 
-> 对应 `docs/requirements/需求-v1.md` 第 9 章 AC-01～AC-58。
+> 对应 `docs/requirements/需求-v1.md` 第 9 章 AC-01～AC-58 + AC-REP-01～AC-REP-08。
 > 状态：`自动` = 有自动化用例；`脚本` = 独立验收脚本；`手工` = 仅手工 E2E。
 
 | AC | 主题 | 覆盖位置 | 状态 |
@@ -63,6 +63,14 @@
 | AC-56 | 原文不落盘（F10.6） | `test/f10.test.ts` + 手工检查 | 自动+手工 |
 | AC-57 | 能力边界 unsupported（F10.8） | `test/f10.test.ts` | 自动 |
 | AC-58 | 模型路由回退（F10.10） | `test/f10.test.ts` | 自动 |
+| AC-REP-01 | 报告周期边界（F11.1） | `test/reports.test.ts` | 自动 |
+| AC-REP-02 | 主文件+归档无重复（F11.7） | `test/reports.test.ts` | 自动 |
+| AC-REP-03 | 循环完成 N 次（F11.2） | `test/reports.test.ts` | 自动 |
+| AC-REP-04 | 逾期/新增/下周期口径（F11.4） | `test/reports.test.ts` | 自动 |
+| AC-REP-05 | 预览/复制/导出一致（F11.5） | `test/report-ui.test.ts` | 自动+手工 |
+| AC-REP-06 | 空数据不报错（F11.8） | `test/reports.test.ts`、`test/report-ui.test.ts` | 自动 |
+| AC-REP-07 | 报告接口只读（F11.3） | `test/reports.test.ts` | 自动 |
+| AC-REP-08 | schema v2→v3（F11.2） | `test/reports.test.ts` | 自动 |
 
 ## 说明
 

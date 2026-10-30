@@ -36,6 +36,7 @@ import {
 import { occurrenceKey as makeOccurrenceKey } from './rules/occurrence.js'
 import { transferRoutes } from './transferRoutes.js'
 import { createNlpRoutes } from './nlp/routes.js'
+import { createReportRoutes } from './reportRoutes.js'
 import { archiveRoutes } from './archiveRoutes.js'
 import { isWithinDnd } from './dnd.js'
 
@@ -342,6 +343,7 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
     },
     ...transferRoutes(ctx, options),
     ...createNlpRoutes(ctx),
+    ...createReportRoutes(ctx),
     {
       kind: 'exact',
       path: `${PREFIX}/settings/get`,

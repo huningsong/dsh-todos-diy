@@ -32,6 +32,7 @@ import type {
 import { ValidationError } from './validate.js'
 import { nextFireAt, occurrenceKey as occurrenceKeyFor } from './rules/occurrence.js'
 import { runIdempotentCreate } from './repoCreate.js'
+import { appendCompletionEvent, makeCompletionEvent } from './completionEvents.js'
 import { createDeliveryOps } from './repoDeliveries.js'
 import { quarterOf } from './quarter.js'
 import type { HolidayTable } from './rules/holidays.js'
@@ -238,6 +239,8 @@ export function createRepository(options: RepositoryOptions): Repository {
             },
           }
           replaceTask(completed)
+          const eventKey = completed.state.completedOccurrenceKey ?? occurrenceKeyFor(task.id, now, null)
+          appendCompletionEvent(store.state, makeCompletionEvent(completed, eventKey, now), now)
           return { task: completed, completedOccurrenceKey: completed.state.completedOccurrenceKey, nextAt: null }
         }
         // Recurring: skip the current occurrence and stay active (F4.4).
@@ -276,6 +279,7 @@ export function createRepository(options: RepositoryOptions): Repository {
           },
         }
         replaceTask(skipped)
+        appendCompletionEvent(store.state, makeCompletionEvent(skipped, key, now), now)
         return { task: skipped, completedOccurrenceKey: key, nextAt: null }
       })
     },

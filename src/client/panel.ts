@@ -10,6 +10,7 @@ import type { TaskView } from '../../src/host/taskView'
 import { api, ApiError, type CountsPayload, type NlpParsePayload, type SettingsPayload, type ViewName } from './api'
 import { TaskEditor, draftFromTask, draftToPayload, emptyDraft, type TaskDraft } from './task-editor'
 import { PanelToolbar } from './panel-toolbar'
+import { ReportModal } from './report-modal'
 import { TaskContextMenu } from './panel-menu'
 import { TaskRow } from './task-row'
 import { SettingsModal } from './settings-modal'
@@ -33,7 +34,6 @@ export interface PanelProps {
 const TAB_KEY = 'dsh-todos-diy.tab'
 const FIRST_RUN_KEY = 'dsh-todos-diy.firstRun'
 
-/** The main panel component. */
 export function TodoPanel(props: PanelProps) {
   const { t } = props
   const [view, setView] = React.useState<ViewName>(() => {
@@ -58,6 +58,7 @@ export function TodoPanel(props: PanelProps) {
   const [menu, setMenu] = React.useState<{ x: number; y: number; task: TaskView } | null>(null)
   const [toast, setToast] = React.useState<ToastState | null>(null)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
+  const [reportOpen, setReportOpen] = React.useState(false)
   const [history, setHistory] = React.useState<TaskView | null>(null)
   const [confirmDelete, setConfirmDelete] = React.useState<TaskView | null>(null)
   const [firstRun, setFirstRun] = React.useState(false)
@@ -268,6 +269,7 @@ export function TodoPanel(props: PanelProps) {
       totals,
       readOnly,
       onSettings: () => setSettingsOpen(true),
+      onReport: () => setReportOpen(true),
       onNew: openNew,
       onSelect: setView,
     }),
@@ -349,6 +351,7 @@ export function TodoPanel(props: PanelProps) {
             if (target !== null) onDelete(target)
           },
         }),
+    reportOpen ? h(ReportModal, { t, timeZone: settings?.timeZone ?? 'Asia/Shanghai', onClose: () => setReportOpen(false) }) : null,
     settingsOpen
       ? h(SettingsModal, {
           t,
