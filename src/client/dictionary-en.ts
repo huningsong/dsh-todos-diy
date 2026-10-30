@@ -238,4 +238,5 @@ export const en = {
   'empty.recurring': 'No recurring tasks',
   'empty.paused': 'Nothing paused',
   'task.copySuffix': ' copy',
+  'error.host_too_old': 'Plugin version mismatch: DSH is still running an older host build. Restart DSH (or reinstall the plugin) and try again.',
 }

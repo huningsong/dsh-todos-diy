@@ -80,7 +80,11 @@ export function TodoPanel(props: PanelProps) {
         setSettings(snapshot.settings)
         setPhase('ready')
       } catch (caught) {
-        setErrorCode(caught instanceof ApiError ? caught.code : 'internal_error')
+        const code = caught instanceof ApiError ? caught.code : 'internal_error'
+        // The snapshot rejects `view` with `invalid_argument` only when the
+        // host half is an older build that does not know the six views: DSH
+        // loads the host at startup, so the fix is a restart, not a retry.
+        setErrorCode(code === 'invalid_argument' ? 'host_too_old' : code)
         setPhase('error')
       }
     },

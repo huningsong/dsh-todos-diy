@@ -238,5 +238,6 @@ export const zh = {
   'empty.recurring': '没有循环任务',
   'empty.paused': '没有已暂停的任务',
   'task.copySuffix': ' 副本',
+  'error.host_too_old': '插件版本不匹配：DSH 仍在运行旧版宿主。请重启 DSH（或重新安装插件）后重试。',
 }
 
