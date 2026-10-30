@@ -7,6 +7,8 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { periodOf, buildReport } from '../src/host/reports.js'
+import { loadArchivedTasks } from '../src/host/reportRoutes.js'
+import { storagePaths } from '../src/host/paths.js'
 import { appendCompletionEvent, makeCompletionEvent, occurrenceInstant } from '../src/host/completionEvents.js'
 import { migrateDocumentV3, migrateIndexToCurrent } from '../src/host/migrationV3.js'
 import { migrateState } from '../src/host/migrations.js'
@@ -244,6 +246,13 @@ describe('Review fixes: A-01 DST midnight gap', () => {
     assert.equal(period.end, '2023-11-01T02:59:59.999Z')
   })
 
+  it('handles Antarctica/Vostok where midnight itself is ambiguous', () => {
+    const period = periodOf('weekly', '2023-12-15', 'Antarctica/Vostok')
+    assert.equal(period.start, '2023-12-10T17:00:00.000Z')
+    assert.equal(period.end, '2023-12-17T16:59:59.999Z')
+    assert.equal(period.nextStart, '2023-12-17T17:00:00.000Z')
+  })
+
   it('keeps a weekly anchor valid when the week starts in a gap', () => {
     const period = periodOf('weekly', '2021-03-24', 'Asia/Tehran')
     assert.equal(Number.isNaN(Date.parse(period.start)), false)
@@ -333,5 +342,26 @@ describe('Review fixes: B-02 malformed completionEvents on import', () => {
       tasks: candidate.tasks, archived: [], events: candidate.completionEvents,
     })
     assert.equal(report.stats.completed, 0)
+  })
+})
+
+describe('Review fixes: B-04 archive reader edge cases', () => {
+  const paths = storagePaths(DATA_DIR)
+  /** Build a minimal route ctx for `loadArchivedTasks`. */
+  const ctxWith = (fs: unknown): never => ({ store: { paths }, archiveFs: fs, logger: {} }) as never
+
+  it('returns no archive tasks for a newer index', () => {
+    const fs = createMemoryFs()
+    fs.mkdir(paths.archiveDir)
+    fs.writeFile(paths.archiveIndex, JSON.stringify({ schemaVersion: 99, quarters: [{ quarter: '2026-Q3', file: 'completed-2026-Q3.json' }] }))
+    fs.writeFile(`${paths.archiveDir}/completed-2026-Q3.json`, JSON.stringify({ schemaVersion: 3, quarter: '2026-Q3', tasks: [] }))
+    assert.deepEqual(loadArchivedTasks(ctxWith(fs)), [])
+  })
+
+  it('degrades to an empty archive when the directory cannot be read', () => {
+    const fs = createMemoryFs()
+    fs.mkdir(paths.archiveDir)
+    const broken = { ...fs, exists: () => true, listDir: () => { throw new Error('EACCES') } }
+    assert.deepEqual(loadArchivedTasks(ctxWith(broken)), [])
   })
 })

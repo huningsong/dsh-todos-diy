@@ -60,7 +60,9 @@ export function loadArchivedTasks(ctx: RouteContext): Task[] {
   const files: string[] = []
   try {
     if (fs.exists(paths.archiveIndex)) {
-      const raw = JSON.parse(fs.readFile(paths.archiveIndex)) as { quarters?: { file?: unknown }[] }
+      const raw = JSON.parse(fs.readFile(paths.archiveIndex)) as { schemaVersion?: number; quarters?: { file?: unknown }[] }
+      // B-04: a newer index is unsupported — the old reader returned no quarters.
+      if (typeof raw.schemaVersion === 'number' && raw.schemaVersion > SCHEMA_VERSION) return []
       for (const entry of Array.isArray(raw.quarters) ? raw.quarters : []) {
         if (typeof entry.file === 'string' && /^completed-\d{4}-Q[1-4]\.json$/.test(entry.file)) files.push(entry.file)
       }
@@ -68,9 +70,16 @@ export function loadArchivedTasks(ctx: RouteContext): Task[] {
   } catch {
     // Fall through to a directory scan.
   }
-  if (files.length === 0 && fs.exists(paths.archiveDir)) {
-    for (const name of fs.listDir(paths.archiveDir)) {
-      if (/^completed-\d{4}-Q[1-4]\.json$/.test(name)) files.push(name)
+  if (files.length === 0) {
+    try {
+      if (fs.exists(paths.archiveDir)) {
+        for (const name of fs.listDir(paths.archiveDir)) {
+          if (/^completed-\d{4}-Q[1-4]\.json$/.test(name)) files.push(name)
+        }
+      }
+    } catch {
+      // An unreadable archive must not break the report: report the main file.
+      return []
     }
   }
   const tasks: Task[] = []
