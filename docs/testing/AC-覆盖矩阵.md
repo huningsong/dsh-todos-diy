@@ -1,6 +1,6 @@
 # AC 覆盖矩阵（v1.3 / 0.2.0）
 
-> 对应 `docs/requirements/需求-v1.md` 第 9 章 AC-01～AC-45。
+> 对应 `docs/requirements/需求-v1.md` 第 9 章 AC-01～AC-50。
 > 状态：`自动` = 有自动化用例；`脚本` = 独立验收脚本；`手工` = 仅手工 E2E。
 
 | AC | 主题 | 覆盖位置 | 状态 |
@@ -50,6 +50,11 @@
 | AC-43 | 会议只提醒开始 | `test/d25.model.test.ts` | 自动 |
 | AC-44 | 超期完成计数 | `test/d25.model.test.ts`、`test/d25.integration.test.ts` | 自动 |
 | AC-45 | purge confirm | `test/d25.integration.test.ts`、`test/tools.test.ts` | 自动 |
+| AC-46 | get 单条任务（F7.14） | `test/d021.test.ts` | 自动 |
+| AC-47 | create 幂等（F7.15） | `test/d021.test.ts` | 自动 |
+| AC-48 | list 默认 all（F7.16） | `test/d021.test.ts` | 自动 |
+| AC-49 | remind/deliveries 工具（F7.17） | `test/d021.test.ts` | 自动 |
+| AC-50 | complete skipNext（F7.18） | `test/d021.test.ts` | 自动 |
 
 ## 说明
 

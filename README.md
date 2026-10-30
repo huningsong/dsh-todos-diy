@@ -26,8 +26,8 @@
 
 ## 当前状态
 
-- 版本：`0.2.0`（D-25 任务时间与状态模型；633 个单测通过；schemaVersion 2）
-- 状态：`0.2.0` 可安装使用；v1.1 的 NLP 与任务级 DND 等 P2 增强项仍留后续版本
+- 版本：`0.2.1`（D-25 任务时间与状态模型 + Agent 体验补齐；701 个单测通过；schemaVersion 2）
+- 状态：`0.2.1` 可安装使用；v1.1 的 NLP 与任务级 DND 等 P2 增强项仍留后续版本
 - 决策编号：统一 `D-01`…`D-25`；决策记录见 [待讨论-缺口清单.md](docs/decisions/待讨论-缺口清单.md) 顶部表格
 - 基线：本机 DSH `0.2.1-rc.3`（macOS 桌面版）、Node `22.23.2`、pnpm `11.28.5`
 - 插件命名：包名 `dsh-todos-diy`，避免与本机已安装的 `dsh-todo-reminder@0.3.0`、`dsh-todos@0.1.3` 冲突
@@ -151,7 +151,7 @@ src/host/             # 宿主半 TypeScript
   routeKit.ts         #   信封 / 错误码映射 / query 解析
   taskView.ts         #   TaskView 投影（派生 stage/priority/nextAt/offset）
   tools.ts            #   工具注册 + F7.10 调用方门禁
-  toolDefs.ts         #   9 个 todo_reminder_* 定义
+  toolDefs.ts         #   12 个 todo_reminder_* 定义（toolDefsExtra.ts 为 get/remind/deliveries）
   health.ts           #   /health 载荷
   http.ts             #   准入闸门 / 统一信封 / 1MB body
   delivery.ts         #   提醒卡片、模板渲染、投递记录、ack

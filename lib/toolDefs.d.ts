@@ -1,5 +1,5 @@
 /**
- * The nine `todo_reminder_*` tool definitions (F7.1–F7.13).
+ * The eleven `todo_reminder_*` tool definitions (F7.1–F7.18).
  *
  * Split from `tools.ts` (which owns the caller gate, the error translation and
  * the registration effect) to stay inside the NF5 line budget.
@@ -23,7 +23,7 @@ export interface ToolDeps {
     now: () => Date;
 }
 /**
- * Build the nine tool definitions.
+ * Build the core tool definitions (nine) plus the extra ones from `toolDefsExtra`.
  * @param deps - Repository, holiday table and clock.
  * @returns Registry-ready definitions.
  */

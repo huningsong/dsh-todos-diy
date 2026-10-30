@@ -78,7 +78,7 @@ export function taskRoutes(
       handler: route(options, 'POST', async (req, res) => {
         const body = await readObjectBody(req)
         rejectLegacyFields(body)
-        const task = await ctx.repo.create({
+        const { task, replayed } = await ctx.repo.createTask({
           title: body['title'] as string,
           description: body['description'] as string | undefined,
           kind: body['kind'] as never,
@@ -87,8 +87,12 @@ export function taskRoutes(
           notify: body['notify'],
           timeZone: body['timeZone'] as string | undefined,
           pinned: body['pinned'] === true,
+          idempotencyKey: body['idempotencyKey'] as string | undefined,
         })
-        ok(res, toTaskView(task, optionsFor(ctx)), 201)
+        // F7.15: the replay flag lets a retrying client know nothing new was
+        // created. 200 instead of 201 makes the "already existed" case explicit
+        // for HTTP clients too.
+        ok(res, { ...toTaskView(task, optionsFor(ctx)), replayed }, replayed ? 200 : 201)
       }),
     },
     {
@@ -144,7 +148,8 @@ export function taskRoutes(
         const id = requireId(body, res)
         if (id === null) return
         const occurrenceKey = typeof body['occurrenceKey'] === 'string' ? body['occurrenceKey'] : undefined
-        const result = await ctx.repo.complete(id, occurrenceKey)
+        // F7.18: `skipNext` lets a brand-new recurring task skip its first run.
+        const result = await ctx.repo.complete(id, occurrenceKey, undefined, body['skipNext'] === true)
         ok(res, {
           id,
           completedOccurrenceKey: result.completedOccurrenceKey,

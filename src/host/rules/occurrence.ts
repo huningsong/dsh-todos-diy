@@ -304,7 +304,11 @@ export function nextFireAt(
     return new Date(Math.min(...candidates.map((date) => date.getTime())))
   }
   if (task.rule === null) return null
-  const natural = nextOccurrence(task.rule, after, task.rule.timeZone, table)
+  // F7.18: `lastFiredAt` may be ahead of `after` when the user skipped the next
+  // occurrence — the next fire must start after that skipped instant.
+  const fired = task.state.lastFiredAt === null ? null : Date.parse(task.state.lastFiredAt)
+  const floor = fired !== null && Number.isFinite(fired) && fired > after.getTime() ? new Date(fired) : after
+  const natural = nextOccurrence(task.rule, floor, task.rule.timeZone, table)
   if (natural === null) return null
   return applyAdvance(task, natural, null).at
 }

@@ -20,6 +20,8 @@ import { createDebouncedFlush, createWriteQueue, type WriteQueue } from './write
 import { computeNextTransition, queryTasks } from './repoQuery.js'
 import { buildTask, patchTask } from './repoBuild.js'
 import type {
+  CreateResult,
+  CreateTaskInput,
   ListQuery,
   ListResult,
   Repository,
@@ -28,7 +30,9 @@ import type {
   UpdateTaskPatch,
 } from './repoTypes.js'
 import { ValidationError } from './validate.js'
-import { nextFireAt } from './rules/occurrence.js'
+import { nextFireAt, occurrenceKey as occurrenceKeyFor } from './rules/occurrence.js'
+import { runIdempotentCreate } from './repoCreate.js'
+import { createDeliveryOps } from './repoDeliveries.js'
 import { quarterOf } from './quarter.js'
 import type { HolidayTable } from './rules/holidays.js'
 
@@ -95,6 +99,18 @@ export function createRepository(options: RepositoryOptions): Repository {
     touch()
   }
 
+  /** Idempotent create shared by `create` and `createTask` (F7.15). */
+  const createTaskInternal = (input: CreateTaskInput): Promise<CreateResult> =>
+    queue.run(() =>
+      runIdempotentCreate(input, {
+        store,
+        clock,
+        assertWritable,
+        touch,
+        build: (value, now) => buildTask(value, store.state.settings, now),
+      }),
+    )
+
   return {
     get writeCount() {
       return writeCount
@@ -138,14 +154,9 @@ export function createRepository(options: RepositoryOptions): Repository {
       })
     },
     async create(input) {
-      return queue.run(() => {
-        assertWritable()
-        const task = buildTask(input, store.state.settings, clock())
-        store.state.tasks.push(task)
-        touch()
-        return task
-      })
+      return (await createTaskInternal(input)).task
     },
+    createTask: createTaskInternal,
     async update(id, expectedRevision, patch) {
       return queue.run(() => {
         assertWritable()
@@ -200,7 +211,7 @@ export function createRepository(options: RepositoryOptions): Repository {
         return { id, status: 'active' as const, changed: true }
       })
     },
-    async complete(id, occurrenceKey, now = clock()) {
+    async complete(id, occurrenceKey, now = clock(), skipNext = false) {
       return queue.run(() => {
         assertWritable()
         const task = requireTask(id)
@@ -236,15 +247,33 @@ export function createRepository(options: RepositoryOptions): Repository {
         if (task.status !== 'active') {
           throw new ValidationError('invalid_state', describeTransition(task.status, 'active'))
         }
-        const key = occurrenceKey ?? task.state.lastOccurrenceKey
+        let key = occurrenceKey ?? task.state.lastOccurrenceKey
+        /** When `skipNext` synthesized the key, its instant is the new floor. */
+        let skippedAt: string | null = null
         if (key === null || key === undefined) {
-          throw new ValidationError('no_occurrence', 'this recurring task has no occurrence to complete')
+          // F7.18: a brand-new recurring task has no occurrence yet. With
+          // `skipNext` we resolve the next one from the rule and advance past
+          // it, so "skip the next run" works before the first fire.
+          if (!skipNext) {
+            throw new ValidationError('no_occurrence', 'this recurring task has no occurrence to complete')
+          }
+          const next = nextFireAt(task, now)
+          if (next === null) {
+            throw new ValidationError('no_occurrence', 'this recurring task has no future occurrence to skip')
+          }
+          key = occurrenceKeyFor(task.id, next, null)
+          skippedAt = next.toISOString()
         }
         const skipped: Task = {
           ...task,
           revision: task.revision + 1,
           updatedAt: stamp,
-          state: { ...task.state, completedOccurrenceKey: key, lastOccurrenceKey: key, lastFiredAt: stamp },
+          state: {
+            ...task.state,
+            completedOccurrenceKey: key,
+            lastOccurrenceKey: key,
+            lastFiredAt: skippedAt ?? stamp,
+          },
         }
         replaceTask(skipped)
         return { task: skipped, completedOccurrenceKey: key, nextAt: null }
@@ -323,35 +352,7 @@ export function createRepository(options: RepositoryOptions): Repository {
         return restored
       })
     },
-    deliveries() {
-      return store.state.deliveries
-    },
-    async recordDelivery(record: DeliveryRecord) {
-      return this.recordDeliveries([record])
-    },
-    async recordDeliveries(incoming) {
-      return queue.run(() => {
-        assertWritable()
-        for (const record of incoming) {
-          // Same `occurrenceKey + channel` only ever succeeds once (F5.5).
-          const existing = store.state.deliveries.find(
-            (entry) => entry.occurrenceKey === record.occurrenceKey && entry.channel === record.channel,
-          )
-          if (existing !== undefined) continue
-          store.state.deliveries.push(record)
-        }
-        // D-16: keep the most recent 1000 records.
-        if (store.state.deliveries.length > 1000) store.state.deliveries = store.state.deliveries.slice(-1000)
-        touch()
-      })
-    },
-    async replaceDeliveries(records) {
-      return queue.run(() => {
-        assertWritable()
-        store.state.deliveries = [...records]
-        touch()
-      })
-    },
+    ...createDeliveryOps({ store, queue, assertWritable, touch }),
     async applyTick(changes: TickChange[], now) {
       return queue.run(() => {
         assertWritable() // defensive: no write path may bypass F6.8

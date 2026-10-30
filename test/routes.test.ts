@@ -41,7 +41,7 @@ function harness(options: {
   store.load()
   const repo = createRepository({ store, now: () => NOW, debounceMs: 0 })
   const config = { timeZone: 'Asia/Shanghai', tickIntervalMs: 60_000, graceMinutes: 5 }
-  const health = createHealthState('0.2.0', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
+  const health = createHealthState('0.2.1', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
   health.setStorage(store.paths.stateFile, store.stateName, store.lastRecovery)
 
   const ctx: RouteContext = {
@@ -165,7 +165,7 @@ describe('GET /health', () => {
     assert.equal(res.statusCode, 200)
     const payload = res.json<{ ok: boolean; value: { version: string; scheduler: { running: boolean } } }>()
     assert.equal(payload.ok, true)
-    assert.equal(payload.value.version, '0.2.0')
+    assert.equal(payload.value.version, '0.2.1')
     assert.equal(typeof payload.value.scheduler.running, 'boolean')
   })
 

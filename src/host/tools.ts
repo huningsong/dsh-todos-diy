@@ -83,20 +83,24 @@ export function assertToolCaller(_exec: ToolExec): void {
 }
 
 /**
- * Register all nine tools through one disposer.
+ * Register every tool through one disposer.
  * @param toolCtx - Context carrying `tools.register`.
  * @param deps - Repository, holiday table and clock.
- * @returns Disposer that unregisters every tool.
+ * @returns The disposer plus the number of registered tools (for `/health`).
  */
 export function registerTools(
   toolCtx: { tools: { register: (definition: RawToolDefinition) => unknown } },
   deps: ToolDeps,
-): () => void {
-  const disposers = createToolDefinitions(deps).map((definition) => toolCtx.tools.register(definition))
-  return () => {
-    for (const dispose of disposers) {
-      if (typeof dispose === 'function') (dispose as () => void)()
-    }
+): { dispose: () => void; count: number } {
+  const definitions = createToolDefinitions(deps)
+  const disposers = definitions.map((definition) => toolCtx.tools.register(definition))
+  return {
+    count: definitions.length,
+    dispose: () => {
+      for (const dispose of disposers) {
+        if (typeof dispose === 'function') (dispose as () => void)()
+      }
+    },
   }
 }
 

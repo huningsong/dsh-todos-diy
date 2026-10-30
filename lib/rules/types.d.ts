@@ -147,7 +147,7 @@ export interface Priority {
  */
 export type TaskStage = 'notStarted' | 'inProgress' | 'overdue' | 'done' | 'paused' | 'recurring' | 'archived';
 /** The six selectable views (F4.10 / F4.21). */
-export type TaskViewName = 'notStarted' | 'inProgress' | 'overdue' | 'done' | 'recurring' | 'paused';
+export type TaskViewName = 'all' | 'notStarted' | 'inProgress' | 'overdue' | 'done' | 'recurring' | 'paused';
 /** Mutually exclusive counts for the six views (F4.21). */
 export interface Counts {
     notStarted: number;

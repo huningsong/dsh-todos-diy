@@ -12,6 +12,7 @@
 
 import type { Task, TaskStatus } from './rules/types.js'
 import { coerceSettings, isKnownZone } from './stateSettings.js'
+import { coerceDelivery, coerceRecovery } from './stateRecords.js'
 import { parseCron } from './rules/cron.js'
 
 /** Current on-disk schema version. Bump together with a migration. */
@@ -55,12 +56,27 @@ export interface RecoveryRecord {
   backupFile: string | null
 }
 
+/** One idempotent-create record (F7.15). */
+export interface IdempotencyRecord {
+  /** Id of the task that was created for this key. */
+  taskId: string
+  /** Stable fingerprint of the create payload; a different one is a conflict. */
+  fingerprint: string
+  /** Creation instant, used for the FIFO trim. */
+  at: string
+}
+
 /** Envelope metadata. */
 export interface StateMeta {
   createdAt: string
   updatedAt: string
   lastTickAt: string | null
   lastRecovery: RecoveryRecord | null
+  /**
+   * Idempotency index for `POST /tasks/create` (F7.15). Optional so existing
+   * v2 files keep loading without a migration; capped on write.
+   */
+  idempotency?: Record<string, IdempotencyRecord>
 }
 
 /** The whole persisted document. */
@@ -109,7 +125,7 @@ export function emptyState(now: Date, settings: Settings = defaultSettings()): P
   const iso = now.toISOString()
   return {
     schemaVersion: SCHEMA_VERSION,
-    meta: { createdAt: iso, updatedAt: iso, lastTickAt: null, lastRecovery: null },
+    meta: { createdAt: iso, updatedAt: iso, lastTickAt: null, lastRecovery: null, idempotency: {} },
     settings,
     tasks: [],
     deliveries: [],
@@ -190,6 +206,7 @@ export function coerceState(raw: unknown): ParseResult {
       updatedAt: nullableIso(meta['updatedAt']) ?? nowIso,
       lastTickAt: nullableIso(meta['lastTickAt']),
       lastRecovery: coerceRecovery(meta['lastRecovery']),
+      idempotency: coerceIdempotency(meta['idempotency']),
     },
     settings: coerceSettings(settingsRaw),
     tasks,
@@ -341,40 +358,25 @@ function coerceDateList(value: unknown): string[] {
   return [...set].sort()
 }
 
-/** Coerce a delivery record; invalid entries are dropped silently. */
-function coerceDelivery(raw: unknown): DeliveryRecord | null {
-  if (!isRecord(raw)) return null
-  const key = raw['occurrenceKey']
-  const channel = raw['channel']
-  const status = raw['status']
-  const at = nullableIso(raw['at'])
-  if (typeof key !== 'string' || at === null) return null
-  if (channel !== 'overlay' && channel !== 'system') return null
-  if (status !== 'ok' && status !== 'failed' && status !== 'skipped') return null
-  return {
-    occurrenceKey: key,
-    channel,
-    status,
-    at,
-    readAt: nullableIso(raw['readAt']),
-    ignoredAt: nullableIso(raw['ignoredAt']),
-    dismissedAt: nullableIso(raw['dismissedAt']),
-    error: typeof raw['error'] === 'string' ? raw['error'] : null,
-  }
-}
-
-/** Coerce a recovery record. */
-function coerceRecovery(raw: unknown): RecoveryRecord | null {
-  if (!isRecord(raw)) return null
-  const reason = raw['reason']
-  if (reason !== 'corrupt' && reason !== 'unsupported-version' && reason !== 'migration-failed' && reason !== 'missing') {
-    return null
-  }
-  return {
-    at: nullableIso(raw['at']) ?? new Date(0).toISOString(),
-    reason,
-    message: str(raw['message'], ''),
-    backupFile: typeof raw['backupFile'] === 'string' ? raw['backupFile'] : null,
-  }
-}
 export { coerceSettings } from './stateSettings.js'
+
+/**
+ * Coerce the idempotency index, dropping malformed entries.
+ * @param raw - Candidate map from a stored file.
+ * @returns A clean map (empty when absent).
+ */
+function coerceIdempotency(raw: unknown): Record<string, IdempotencyRecord> {
+  if (!isRecord(raw)) return {}
+  const out: Record<string, IdempotencyRecord> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (!isRecord(value)) continue
+    const taskId = value['taskId']
+    const fingerprint = value['fingerprint']
+    const at = nullableIso(value['at'])
+    if (typeof taskId !== 'string' || taskId === '') continue
+    if (typeof fingerprint !== 'string' || fingerprint === '') continue
+    if (at === null) continue
+    out[key] = { taskId, fingerprint, at }
+  }
+  return out
+}

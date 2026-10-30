@@ -46,12 +46,26 @@ export interface RecoveryRecord {
     message: string;
     backupFile: string | null;
 }
+/** One idempotent-create record (F7.15). */
+export interface IdempotencyRecord {
+    /** Id of the task that was created for this key. */
+    taskId: string;
+    /** Stable fingerprint of the create payload; a different one is a conflict. */
+    fingerprint: string;
+    /** Creation instant, used for the FIFO trim. */
+    at: string;
+}
 /** Envelope metadata. */
 export interface StateMeta {
     createdAt: string;
     updatedAt: string;
     lastTickAt: string | null;
     lastRecovery: RecoveryRecord | null;
+    /**
+     * Idempotency index for `POST /tasks/create` (F7.15). Optional so existing
+     * v2 files keep loading without a migration; capped on write.
+     */
+    idempotency?: Record<string, IdempotencyRecord>;
 }
 /** The whole persisted document. */
 export interface PersistedState {

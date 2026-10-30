@@ -43,7 +43,7 @@ export const name = 'dsh-todos-diy'
 export const inject = ['timer']
 
 /** Plugin version reported by `/health`; kept in sync with `package.json`. */
-export const PLUGIN_VERSION = '0.2.0'
+export const PLUGIN_VERSION = '0.2.1'
 
 const LOG_PREFIX = 'todos-diy:'
 
@@ -325,15 +325,15 @@ export function apply(ctx: any, rawConfig: unknown): void {
   ctx.inject(['tools'], (toolCtx: any) => {
     toolCtx.effect(
       () => {
-        const dispose = registerTools(toolCtx, {
+        const registration = registerTools(toolCtx, {
           repo,
           holidays,
           timeZone: config.timeZone,
           now: () => new Date(),
         })
-        health.setToolCount(9)
-        logger.info?.(`${LOG_PREFIX} registered 9 tool(s)`)
-        return dispose
+        health.setToolCount(registration.count)
+        logger.info?.(`${LOG_PREFIX} registered ${String(registration.count)} tool(s)`)
+        return registration.dispose
       },
       'todos-diy: tools',
     )

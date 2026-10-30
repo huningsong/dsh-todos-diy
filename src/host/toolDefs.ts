@@ -1,5 +1,5 @@
 /**
- * The nine `todo_reminder_*` tool definitions (F7.1–F7.13).
+ * The eleven `todo_reminder_*` tool definitions (F7.1–F7.18).
  *
  * Split from `tools.ts` (which owns the caller gate, the error translation and
  * the registration effect) to stay inside the NF5 line budget.
@@ -15,11 +15,14 @@ import type { Repository } from './repo.js'
 import type { HolidayTable } from './rules/holidays.js'
 import { localDateKey } from './rules/timezone.js'
 import { nextFireAt } from './rules/occurrence.js'
+
+
 import { toTaskView } from './taskView.js'
 import type { Task } from './rules/types.js'
 import { ValidationError } from './validationError.js'
 import { rejectLegacyFields } from './validate.js'
 import { assertToolCaller, ToolFailure, type RawToolDefinition, type ToolExec } from './tools.js'
+import { extraToolDefinitions } from './toolDefsExtra.js'
 
 /** Everything the definitions need to answer. */
 export interface ToolDeps {
@@ -32,7 +35,7 @@ export interface ToolDeps {
 }
 
 /**
- * Build the nine tool definitions.
+ * Build the core tool definitions (nine) plus the extra ones from `toolDefsExtra`.
  * @param deps - Repository, holiday table and clock.
  * @returns Registry-ready definitions.
  */
@@ -57,7 +60,7 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
     {
       name: 'todo_reminder_list',
       description:
-        '管理工作待办（非会话提醒）。列出工作待办任务，可按视图/状态/类型/关键字过滤。' +
+        '管理工作待办（非会话提醒）。列出工作待办任务，可按视图/状态/类型/关键字过滤；默认 view="all" 返回全部非归档任务。' +
         '时区：每条任务按其自身 IANA 时区（默认 Asia/Shanghai）计算「今天」与优先级。' +
         '不要用 schedule_* 内置工具管理本插件任务（那是会话内提醒）。',
       parameters: {
@@ -65,8 +68,8 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
         properties: {
           view: {
             type: 'string',
-            enum: ['notStarted', 'inProgress', 'overdue', 'done', 'recurring', 'paused'],
-            description: '视图，默认 inProgress',
+            enum: ['all', 'notStarted', 'inProgress', 'overdue', 'done', 'recurring', 'paused'],
+            description: '视图，默认 all（全部非归档任务）；UI 的 /snapshot 仍默认 inProgress',
           },
           status: { type: 'string', enum: ['active', 'paused', 'done', 'archived'] },
           kind: { type: 'string', enum: ['recurring', 'once'] },
@@ -81,7 +84,7 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
         assertToolCaller(exec)
         try {
           const result = repo.list({
-            view: (args['view'] as never) ?? 'inProgress',
+            view: (args['view'] as never) ?? 'all',
             status: args['status'] as never,
             kind: args['kind'] as never,
             query: typeof args['query'] === 'string' ? args['query'] : undefined,
@@ -127,6 +130,12 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
           },
           notify: { type: 'object' },
           timeZone: { type: 'string' },
+          idempotencyKey: {
+            type: 'string',
+            minLength: 16,
+            maxLength: 128,
+            description: '幂等键（16–128 字符）：网络重试时同 key 返回原任务并标 replayed:true',
+          },
         },
         required: ['title', 'kind'],
         additionalProperties: false,
@@ -136,7 +145,7 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
         assertToolCaller(exec)
         try {
           rejectLegacyFields(args)
-          const task = await repo.create({
+          const { task, replayed } = await repo.createTask({
             title: args['title'] as string,
             description: args['description'] as string | undefined,
             kind: args['kind'] as never,
@@ -144,8 +153,11 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
             once: args['once'],
             notify: args['notify'],
             timeZone: args['timeZone'] as string | undefined,
+            idempotencyKey: args['idempotencyKey'] as string | undefined,
           })
-          return view(task)
+          // F7.15: expose the replay flag so the Agent knows no second task
+          // (and no second reminder series) was created.
+          return { ...view(task), replayed }
         } catch (error) {
           return translate(error)
         }
@@ -256,12 +268,17 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
       name: 'todo_reminder_complete',
       description:
         '管理工作待办（非会话提醒）。「完成本次」：循环任务跳过当前 occurrence 并推进到下一周期（任务仍 active）；' +
-        '单次任务直接进入 done。与 pause 不同，这不会挂起整条规则。不要用 schedule_* 内置工具管理本插件任务。',
+        '单次任务直接进入 done。skipNext=true 可在循环任务尚未触发时跳过下一次 occurrence。' +
+        '与 pause 不同，这不会挂起整条规则。不要用 schedule_* 内置工具管理本插件任务。',
       parameters: {
         type: 'object',
         properties: {
           id: { type: 'string' },
           occurrenceKey: { type: 'string', description: '默认使用该任务当前 occurrence' },
+          skipNext: {
+            type: 'boolean',
+            description: '循环任务尚未触发时可跳过下一次 occurrence（F7.18）',
+          },
         },
         required: ['id'],
         additionalProperties: false,
@@ -272,7 +289,7 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
         try {
           const id = args['id'] as string
           const key = typeof args['occurrenceKey'] === 'string' ? args['occurrenceKey'] : undefined
-          const result = await repo.complete(id, key)
+          const result = await repo.complete(id, key, undefined, args['skipNext'] === true)
           const next = result.task.status === 'active' ? nextFireAt(result.task, now(), holidays) : null
           return { id, completedOccurrenceKey: result.completedOccurrenceKey, nextAt: next === null ? null : next.toISOString() }
         } catch (error) {
@@ -328,5 +345,6 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
         }
       },
     },
+    ...extraToolDefinitions({ repo, now, view, translate }),
   ]
 }

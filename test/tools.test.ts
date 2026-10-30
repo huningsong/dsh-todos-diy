@@ -68,15 +68,18 @@ async function expectToolCode(
 }
 
 describe('tool registry surface (F7.9)', () => {
-  it('registers exactly the nine documented tools', () => {
+  it('registers exactly the twelve documented tools', () => {
     const names = harness().tools.map((tool) => tool.name).sort()
     assert.deepEqual(names, [
       'todo_reminder_complete',
       'todo_reminder_create',
       'todo_reminder_delete',
+      'todo_reminder_deliveries',
+      'todo_reminder_get',
       'todo_reminder_list',
       'todo_reminder_pause',
       'todo_reminder_pin',
+      'todo_reminder_remind',
       'todo_reminder_resume',
       'todo_reminder_snooze',
       'todo_reminder_update',

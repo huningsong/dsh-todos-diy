@@ -19,6 +19,17 @@ export interface CreateTaskInput {
     /** Overrides the global default zone for a one-off task. */
     timeZone?: string;
     pinned?: boolean;
+    /**
+     * Optional idempotency key (16–128 chars, F7.15). Repeating the same key with
+     * the same payload returns the original task; a different payload conflicts.
+     */
+    idempotencyKey?: string;
+}
+/** Result of an idempotent create (F7.15). */
+export interface CreateResult {
+    task: Task;
+    /** True when the task already existed for this idempotency key. */
+    replayed: boolean;
 }
 /** Patch accepted by `Repository.update`. */
 export interface UpdateTaskPatch {
@@ -105,6 +116,8 @@ export interface Repository {
     list(query: ListQuery): ListResult;
     /** Create a task (F4.1). */
     create(input: CreateTaskInput): Promise<Task>;
+    /** Idempotent create used by POST /tasks/create and the Agent tool (F7.15). */
+    createTask(input: CreateTaskInput): Promise<CreateResult>;
     /** Update a task with optimistic locking (F1.6). */
     update(id: string, expectedRevision: number, patch: UpdateTaskPatch): Promise<Task>;
     /** Pause a task; idempotent (F4.2/F4.3). */
@@ -120,7 +133,7 @@ export interface Repository {
         changed: boolean;
     }>;
     /** Complete a task, or skip the current occurrence of a recurring one. */
-    complete(id: string, occurrenceKey?: string, now?: Date): Promise<CompleteResult>;
+    complete(id: string, occurrenceKey?: string, now?: Date, skipNext?: boolean): Promise<CompleteResult>;
     /** Snooze a task until `minutes` from now. */
     snooze(id: string, minutes: number, now?: Date): Promise<{
         id: string;
