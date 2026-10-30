@@ -130,7 +130,13 @@ export function patchTask(current: Task, patch: UpdateTaskPatch, settings: Setti
       merged['startAtSource'] = previous.startAtSource
     }
     if (!Object.hasOwn(patchRaw, 'timeZone') && previous !== null) merged['timeZone'] = previous.timeZone
-    next.once = validateOnce(merged, previous?.timeZone ?? settings.timeZone, new Date(current.createdAt), endReminder)
+    next.once = validateOnce(
+      merged,
+      previous?.timeZone ?? settings.timeZone,
+      new Date(current.createdAt),
+      endReminder,
+      { keepCreated: previous?.startAtSource === 'created' && !Object.hasOwn(patchRaw, 'startAt') },
+    )
     next.state = resetOnceMarkers(current, next.once, previous)
   }
   if (patch.notify !== undefined) {

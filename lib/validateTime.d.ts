@@ -21,7 +21,9 @@ import type { OnceWindow } from './rules/types.js';
  * @param endReminder - Task-level "remind at the end" flag (default true).
  * @returns Normalized window in UTC ISO.
  */
-export declare function validateOnce(value: unknown, timeZone: string, createdAt?: Date, endReminder?: boolean): OnceWindow;
+export declare function validateOnce(value: unknown, timeZone: string, createdAt?: Date, endReminder?: boolean, options?: {
+    keepCreated?: boolean;
+}): OnceWindow;
 /**
  * Parse an ISO instant, interpreting an offset-less value in the task zone.
  * @param text - ISO 8601 string.

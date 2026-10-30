@@ -29,6 +29,7 @@ export function validateOnce(
   timeZone: string,
   createdAt: Date = new Date(0),
   endReminder = true,
+  options: { keepCreated?: boolean } = {},
 ): OnceWindow {
   const raw = value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {}
   // F2.6 / F9.1: a one-off task carries its own zone. It may be supplied either
@@ -63,7 +64,9 @@ export function validateOnce(
   return {
     startAt: start.toISOString(),
     endAt: end.toISOString(),
-    startAtSource: explicitStart ? 'explicit' : 'created',
+    // `keepCreated` lets an edit that does not touch `startAt` preserve the
+    // "defaulted from creation time" origin (F3.8).
+    startAtSource: !explicitStart || options.keepCreated === true ? 'created' : 'explicit',
     timeZone: zone,
   }
 }
