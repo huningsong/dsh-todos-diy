@@ -14,6 +14,8 @@
 | [CHANGELOG.md](CHANGELOG.md) | 版本变更记录（0.1.0 → 0.2.0） | 发版前查 |
 | [docs/planning/版本计划.md](docs/planning/版本计划.md) | 版本路线、0.2.0 D-25 批次、排期与发布门 | 开发/发版前 |
 | [docs/planning/研发交接-0.2.0.md](docs/planning/研发交接-0.2.0.md) | 研发可直接执行的本轮需求设计、B0–B3C 任务与验收门 | **研发开工前先读** |
+| [docs/planning/0.2.0升级后回归清单与需求变更.md](docs/planning/0.2.0升级后回归清单与需求变更.md) | 0.2.0 回归清单、P1 的 0.2.1 需求变更方案 | 升级/发版前 |
+| [docs/reviews/round3/试用意见评估.md](docs/reviews/round3/试用意见评估.md) | 试用意见逐条真实性核对与环境基线 | 收到试用反馈时看 |
 | [docs/testing/测试记录.md](docs/testing/测试记录.md) | 当前测试基线、轮次记录与 D-25 测试计划 | 每轮测试后更新 |
 | [docs/development/工程配置与脚本.md](docs/development/工程配置与脚本.md) | 根目录配置文件（package/tsconfig/cordis patch）职责与归类规则 | 工程维护 |
 | [需求-v1.md](docs/requirements/需求-v1.md) | 第一版需求与技术框架：目标、角色场景、术语、DSH 实测约束、F1–F9 功能需求、非功能需求、技术框架（选型/数据模型/调度/API/UI）、边界条件、验收标准、测试策略、里程碑、附录 A/B/C | 第 2 遍：作为实现依据通读 |

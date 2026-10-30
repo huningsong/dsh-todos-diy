@@ -10,6 +10,7 @@
 | `decisions/` | 缺口清单（D-01…D-25）与 UX 决策记录 |
 | `reviews/round1/` | 第一轮独立评审 |
 | `reviews/round2/` | 第二轮评审（v1.2/D-25）、负责人意见与 4 份详细报告 |
+| `reviews/round3/` | 试用意见真实性评估（0.2.0） |
 | `planning/` | 版本计划、开发批次与发布门 |
 | `testing/` | 测试基线、轮次测试记录与 D-25 测试计划 |
 | `guides/` | 开发会话提示词 |
@@ -34,6 +35,8 @@
 - 本轮评审：[reviews/round2/评审-本轮需求.md](reviews/round2/评审-本轮需求.md)
 - 版本计划：[planning/版本计划.md](planning/版本计划.md)
 - 研发交接：[planning/研发交接-0.2.0.md](planning/研发交接-0.2.0.md)
+- 0.2.0 回归与 0.2.1 变更：[planning/0.2.0升级后回归清单与需求变更.md](planning/0.2.0升级后回归清单与需求变更.md)
+- 试用反馈评估：[reviews/round3/试用意见评估.md](reviews/round3/试用意见评估.md)
 - 测试记录：[testing/测试记录.md](testing/测试记录.md)
 - 开发提示词：[guides/开发会话提示词.md](guides/开发会话提示词.md)
 - 工程配置：[development/工程配置与脚本.md](development/工程配置与脚本.md)
