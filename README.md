@@ -225,3 +225,6 @@ MIT，见 [LICENSE](LICENSE)。
 | DEV-06 | §7.8 | 额外提供 `POST /capabilities` 与 `POST /deliveries/report`。 | 浏览器权限与真实系统通知结果只能由客户端上报，宿主无法自省。 |
 | DEV-07 | F1.4 / F6.4 | 投递记录上限 1000 行，90 天保留期未实现（未 ack 的浮层记录永久保留）。 | UX-01 要求浮层不自动消失，与保留期冲突时优先 UX-01。 |
 | DEV-08 | NF6 | 1000 条任务单次 tick 实测约 57ms，未达到 ≤20ms 目标（已加 cron 解析缓存，从 68ms 优化到 57ms）。 | 瓶颈是 `Intl` 时区换算与每 tick 的 `nextWakeAt` 诊断字段；60s 一次 tick 的实际 CPU 占用约 0.1%，功能不受影响。 |
+| DEV-09 | F4.15 边界 | `coerceTask` 对**已处于 done 的 once 任务**只归一 `recurring+done`，手改/导入的 `done + pinned=true` 仍会被保留。正常路径 `complete` 会原子清 pinned。 | 仅在 `done` 手工写入场景触发；F4.15 的验收路径（用户点完成）不经过 coerce。 |
+| DEV-10 | F6.8 边缘 | `schemaVersion > 2` 的归档 quarter 文件在 `rebuildIndex` 计数与 `restore` 时仍按 v2 结构处理（不覆盖文件，但可能按旧结构读取）。index 本身已拒绝降级。 | 归档索引已完整保护；quarter 的高版本兼容留到 v2 真正出现时处理。 |
+| DEV-11 | F5.6 边缘 | DND 摘要的**系统通知**未按 occurrence 去重，理论上每次轮询会重发同一 tag 的通知（浏览器通常按 tag 替换）。 | 影响仅限页面隐藏时的重复通知；浮层摘要本身只显示一次。 |
