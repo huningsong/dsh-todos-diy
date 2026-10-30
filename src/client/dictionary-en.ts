@@ -241,4 +241,5 @@ export const en = {
   'empty.overdue': 'Nothing overdue',
   'empty.recurring': 'No recurring tasks',
   'empty.paused': 'Nothing paused',
+  'task.copySuffix': ' copy',
 }

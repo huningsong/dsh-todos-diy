@@ -248,7 +248,11 @@ export function OnceFields({ draft, update, t }: FieldProps): React.ReactNode {
           className: 'dtd-input',
           value: draft.startAt,
           'aria-label': t('form.startAt'),
-          onChange: (event: React.ChangeEvent<HTMLInputElement>) => update('startAt', event.target.value),
+          onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+            update('startAt', event.target.value)
+            // Typing a start value makes the window explicit from now on.
+            update('startAtSource', 'explicit')
+          },
         }),
       ),
       h(

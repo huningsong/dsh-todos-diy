@@ -26,6 +26,9 @@ export function applyTickChange(task: Task, change: TickChange, stamp: string): 
   if (change.firedKey !== undefined) {
     state.lastOccurrenceKey = change.firedKey
     state.lastFiredAt = change.firedAt ?? stamp
+    // F4.5: a snooze is a one-shot reminder. Clearing the target on delivery
+    // means editing the rule later cannot resurrect the same snooze.
+    if (change.firedKey.endsWith('#snooze')) state.snoozeUntil = null
     if (change.node === 'start') {
       if (change.phase === 'advance') state.firedStartAdvance = true
       else state.firedStart = true

@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
 
+import { SCHEMA_VERSION } from '../src/host/state.js'
 import { buildExport, mergeTasks, parseImport, settingsExport, backupBeforeImport } from '../src/host/transfer.js'
 import { emptyState, defaultSettings } from '../src/host/state.js'
 import { makeTask } from './fixtures.js'
@@ -80,13 +81,29 @@ describe('parseImport', () => {
     )
   })
 
-  it('skips malformed tasks with a warning instead of failing', () => {
+  it('skips malformed tasks with a warning on a current-schema bundle', () => {
     const candidate = parseImport({
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       tasks: [makeTask({ id: 'tr_0123456789ABCDEFGHJKMNPQRS' }), { id: '' }, null],
     })
     assert.equal(candidate.tasks.length, 1)
     assert.ok(candidate.warnings.length > 0)
+  })
+
+  it('skips structurally bad tasks in a v1 bundle too', () => {
+    const candidate = parseImport({ schemaVersion: 1, tasks: [{ id: '' }, null] })
+    assert.equal(candidate.tasks.length, 0)
+    assert.ok(candidate.warnings.length >= 2)
+  })
+
+  it('fails a v1 bundle whose one-off task has no endAt', () => {
+    assert.throws(
+      () => parseImport({
+        schemaVersion: 1,
+        tasks: [{ id: 'tr_x', title: 'x', kind: 'once', status: 'active', once: { startAt: '2026-11-05T06:00:00.000Z' } }],
+      }),
+      (error: { code?: string }) => error.code === 'migration-failed',
+    )
   })
 })
 

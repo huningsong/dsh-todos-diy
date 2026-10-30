@@ -61,7 +61,9 @@ export function computeNextTransition(tasks: readonly Task[], options: { now: Da
     if (earliest === null || value < earliest) earliest = value
   }
   for (const task of tasks) {
-    if (task.status === 'archived') continue
+    // F4.13: only active/paused tasks contribute a boundary; a done or archived
+    // task cannot change stage again.
+    if (task.status === 'archived' || task.status === 'done') continue
     if (task.kind === 'once' && task.once !== null) {
       consider(Date.parse(task.once.startAt))
       consider(Date.parse(task.once.endAt))

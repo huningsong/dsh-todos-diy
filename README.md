@@ -221,7 +221,7 @@ MIT，见 [LICENSE](LICENSE)。
 | DEV-02 | §7.5 `dueOccurrences` | 只返回最近一条到期 occurrence；更早的积压通过 `missedOccurrences()` 记录为 missed（零回填）。 | 需求要求「停机零补发」，因此不能把积压逐条重放。 |
 | DEV-03 | F6.5 | 未实现 `tasks.lock` 两进程只读降级。 | v1 验收只测单进程；`readOnly` 已覆盖「文件版本过高」场景。 |
 | DEV-04 | F4.16 | 归档扫描在启动时 + 每 6 小时执行一次，而非严格在季度首日 00:05。 | 崩溃恢复更重要；统一为「季度首个 tick（1/4/7/10-01 00:00 之后）」，不设独立 00:05 定时器。 |
-| DEV-05 | F7.10 | 工具拒绝以 `ToolFailure` 抛出，message 为 JSON `{code:'forbidden',...}`。 | DSH 工具管线没有结构化错误返回通道。 |
+| DEV-05 | F7.10 | 0.2.0 起工具**不再按调用者拒绝**（v1.3 要求主会话、子 Agent、无 Agent 上下文均可调用）；校验失败仍以 `ToolFailure` 抛出，message 为 JSON `{code,message,...}`。 | DSH 工具管线没有结构化错误返回通道；任务不绑定会话（D-02）。 |
 | DEV-06 | §7.8 | 额外提供 `POST /capabilities` 与 `POST /deliveries/report`。 | 浏览器权限与真实系统通知结果只能由客户端上报，宿主无法自省。 |
 | DEV-07 | F1.4 / F6.4 | 投递记录上限 1000 行，90 天保留期未实现（未 ack 的浮层记录永久保留）。 | UX-01 要求浮层不自动消失，与保留期冲突时优先 UX-01。 |
 | DEV-08 | NF6 | 1000 条任务单次 tick 实测约 57ms，未达到 ≤20ms 目标（已加 cron 解析缓存，从 68ms 优化到 57ms）。 | 瓶颈是 `Intl` 时区换算与每 tick 的 `nextWakeAt` 诊断字段；60s 一次 tick 的实际 CPU 占用约 0.1%，功能不受影响。 |

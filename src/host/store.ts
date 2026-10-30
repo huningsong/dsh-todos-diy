@@ -272,6 +272,12 @@ export function createStore(options: StoreOptions): Store {
         const migrated = migrateState(raw)
         if (!migrated.ok) {
           stateName = 'migration-failed'
+          // F9.5: a failed migration must never overwrite the original file.
+          // The store therefore becomes read-only exactly like the
+          // unsupported-version case — otherwise the first successful create
+          // would replace the unreadable-but-recoverable file with an empty v2
+          // document.
+          readOnly = true
           // Deliberately NOT quarantined: the file is readable, just from a
           // version we cannot upgrade. Moving it would violate "迁移失败不覆盖
           // 原文件"; the operator can fix it in place.
@@ -289,6 +295,7 @@ export function createStore(options: StoreOptions): Store {
         }
         document = migrated.state
         migratedInPlace = true
+        for (const warning of migrated.warnings) logger.warn?.(`todos-diy: migration: ${warning}`)
       }
 
       const result = coerceState(document)

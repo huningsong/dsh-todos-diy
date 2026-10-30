@@ -241,5 +241,6 @@ export const zh = {
   'empty.overdue': '没有已超期的任务',
   'empty.recurring': '没有循环任务',
   'empty.paused': '没有已暂停的任务',
+  'task.copySuffix': ' 副本',
 }
 

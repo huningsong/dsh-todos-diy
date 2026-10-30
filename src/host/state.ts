@@ -10,7 +10,7 @@
  * corrupt when the envelope itself is unusable.
  */
 
-import type { Task } from './rules/types.js'
+import type { Task, TaskStatus } from './rules/types.js'
 
 /** Current on-disk schema version. Bump together with a migration. */
 export const SCHEMA_VERSION = 2
@@ -210,8 +210,12 @@ export function coerceTask(raw: unknown): Task | null {
   if (typeof title !== 'string' || title.trim() === '') return null
   const kind = raw['kind']
   if (kind !== 'recurring' && kind !== 'once') return null
-  const status = raw['status']
-  if (status !== 'active' && status !== 'paused' && status !== 'done' && status !== 'archived') return null
+  const statusRaw = raw['status']
+  if (statusRaw !== 'active' && statusRaw !== 'paused' && statusRaw !== 'done' && statusRaw !== 'archived') return null
+  let status: TaskStatus = statusRaw
+  // F1.2: a recurring task can never be `done`; a hand-edited or imported file
+  // must not be able to introduce that state.
+  if (kind === 'recurring' && status === 'done') status = 'active'
 
   const rule = isRecord(raw['rule']) ? coerceRule(raw['rule']) : null
   const once = isRecord(raw['once']) ? coerceOnce(raw['once']) : null

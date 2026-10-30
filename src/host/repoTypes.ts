@@ -66,6 +66,8 @@ export interface CompleteResult {
 /** One scheduler-produced change to persist. */
 export interface TickChange {
   taskId: string
+  /** Revision the scheduler solved against; a stale change is dropped (F1.6). */
+  expectedRevision?: number
   /** Set when the occurrence was delivered (or claimed for delivery). */
   firedKey?: string
   firedAt?: string

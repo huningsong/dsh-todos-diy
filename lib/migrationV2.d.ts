@@ -23,14 +23,14 @@ export declare class MigrationError extends Error {
  * @returns The v2 task (a new object).
  * @throws MigrationError when a one-off task has no `endAt`.
  */
-export declare function migrateTaskV2(raw: Record<string, unknown>): Record<string, unknown>;
+export declare function migrateTaskV2(raw: Record<string, unknown>, warnings?: string[]): Record<string, unknown>;
 /**
  * Migrate a whole document (main file or archive quarter file) from v1 to v2.
  * @param raw - v1 document.
  * @returns The v2 document.
  * @throws MigrationError when any task cannot be migrated safely.
  */
-export declare function migrateDocumentV2(raw: Record<string, unknown>): Record<string, unknown>;
+export declare function migrateDocumentV2(raw: Record<string, unknown>, warnings?: string[]): Record<string, unknown>;
 /**
  * Migrate `archive/index.json`: only the version bumps, entries stay identical.
  * @param raw - v1 index document.

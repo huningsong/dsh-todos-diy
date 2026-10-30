@@ -52,6 +52,9 @@ export function ReminderOverlay(props: OverlayProps) {
       setCards(visible)
       setDndSummary(result.dndSummary ?? null)
       setError(null)
+      // F5.8: a card may ask for a short built-in chime. Autoplay policies can
+      // reject it; that must stay silent and never block the overlay.
+      if (visible.some((card) => card.sound)) playChime()
       // Only cards actually rendered may raise a system notification: a
       // DND-held row is folded into the summary and must not buzz individually
       // (F5.6). The summary itself raises one notification instead.
@@ -283,4 +286,32 @@ export function ReminderOverlay(props: OverlayProps) {
         : h('div', { className: 'dtd-reminder', role: 'alert' }, t(`error.${error}`)),
     ),
   )
+}
+
+/**
+ * Play one short built-in chime (F5.8).
+ *
+ * Uses WebAudio so no asset is needed. Every failure (no AudioContext, autoplay
+ * blocked, closed context) is swallowed: a silent reminder is still a reminder.
+ */
+function playChime(): void {
+  try {
+    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (Ctor === undefined) return
+    const context = new Ctor()
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.value = 880
+    gain.gain.value = 0.08
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.start()
+    oscillator.stop(context.currentTime + 0.18)
+    oscillator.onended = () => {
+      void context.close()
+    }
+  } catch {
+    // Autoplay policy or an unsupported platform: stay silent.
+  }
 }

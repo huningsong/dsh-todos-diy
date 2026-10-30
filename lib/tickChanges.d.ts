@@ -7,6 +7,7 @@
  */
 import type { Occurrence } from './rules/types.js';
 import type { TickChange } from './repoTypes.js';
+import type { Task } from './rules/types.js';
 /**
  * Map a tick plan to repository changes.
  *
@@ -22,4 +23,4 @@ import type { TickChange } from './repoTypes.js';
 export declare function planToChanges(plan: {
     fire: Occurrence[];
     markMissed: Occurrence[];
-}): TickChange[];
+}, tasks?: readonly Task[]): TickChange[];

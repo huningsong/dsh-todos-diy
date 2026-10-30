@@ -29,6 +29,12 @@ export interface TaskDraft {
   skipDates: string[]
   extraWorkdays: string[]
   startAt: string
+  /**
+   * Origin of `startAt`: `created` means the server defaulted it and no start
+   * reminder exists, so an untouched draft must keep sending no `startAt`
+   * (F3.8: editing other fields must not turn it into an explicit one).
+   */
+  startAtSource: 'explicit' | 'created'
   endAt: string
   channels: ('overlay' | 'system')[]
   advanceMinutes: number
@@ -55,6 +61,7 @@ export function emptyDraft(timeZone: string): TaskDraft {
     skipDates: [],
     extraWorkdays: [],
     startAt: '',
+    startAtSource: 'explicit',
     endAt: '',
     channels: ['overlay'],
     advanceMinutes: 0,
@@ -105,7 +112,8 @@ export function draftFromTask(task: TaskView, fallbackZone: string): TaskDraft {
     }
   }
   if (task.once !== null) {
-    draft.startAt = toLocalInput(task.once.startAt, rule?.timeZone ?? fallbackZone)
+    draft.startAtSource = task.once.startAtSource
+    draft.startAt = task.once.startAtSource === 'created' ? '' : toLocalInput(task.once.startAt, rule?.timeZone ?? fallbackZone)
     draft.endAt = toLocalInput(task.once.endAt, rule?.timeZone ?? fallbackZone)
   }
   return draft
@@ -156,7 +164,11 @@ export function draftToPayload(draft: TaskDraft): Record<string, unknown> {
       ...base,
       kind: 'once',
       timeZone: draft.timeZone,
-      once: { startAt: draft.startAt, endAt: draft.endAt },
+      // An untouched "created" start is sent as absent so the server keeps the
+      // original source and the no-start-reminder behaviour.
+      once: draft.startAtSource === 'created' && draft.startAt === ''
+        ? { endAt: draft.endAt }
+        : { startAt: draft.startAt, endAt: draft.endAt },
     }
   }
   const rule: Record<string, unknown> = {

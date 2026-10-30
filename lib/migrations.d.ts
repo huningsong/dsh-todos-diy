@@ -17,7 +17,7 @@ export interface Migration {
      * @param raw - Document at version `from`.
      * @returns Document at version `from + 1`.
      */
-    run(raw: Record<string, unknown>): Record<string, unknown>;
+    run(raw: Record<string, unknown>, warnings: string[]): Record<string, unknown>;
 }
 /**
  * Registered migrations, ascending.
@@ -31,9 +31,11 @@ export type MigrateResult = {
     ok: true;
     state: Record<string, unknown>;
     applied: string[];
+    warnings: string[];
 } | {
     ok: false;
     message: string;
+    warnings: string[];
 };
 /**
  * Run every migration from the document's version up to `SCHEMA_VERSION`.

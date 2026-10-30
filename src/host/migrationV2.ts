@@ -24,8 +24,11 @@ export class MigrationError extends Error {}
  * @returns The v2 task (a new object).
  * @throws MigrationError when a one-off task has no `endAt`.
  */
-export function migrateTaskV2(raw: Record<string, unknown>): Record<string, unknown> {
+export function migrateTaskV2(raw: Record<string, unknown>, warnings: string[] = []): Record<string, unknown> {
   const task = { ...raw }
+  if (Object.hasOwn(task, 'dueDate') && task['dueDate'] !== undefined) {
+    warnings.push(`task ${String(task['id'])}: dropped dueDate (v2 uses once.endAt / rule.time)`)
+  }
   delete task['dueDate']
 
   const kind = task['kind']
@@ -84,16 +87,26 @@ export function migrateTaskV2(raw: Record<string, unknown>): Record<string, unkn
  * @returns The v2 document.
  * @throws MigrationError when any task cannot be migrated safely.
  */
-export function migrateDocumentV2(raw: Record<string, unknown>): Record<string, unknown> {
+export function migrateDocumentV2(raw: Record<string, unknown>, warnings: string[] = []): Record<string, unknown> {
   const document: Record<string, unknown> = { ...raw, schemaVersion: 2 }
   const tasksRaw = document['tasks']
   if (!Array.isArray(tasksRaw)) return document
   const tasks: Record<string, unknown>[] = []
-  for (const candidate of tasksRaw) {
+  for (const [index, candidate] of tasksRaw.entries()) {
+    // A structurally broken entry is skipped with a warning (F6.7 / F9.4): the
+    // rest of the document is still usable, and a bad row must not make the
+    // whole file unreadable. A *semantically* unmappable task (v1 one-off with
+    // no endAt) still throws — that one cannot be guessed at.
     if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate)) {
-      throw new MigrationError('task entry is not an object')
+      warnings.push(`task #${String(index)} is not an object and was skipped`)
+      continue
     }
-    tasks.push(migrateTaskV2(candidate as Record<string, unknown>))
+    const id = (candidate as Record<string, unknown>)['id']
+    if (typeof id !== 'string' || id === '') {
+      warnings.push(`task #${String(index)} has no id and was skipped`)
+      continue
+    }
+    tasks.push(migrateTaskV2(candidate as Record<string, unknown>, warnings))
   }
   document['tasks'] = tasks
   return document

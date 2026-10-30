@@ -8,6 +8,9 @@ import { describe, it } from 'node:test'
 
 import { createRepository } from '../src/host/repo.js'
 import { createStore } from '../src/host/store.js'
+import { archiveCompleted, readArchiveIndex } from '../src/host/archive.js'
+import { storagePaths } from '../src/host/paths.js'
+import { restoreArchivedTask } from '../src/host/archiveRestore.js'
 import { emptyState, SCHEMA_VERSION, coerceState } from '../src/host/state.js'
 import { migrateDocumentV2, migrateIndexV2, migrateTaskV2 } from '../src/host/migrationV2.js'
 import { buildExport, parseImport } from '../src/host/transfer.js'
@@ -15,6 +18,7 @@ import { computeNextTransition, queryTasks } from '../src/host/repoQuery.js'
 import { dueOccurrences, nextFireAt, onceOccurrences, scheduledNodes } from '../src/host/rules/occurrence.js'
 import { resolveTick } from '../src/host/rules/resolveTick.js'
 import { toTaskView } from '../src/host/taskView.js'
+import { planToChanges } from '../src/host/tickChanges.js'
 import { createMemoryFs } from './memoryFs.js'
 import { makeCreatedTask, makeOnceTask, makeTask } from './fixtures.js'
 
@@ -94,19 +98,37 @@ describe('D-25 #3: counts / byKind / totalDone and "badge = tab rows"', () => {
     assert.equal(result.totalDone, 1, 'totalDone must not double-count the main-file done row')
   })
 
-  it('adds archived quarters to totalDone without double counting', async () => {
+  it('adds real archived quarters to totalDone and drops them after a restore', async () => {
     const fs = createMemoryFs()
     fs.mkdir(DATA_DIR)
+    const paths = storagePaths(DATA_DIR)
     const store = createStore({ dataDir: DATA_DIR, fs, now: () => NOW })
     store.load()
-    const repo = createRepository({ store, now: () => NOW, debounceMs: 0, archiveDone: () => 7 })
-    const task = await repo.create({
-      title: 'done',
+    // Seed one completed task from a previous quarter and archive it for real.
+    store.state.tasks.push(
+      makeTask({ id: 'tr_q3', kind: 'once', status: 'done', doneAt: '2026-08-15T02:00:00.000Z', once: { startAt: '2026-08-15T01:00:00.000Z', endAt: '2026-08-15T03:00:00.000Z', startAtSource: 'explicit', timeZone: 'Asia/Shanghai' } }),
+    )
+    archiveCompleted(store.state, { paths, fs, now: new Date('2026-11-05T00:00:00Z'), timeZone: 'Asia/Shanghai' })
+    const repo = createRepository({ store, now: () => NOW, debounceMs: 0, archiveDone: () => {
+      try {
+        return readArchiveIndex(paths, fs).quarters.reduce((sum, entry) => sum + entry.count, 0)
+      } catch {
+        return 0
+      }
+    } })
+    // One live done task + one archived quarter row.
+    const live = await repo.create({
+      title: 'done live',
       kind: 'once',
       once: { startAt: '2026-11-05T08:00:00+08:00', endAt: '2026-11-05T20:00:00+08:00' },
     })
-    await repo.complete(task.id)
-    assert.equal(repo.list({}).totalDone, 8)
+    await repo.complete(live.id)
+    assert.equal(repo.list({}).totalDone, 2)
+    // Restoring the archived task must drop the archived count immediately.
+    const restored = restoreArchivedTask(store.state, 'tr_q3', paths, fs, NOW)
+    assert.equal(restored.restored, true)
+    // It is now a live task (status active), so totalDone is just the one done row.
+    assert.equal(repo.list({}).totalDone, 1, 'the archived row left the index when restored')
   })
 
   it('makes each view row count equal its badge', () => {
@@ -172,14 +194,30 @@ describe('D-25 #6: after endAt the task stays active/overdue and never auto-comp
       kind: 'once',
       once: { startAt: '2026-11-05T14:00:00+08:00', endAt: '2026-11-05T18:00:00+08:00' },
     })
+    let fired = 0
+    let missed = 0
     for (let index = 0; index < 3; index += 1) {
-      const plan = resolveTick(repo.snapshotTasks(), new Date(`2026-11-05T19:0${String(index)}:00+08:00`), { graceMinutes: 5 })
-      await repo.applyTick(plan.fire.concat(plan.markMissed), new Date('2026-11-05T19:00:00+08:00'))
+      const now = new Date(`2026-11-05T19:0${String(index)}:00+08:00`)
+      const tasks = repo.snapshotTasks()
+      const plan = resolveTick(tasks, now, { graceMinutes: 5 })
+      fired += plan.fire.length
+      missed += plan.markMissed.length
+      // Use the production mapper: hand-built changes would hide a missing
+      // field in `createTick` (the exact class of bug this project hit before).
+      const changes = planToChanges(plan, tasks)
+      if (changes.length > 0) await repo.applyTick(changes, now)
     }
     const after = repo.get(task.id)
     assert.equal(after?.status, 'active')
     assert.equal(after?.doneAt, null)
     assert.equal(toTaskView(after as never, { now: new Date('2026-11-05T19:00:00+08:00') }).stage, 'overdue')
+    // Both nodes (14:00 start, 18:00 end) are already past the grace window at
+    // 19:00, so each is recorded as missed exactly once — nothing fires.
+    assert.equal(fired, 0)
+    assert.equal(missed, 2)
+    assert.equal(after?.state.missedStart, true)
+    assert.equal(after?.state.missedEnd, true)
+    assert.equal(after?.state.missedCount, 2)
   })
 
   it('becomes done only when completed explicitly', async () => {
@@ -250,12 +288,20 @@ describe('D-25 #7: v1→v2 migration across all four paths', () => {
 
   it('migrates an import bundle through the same function', () => {
     const bundle = { kind: 'dsh-todos-diy/export', schemaVersion: 1, exportedAt: '2026-11-01T00:00:00.000Z', settings: {}, tasks: [v1Task], deliveries: [] }
-    // The import path parses a v1 bundle and coerces it; the migrated task keeps
-    // its window and gains `startAtSource`.
     const parsed = parseImport(bundle)
     assert.equal(parsed.tasks.length, 1)
+    assert.equal(Object.hasOwn(parsed.tasks[0] as object, 'dueDate'), false)
     assert.equal(parsed.tasks[0]?.once?.startAtSource, 'explicit')
     assert.equal(parsed.tasks[0]?.notify.endReminder, true)
+  })
+
+  it('fails an import whose v1 one-off task has no endAt', () => {
+    const broken = { ...v1Task, once: { startAt: '2026-11-05T06:00:00.000Z', timeZone: 'Asia/Shanghai' } }
+    const bundle = { kind: 'dsh-todos-diy/export', schemaVersion: 1, exportedAt: '2026-11-01T00:00:00.000Z', settings: {}, tasks: [broken], deliveries: [] }
+    assert.throws(() => parseImport(bundle), (error: { code?: string }) => {
+      assert.equal(error.code, 'migration-failed')
+      return true
+    })
   })
 
   it('exposes schemaVersion 2 in an export bundle', () => {
@@ -361,3 +407,83 @@ describe('D-25: dueOccurrences ignores settled nodes', () => {
     assert.equal(dueOccurrences(task, new Date('2026-11-05T10:30:00Z'), null).length, 0)
   })
 })
+
+describe('Review fixes: migration/import edge cases', () => {
+  it('skips a structurally bad task and keeps a migration warning', () => {
+    const result = migrates({ schemaVersion: 1, tasks: [null, { id: '' }, { id: 'ok', kind: 'recurring', rule: { preset: 'workdays', cron: '0 9 * * 1-5', timeZone: 'Asia/Shanghai' }, status: 'active' }] })
+    assert.equal(result.tasks.length, 1)
+    assert.ok(result.warnings.length >= 2)
+  })
+
+  it('warns when a v1 task had dueDate dropped', () => {
+    const result = migrates({ schemaVersion: 1, tasks: [{ id: 'tr_a', kind: 'once', status: 'active', dueDate: '2026-11-03', once: { startAt: '2026-11-05T06:00:00.000Z', endAt: '2026-11-05T10:00:00.000Z' } }] })
+    assert.equal(result.warnings.some((warning) => warning.includes('dueDate')), true)
+  })
+
+  it('imports a v1 bundle with dueDate and reports a warning', () => {
+    const bundle = {
+      kind: 'dsh-todos-diy/export',
+      schemaVersion: 1,
+      exportedAt: '2026-11-01T00:00:00.000Z',
+      settings: {},
+      tasks: [{ id: 'tr_legacy', title: 'legacy', kind: 'once', status: 'active', dueDate: '2026-11-03', once: { startAt: '2026-11-05T06:00:00.000Z', endAt: '2026-11-05T10:00:00.000Z' } }],
+      deliveries: [],
+    }
+    const parsed = parseImport(bundle)
+    assert.equal(parsed.tasks.length, 1)
+    assert.equal(parsed.warnings.some((warning) => warning.includes('dueDate')), true)
+  })
+
+  it('turns an imported recurring+done task back into active', () => {
+    const bundle = {
+      kind: 'dsh-todos-diy/export',
+      schemaVersion: 2,
+      exportedAt: '2026-11-01T00:00:00.000Z',
+      settings: {},
+      tasks: [{ id: 'tr_bad', title: 'bad', kind: 'recurring', status: 'done', rule: { preset: 'workdays', cron: '0 9 * * 1-5', timeZone: 'Asia/Shanghai' } }],
+      deliveries: [],
+    }
+    const parsed = parseImport(bundle)
+    assert.equal(parsed.tasks[0]?.status, 'active')
+  })
+})
+
+describe('Review fixes: partial once patch keeps the start bound (F3.8)', () => {
+  it('keeps startAt/startAtSource when only endAt changes', async () => {
+    const { repo } = harness()
+    const task = await repo.create({
+      title: 'x',
+      kind: 'once',
+      once: { startAt: '2026-11-05T14:00:00+08:00', endAt: '2026-11-05T18:00:00+08:00' },
+    })
+    const updated = await repo.update(task.id, task.revision, { once: { endAt: '2026-11-06T18:00:00+08:00' } })
+    assert.equal(updated.once?.startAt, '2026-11-05T06:00:00.000Z')
+    assert.equal(updated.once?.startAtSource, 'explicit')
+    assert.equal(updated.once?.endAt, '2026-11-06T10:00:00.000Z')
+  })
+})
+
+describe('Review fixes: a stale tick change never overwrites a user edit (F1.6)', () => {
+  it('drops a change whose expectedRevision is out of date', async () => {
+    const { repo } = harness()
+    const task = await repo.create({
+      title: 'x',
+      kind: 'once',
+      once: { startAt: '2026-11-05T14:00:00+08:00', endAt: '2026-11-05T18:00:00+08:00' },
+    })
+    // Scheduler solved against revision 1; the user edits to revision 2 first.
+    const plan = resolveTick(repo.snapshotTasks(), new Date('2026-11-05T06:00:30Z'), { graceMinutes: 5 })
+    const stale = planToChanges(plan, [{ ...task, revision: 1 }])
+    await repo.update(task.id, 1, { once: { startAt: '2026-11-05T15:00:00+08:00', endAt: '2026-11-05T19:00:00+08:00' } })
+    await repo.applyTick(stale, new Date('2026-11-05T06:00:30Z'))
+    const after = repo.get(task.id)
+    assert.equal(after?.state.firedStart, false, 'the stale start claim must not stick')
+  })
+})
+
+/** Run the migration chain and expose the warning list for assertions. */
+function migrates(document: Record<string, unknown>): { tasks: unknown[]; warnings: string[] } {
+  const warnings: string[] = []
+  const result = migrateDocumentV2(document, warnings)
+  return { tasks: (result['tasks'] as unknown[]) ?? [], warnings }
+}

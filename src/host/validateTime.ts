@@ -31,6 +31,10 @@ export function validateOnce(
   endReminder = true,
 ): OnceWindow {
   const raw = value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+  // F2.6 / F9.1: a one-off task carries its own zone. It may be supplied either
+  // at the top level (legacy callers) or inside `once` (the documented API
+  // shape), so the inner value wins when both are present.
+  const zone = resolveZone(raw['timeZone'], timeZone)
   const startText = raw['startAt']
   const explicitStart = typeof startText === 'string' && startText.trim() !== ''
   if (startText !== undefined && startText !== null && typeof startText !== 'string') {
@@ -49,8 +53,8 @@ export function validateOnce(
       { field: 'notify.endReminder' },
     )
   }
-  const start = explicitStart ? parseInstant(startText, timeZone, 'once.startAt') : createdAt
-  const end = parseInstant(normalizeEndText(endText), timeZone, 'once.endAt')
+  const start = explicitStart ? parseInstant(startText, zone, 'once.startAt') : createdAt
+  const end = parseInstant(normalizeEndText(endText), zone, 'once.endAt')
   if (end.getTime() <= start.getTime()) {
     throw new ValidationError('invalid_argument', 'once.endAt must be strictly later than once.startAt', {
       field: 'once.endAt',
@@ -60,7 +64,7 @@ export function validateOnce(
     startAt: start.toISOString(),
     endAt: end.toISOString(),
     startAtSource: explicitStart ? 'explicit' : 'created',
-    timeZone,
+    timeZone: zone,
   }
 }
 
@@ -135,4 +139,26 @@ function offsetSuffix(local: string, timeZone: string): string {
   const hh = String(Math.floor(absolute / 60)).padStart(2, '0')
   const mm = String(absolute % 60).padStart(2, '0')
   return `${sign}${hh}:${mm}`
+}
+
+/**
+ * Validate an optional IANA zone, falling back to the caller's default.
+ * @param value - Candidate zone from the payload.
+ * @param fallback - Zone to use when absent.
+ * @returns A resolvable IANA zone.
+ * @throws ValidationError `invalid_timezone` when the candidate is unusable.
+ */
+function resolveZone(value: unknown, fallback: string): string {
+  if (value === undefined || value === null || value === '') return fallback
+  if (typeof value !== 'string') {
+    throw new ValidationError('invalid_timezone', 'once.timeZone must be a string', { field: 'once.timeZone' })
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value })
+  } catch {
+    throw new ValidationError('invalid_timezone', `timeZone ${JSON.stringify(value)} is not a resolvable IANA zone`, {
+      field: 'once.timeZone',
+    })
+  }
+  return value
 }

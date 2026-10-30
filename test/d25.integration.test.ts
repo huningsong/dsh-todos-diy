@@ -10,7 +10,7 @@ import { describe, it } from 'node:test'
 import { createRepository } from '../src/host/repo.js'
 import { createStore } from '../src/host/store.js'
 import { emptyState, SCHEMA_VERSION } from '../src/host/state.js'
-import { readArchiveIndex, readQuarter, archiveCompleted } from '../src/host/archive.js'
+import { readArchiveIndex, readQuarter, archiveCompleted, rebuildIndex } from '../src/host/archive.js'
 import { storagePaths } from '../src/host/paths.js'
 import { fakeRequest, fakeResponse } from './fakeHttp.js'
 import { createMemoryFs } from './memoryFs.js'
@@ -350,5 +350,43 @@ describe('D-25: /health no longer exposes a daily priority refresh (AC-32)', () 
     const value = res.json<{ value: { scheduler: Record<string, unknown> } }>().value
     assert.equal(Object.hasOwn(value.scheduler, 'lastPriorityRefreshAt'), false)
     assert.ok(value.scheduler['lastTickAt'] === null || typeof value.scheduler['lastTickAt'] === 'string')
+  })
+})
+
+describe('D-25 #7b: a v1 archive quarter file is migrated on disk at startup', () => {
+  it('rewrites the quarter file to schemaVersion 2 during the index rebuild', () => {
+    const fs = createMemoryFs()
+    fs.mkdir(DATA_DIR)
+    fs.mkdir(`${DATA_DIR}/archive`)
+    const quarter = {
+      schemaVersion: 1,
+      quarter: '2026-Q3',
+      tasks: [
+        {
+          id: 'tr_q3',
+          title: 'Q3',
+          description: '',
+          kind: 'once',
+          status: 'done',
+          dueDate: '2026-08-15',
+          pinned: false,
+          doneAt: '2026-08-15T02:00:00.000Z',
+          archivedQuarter: '2026-Q3',
+          rule: null,
+          once: { startAt: '2026-08-15T01:00:00.000Z', endAt: '2026-08-15T03:00:00.000Z', timeZone: 'Asia/Shanghai' },
+          notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 0, sound: false },
+          state: { lastFiredAt: null, lastOccurrenceKey: null, firedStart: true, firedEnd: true },
+          revision: 1,
+          createdAt: '2026-08-01T00:00:00.000Z',
+          updatedAt: '2026-08-15T02:00:00.000Z',
+        },
+      ],
+    }
+    fs.files.set(`${DATA_DIR}/archive/completed-2026-Q3.json`, JSON.stringify(quarter))
+    rebuildIndex(storagePaths(DATA_DIR), fs)
+    const written = JSON.parse(fs.files.get(`${DATA_DIR}/archive/completed-2026-Q3.json`) as string)
+    assert.equal(written.schemaVersion, 2)
+    assert.equal(Object.hasOwn(written.tasks[0], 'dueDate'), false)
+    assert.equal(written.tasks[0].once.startAtSource, 'explicit')
   })
 })

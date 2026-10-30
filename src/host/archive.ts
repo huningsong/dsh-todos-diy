@@ -20,7 +20,7 @@ import { join } from 'node:path'
 import type { Task } from './rules/types.js'
 import { SCHEMA_VERSION } from './state.js'
 import type { PersistedState } from './state.js'
-import { migrateTaskV2 } from './migrationV2.js'
+import { migrateDocumentV2, migrateTaskV2 } from './migrationV2.js'
 import type { StoragePaths } from './paths.js'
 
 /** One entry of `archive/index.json`. */
@@ -183,8 +183,21 @@ export function rebuildIndex(
     if (match === null) continue
     const quarter = match[1] as string
     try {
-      const file = JSON.parse(fs.readFile(join(paths.archiveDir, name))) as QuarterFile
-      const tasks = Array.isArray(file.tasks) ? file.tasks : []
+      const file = JSON.parse(fs.readFile(join(paths.archiveDir, name))) as QuarterFile & { schemaVersion?: number }
+      let tasks = Array.isArray(file.tasks) ? file.tasks : []
+      // F6.8 / AC-41: a quarter file left at v1 is migrated **on disk** during
+      // the startup rebuild, so the archive reaches the current schema without
+      // a separate maintenance command.
+      if ((file.schemaVersion ?? 1) < SCHEMA_VERSION) {
+        try {
+          const migrated = migrateDocumentV2({ ...file, tasks })
+          tasks = migrated['tasks'] as Task[]
+          writeJsonAtomic(fs, join(paths.archiveDir, name), migrated)
+          logger?.warn?.(`todos-diy: migrated archive file ${name} to schemaVersion ${String(SCHEMA_VERSION)}`)
+        } catch (migrationError) {
+          logger?.warn?.(`todos-diy: archive file ${name} could not be migrated: ${String(migrationError)}`)
+        }
+      }
       const bounds = quarterBounds(quarter)
       quarters.push({
         quarter,
@@ -235,7 +248,9 @@ export function archiveCompleted(state: PersistedState, options: ArchiveOptions)
   const index = readArchiveIndex(paths, fs, logger)
   const byQuarter = new Map<string, Task[]>()
   for (const task of toArchive) {
-    const quarter = quarterOf(task.doneAt as string, task.rule?.timeZone ?? timeZone)
+    // F4.16: the quarter is decided in the task's own zone — a one-off task
+    // carries it on `once`, not on `rule`.
+    const quarter = quarterOf(task.doneAt as string, task.rule?.timeZone ?? task.once?.timeZone ?? timeZone)
     const bucket = byQuarter.get(quarter)
     if (bucket === undefined) byQuarter.set(quarter, [task])
     else bucket.push(task)

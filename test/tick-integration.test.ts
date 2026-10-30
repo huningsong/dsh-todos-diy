@@ -14,6 +14,7 @@ import { describe, it } from 'node:test'
 import { createRepository } from '../src/host/repo.js'
 import { createStore } from '../src/host/store.js'
 import { resolveTick } from '../src/host/rules/resolveTick.js'
+import { planToChanges } from '../src/host/tickChanges.js'
 import { buildHolidayTable, type HolidayFile } from '../src/host/rules/holidays.js'
 import { createMemoryFs, type MemoryFs } from './memoryFs.js'
 import { readFileSync } from 'node:fs'
@@ -61,21 +62,9 @@ function harness(now: Date): Harness {
 async function tick(harnessRef: Harness, now: Date): Promise<ReturnType<typeof resolveTick>> {
   const tasks = harnessRef.repo.snapshotTasks()
   const plan = resolveTick(tasks, now, { graceMinutes: 5, holidays })
-  const changes = [
-    ...plan.fire.map((occurrence) => ({
-      taskId: occurrence.taskId,
-      firedKey: occurrence.key,
-      firedAt: now.toISOString(),
-      phase: occurrence.phase,
-      node: occurrence.node ?? null,
-    })),
-    ...plan.markMissed.map((occurrence) => ({
-      taskId: occurrence.taskId,
-      missedKey: occurrence.key,
-      // Mirror the production tick: the occurrence's own instant is the mark.
-      missedAt: occurrence.at.toISOString(),
-    })),
-  ]
+  // Always use the production mapper: a local mirror would let a missing field
+  // in `createTick` pass unnoticed (that is how the `node` defect slipped by).
+  const changes = planToChanges(plan, tasks)
   if (changes.length > 0) {
     await harnessRef.repo.applyTick(changes, now)
     await harnessRef.repo.flush()

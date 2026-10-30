@@ -217,7 +217,7 @@ export function TodoPanel(props: PanelProps) {
       void mutate(async () => {
         const payload = draftToPayloadOf(draftFromTask(task, settings?.timeZone ?? 'Asia/Shanghai'))
         delete payload['id']
-        await api.create({ ...payload, title: `${task.title} 副本` })
+        await api.create({ ...payload, title: `${task.title}${t('task.copySuffix')}` })
       }),
     onDelete,
     onRemindNow: (task: TaskView) => void mutate(() => api.remind(task.id), t('toast.reminded')),
@@ -285,13 +285,14 @@ export function TodoPanel(props: PanelProps) {
                 void mutate(async () => {
                   const payload = draftToPayloadOf(draftFromTask(menu.task, settings?.timeZone ?? 'Asia/Shanghai'))
                   delete payload['id']
-                  await api.create({ ...payload, title: `${menu.task.title} 副本` })
+                  await api.create({ ...payload, title: `${menu.task.title}${t('task.copySuffix')}` })
                 }),
             },
             {
-              // UX-13: a one-shot "remind me now" to verify a rule quickly.
+              // F8.14: one immediate reminder via `/tasks/remind`; this does
+              // not touch the rule or the fired markers.
               label: t('task.remindNow'),
-              onSelect: () => void mutate(() => api.snooze(menu.task.id, 1)),
+              onSelect: () => void mutate(() => api.remind(menu.task.id), t('toast.reminded')),
             },
             {
               // F4.19/F8.14: history is the delivery log filtered to this task.

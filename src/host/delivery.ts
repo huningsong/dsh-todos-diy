@@ -89,7 +89,8 @@ export function phaseLabel(phase: Occurrence['phase']): string {
  * @returns Card payload for `/due`.
  */
 export function buildReminderCard(task: Task, occurrence: Occurrence): ReminderCard {
-  const timeZone = task.rule?.timeZone ?? 'Asia/Shanghai'
+  // F2.6: a one-off task carries its zone in `once`, not in `rule`.
+  const timeZone = task.rule?.timeZone ?? task.once?.timeZone ?? 'Asia/Shanghai'
   const atMs = occurrence.at.getTime()
   const localTime = localDateTimeKey(atMs, timeZone)
   const phase = occurrence.phase

@@ -173,13 +173,21 @@ export function createRepository(options: RepositoryOptions): Repository {
         if (!canTransition(task.status, 'active')) {
           throw new ValidationError('invalid_state', describeTransition(task.status, 'active'))
         }
+        const stamp = clock().toISOString()
+        const fromDone = task.status === 'done'
         const revived: Task = {
           ...task,
           status: 'active',
           doneAt: null,
-          pinned: false,
+          // F4.15 only requires clearing the pin when a task is completed; a
+          // pause/resume cycle must keep the user's pin (D-21).
+          pinned: fromDone ? false : task.pinned,
           revision: task.revision + 1,
-          updatedAt: clock().toISOString(),
+          updatedAt: stamp,
+          // F4.2 / AC-10: resuming continues from the next future instant. The
+          // watermark is moved to now so the paused interval is not replayed as
+          // a backlog of missed occurrences.
+          state: { ...task.state, lastFiredAt: stamp, lastOccurrenceKey: task.state.lastOccurrenceKey },
         }
         replaceTask(revived)
         return { id, status: 'active' as const, changed: true }
@@ -345,6 +353,9 @@ export function createRepository(options: RepositoryOptions): Repository {
           const index = indexOf(change.taskId)
           if (index === -1) continue
           const task = store.state.tasks[index] as Task
+          // F1.6 / §8.2: drop a change solved against an older revision. The
+          // user's edit wins; the next tick re-solves the new schedule.
+          if (change.expectedRevision !== undefined && change.expectedRevision !== task.revision) continue
           store.state.tasks[index] = applyTickChange(task, change, stamp)
         }
         store.state.meta.lastTickAt = stamp

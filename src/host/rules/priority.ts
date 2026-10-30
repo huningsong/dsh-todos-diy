@@ -65,12 +65,15 @@ export function stageOf(task: Task, now: Date): TaskStage {
   if (task.kind === 'recurring') return 'recurring'
   const window = task.once
   if (window === null) return 'inProgress'
-  const nowSec = seconds(now.getTime())
-  const startSec = seconds(Date.parse(window.startAt))
-  const endSec = seconds(Date.parse(window.endAt))
-  if (Number.isNaN(startSec) || Number.isNaN(endSec)) return 'inProgress'
-  if (nowSec < startSec) return 'notStarted'
-  if (nowSec > endSec) return 'overdue'
+  const nowMs = now.getTime()
+  const startMs = Date.parse(window.startAt)
+  const endMs = Date.parse(window.endAt)
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) return 'inProgress'
+  // `startAt` is millisecond-exact (`now < startAt` → notStarted, F1.2).
+  if (nowMs < startMs) return 'notStarted'
+  // `endAt` has the documented exception: the whole end second still counts as
+  // in progress ("endAt 当秒仍算进行中").
+  if (seconds(nowMs) > seconds(endMs)) return 'overdue'
   return 'inProgress'
 }
 

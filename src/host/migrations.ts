@@ -20,7 +20,7 @@ export interface Migration {
    * @param raw - Document at version `from`.
    * @returns Document at version `from + 1`.
    */
-  run(raw: Record<string, unknown>): Record<string, unknown>
+  run(raw: Record<string, unknown>, warnings: string[]): Record<string, unknown>
 }
 
 /**
@@ -33,14 +33,14 @@ export const MIGRATIONS: readonly Migration[] = [
   {
     from: 1,
     describe: 'v1→v2: D-25 task time and status model',
-    run: (raw) => migrateDocumentV2(raw),
+    run: (raw, warnings) => migrateDocumentV2(raw, warnings),
   },
 ]
 
 /** Result of running the chain. */
 export type MigrateResult =
-  | { ok: true; state: Record<string, unknown>; applied: string[] }
-  | { ok: false; message: string }
+  | { ok: true; state: Record<string, unknown>; applied: string[]; warnings: string[] }
+  | { ok: false; message: string; warnings: string[] }
 
 /**
  * Run every migration from the document's version up to `SCHEMA_VERSION`.
@@ -58,11 +58,12 @@ export function migrateState(
   target: number = SCHEMA_VERSION,
 ): MigrateResult {
   const start = raw['schemaVersion']
+  const warnings: string[] = []
   if (typeof start !== 'number' || !Number.isInteger(start)) {
-    return { ok: false, message: 'schemaVersion is missing or not an integer' }
+    return { ok: false, message: 'schemaVersion is missing or not an integer', warnings }
   }
   if (start > target) {
-    return { ok: false, message: `document version ${String(start)} is newer than this plugin (${String(target)})` }
+    return { ok: false, message: `document version ${String(start)} is newer than this plugin (${String(target)})`, warnings }
   }
   const applied: string[] = []
   let current = raw
@@ -70,24 +71,25 @@ export function migrateState(
   while (version < target) {
     const step = chain.find((migration) => migration.from === version)
     if (step === undefined) {
-      return { ok: false, message: `no migration registered from version ${String(version)}` }
+      return { ok: false, message: `no migration registered from version ${String(version)}`, warnings }
     }
     try {
-      current = step.run(current)
+      current = step.run(current, warnings)
     } catch (error) {
-      return { ok: false, message: `migration from ${String(version)} failed: ${String(error)}` }
+      return { ok: false, message: `migration from ${String(version)} failed: ${String(error)}`, warnings }
     }
     const next = current['schemaVersion']
     if (next !== version + 1) {
       return {
         ok: false,
         message: `migration from ${String(version)} did not advance schemaVersion (got ${String(next)})`,
+        warnings,
       }
     }
     applied.push(step.describe)
     version += 1
   }
-  return { ok: true, state: current, applied }
+  return { ok: true, state: current, applied, warnings }
 }
 
 /**

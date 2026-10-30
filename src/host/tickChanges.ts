@@ -8,6 +8,7 @@
 
 import type { Occurrence, TickPlan } from './rules/types.js'
 import type { TickChange } from './repoTypes.js'
+import type { Task } from './rules/types.js'
 
 /**
  * Map a tick plan to repository changes.
@@ -21,10 +22,15 @@ import type { TickChange } from './repoTypes.js'
  * @param plan - Result of `resolveTick`.
  * @returns Changes ready for `repo.applyTick`.
  */
-export function planToChanges(plan: { fire: Occurrence[]; markMissed: Occurrence[] }): TickChange[] {
+export function planToChanges(
+  plan: { fire: Occurrence[]; markMissed: Occurrence[] },
+  tasks: readonly Task[] = [],
+): TickChange[] {
+  const revisionOf = new Map(tasks.map((task) => [task.id, task.revision]))
   return [
     ...plan.fire.map((occurrence) => ({
       taskId: occurrence.taskId,
+      expectedRevision: revisionOf.get(occurrence.taskId),
       firedKey: occurrence.key,
       firedAt: occurrence.at.toISOString(),
       phase: occurrence.phase,
@@ -32,6 +38,7 @@ export function planToChanges(plan: { fire: Occurrence[]; markMissed: Occurrence
     })),
     ...plan.markMissed.map((occurrence) => ({
       taskId: occurrence.taskId,
+      expectedRevision: revisionOf.get(occurrence.taskId),
       missedKey: occurrence.key,
       missedAt: occurrence.at.toISOString(),
       node: occurrence.node ?? null,

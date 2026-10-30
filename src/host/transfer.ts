@@ -10,6 +10,7 @@
 import { copyFileSync, existsSync, writeFileSync } from 'node:fs'
 
 import { SCHEMA_VERSION } from './state.js'
+import { migrateState } from './migrations.js'
 import type { PersistedState, Settings } from './state.js'
 import type { Task } from './rules/types.js'
 import { coerceTask } from './state.js'
@@ -94,11 +95,23 @@ export function parseImport(payload: unknown): ImportCandidate {
       code: 'schema_mismatch',
     })
   }
-  const rawTasks = record['tasks']
+  // F9.5 / AC-41: import shares the same 1→2 migration as the on-disk files.
+  // A v1 bundle that cannot be migrated fails the import instead of silently
+  // dropping fields; nothing is written because the caller bails out first.
+  let document = record
+  const warnings: string[] = []
+  if (version < SCHEMA_VERSION) {
+    const migrated = migrateState(record)
+    if (!migrated.ok) {
+      throw Object.assign(new Error(`import migration failed: ${migrated.message}`), { code: 'migration-failed' })
+    }
+    document = migrated.state
+    warnings.push(...migrated.warnings)
+  }
+  const rawTasks = document['tasks']
   if (!Array.isArray(rawTasks)) {
     throw Object.assign(new Error('import payload has no tasks array'), { code: 'schema_mismatch' })
   }
-  const warnings: string[] = []
   const tasks: Task[] = []
   let skipped = 0
   for (const [index, candidate] of rawTasks.entries()) {
@@ -110,10 +123,10 @@ export function parseImport(payload: unknown): ImportCandidate {
     }
     tasks.push(task)
   }
-  const settings = record['settings'] !== null && typeof record['settings'] === 'object'
-    ? (record['settings'] as Settings)
+  const settings = document['settings'] !== null && typeof document['settings'] === 'object'
+    ? (document['settings'] as Settings)
     : null
-  const deliveriesRaw = record['deliveries']
+  const deliveriesRaw = document['deliveries']
   const deliveries = Array.isArray(deliveriesRaw) ? (deliveriesRaw as PersistedState['deliveries']) : []
   if (skipped > 0) warnings.push(`${String(skipped)} task(s) skipped`)
   return { tasks, settings, deliveries, warnings }
