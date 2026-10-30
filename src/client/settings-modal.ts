@@ -64,7 +64,7 @@ export function SettingsModal(props: {
         h(
           'button',
           { key: 's', type: 'button', className: 'dtd-btn', disabled: saving, onClick: () => void save() },
-          saving ? t('state.saving') : t('form.save'),
+          saving ? t('state.saving') : t('settings.save'),
         ),
       ],
     },

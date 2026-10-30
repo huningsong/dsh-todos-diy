@@ -26,6 +26,11 @@ export interface FieldProps {
   t: Translate
 }
 
+/** Extra props for the one-off window fields (FIX-04 field-level errors). */
+export interface OnceFieldProps extends FieldProps {
+  fieldErrors?: { startAt?: string; endAt?: string }
+}
+
 /**
  * Render the recurring-rule fields (preset, time, weekday/monthday, holiday
  * basis, month-end policy and the exception-date chips).
@@ -234,7 +239,7 @@ export function RuleFields({ draft, update, t }: FieldProps): React.ReactNode {
  * @param props - Draft, updater and translator.
  * @returns React child list.
  */
-export function OnceFields({ draft, update, t }: FieldProps): React.ReactNode {
+export function OnceFields({ draft, update, t, fieldErrors }: OnceFieldProps): React.ReactNode {
   return [
     h(
       'div',
@@ -248,12 +253,16 @@ export function OnceFields({ draft, update, t }: FieldProps): React.ReactNode {
           className: 'dtd-input',
           value: draft.startAt,
           'aria-label': t('form.startAt'),
+          'aria-invalid': fieldErrors?.startAt === undefined ? undefined : 'true',
           onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
             update('startAt', event.target.value)
             // Typing a start value makes the window explicit from now on.
             update('startAtSource', 'explicit')
           },
         }),
+        fieldErrors?.startAt === undefined
+          ? null
+          : h('span', { className: 'dtd-field-error', role: 'alert' }, fieldErrors.startAt),
       ),
       h(
         'div',
@@ -264,8 +273,12 @@ export function OnceFields({ draft, update, t }: FieldProps): React.ReactNode {
           className: 'dtd-input',
           value: draft.endAt,
           'aria-label': t('form.endAt'),
+          'aria-invalid': fieldErrors?.endAt === undefined ? undefined : 'true',
           onChange: (event: React.ChangeEvent<HTMLInputElement>) => update('endAt', event.target.value),
         }),
+        fieldErrors?.endAt === undefined
+          ? null
+          : h('span', { className: 'dtd-field-error', role: 'alert' }, fieldErrors.endAt),
       ),
     ),
     h('span', { className: 'dtd-hint', key: 'hint' }, t('form.onceHint')),

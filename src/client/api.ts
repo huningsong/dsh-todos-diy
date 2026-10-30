@@ -154,10 +154,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** Typed view of the plugin API. */
 export const api = {
   /** Read one snapshot of the given view. */
-  snapshot(view: ViewName, search: string): Promise<SnapshotPayload> {
+  snapshot(view: ViewName, search: string, signal?: AbortSignal): Promise<SnapshotPayload> {
     const params = new URLSearchParams({ view })
     if (search.trim() !== '') params.set('q', search.trim())
-    return request<SnapshotPayload>(`/snapshot?${params.toString()}`)
+    return request<SnapshotPayload>(`/snapshot?${params.toString()}`, signal === undefined ? undefined : { signal })
   },
   /** Create one task. */
   create(body: unknown): Promise<TaskView> {
@@ -179,10 +179,14 @@ export const api = {
     return request('/tasks/resume', { method: 'POST', body: JSON.stringify({ id }) })
   },
   /** Complete a task / skip the current occurrence. */
-  complete(id: string, occurrenceKey?: string): Promise<{ id: string; nextAt: string | null }> {
+  complete(id: string, occurrenceKey?: string, skipNext?: boolean): Promise<{ id: string; nextAt: string | null }> {
     return request('/tasks/complete', {
       method: 'POST',
-      body: JSON.stringify(occurrenceKey === undefined ? { id } : { id, occurrenceKey }),
+      body: JSON.stringify({
+        id,
+        ...(occurrenceKey === undefined ? {} : { occurrenceKey }),
+        ...(skipNext === true ? { skipNext: true } : {}),
+      }),
     })
   },
   /** Snooze a task. */

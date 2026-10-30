@@ -134,6 +134,8 @@ export const CSS = `
 .dtd-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .dtd-check-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dsw-alias-label-secondary)}
 .dtd-preview{margin:0;padding:10px 12px;border-radius:10px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font-size:12px;line-height:20px;white-space:pre-wrap}
+.dtd-field-error{margin-top:4px;font-size:12px;line-height:17px;color:var(--dsw-alias-state-error-primary)}
+.dtd-input[aria-invalid="true"]{border-color:var(--dsw-alias-state-error-primary)}
 .dtd-error{border:.5px solid var(--dsw-alias-state-error-primary);border-radius:10px;padding:8px 10px;color:var(--dsw-alias-state-error-primary);font-size:12.5px;line-height:19px;background:var(--dsw-alias-bg-layer-1)}
 .dtd-cardA{border-radius:12px;background:var(--dsw-alias-bg-layer-2);padding:10px 12px;font-size:12px;line-height:19px;color:var(--dsw-alias-label-secondary)}
 

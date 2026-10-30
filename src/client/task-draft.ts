@@ -6,7 +6,7 @@
  * rules testable without rendering React.
  */
 
-import type { TaskView } from '../../src/host/taskView'
+import type { TaskView } from '../../src/host/taskView.js'
 
 /** Draft state the form edits; converted to an API payload on save. */
 export interface TaskDraft {
@@ -195,3 +195,33 @@ export function draftToPayload(draft: TaskDraft): Record<string, unknown> {
   return { ...base, kind: 'recurring', rule }
 }
 
+
+/** Field-level validation result for the editor (FIX-04). */
+export interface DraftValidation {
+  /** Form-level message (e.g. a missing title), or undefined. */
+  error?: string
+  /** Per-field messages keyed by field name. */
+  fieldErrors: { startAt?: string; endAt?: string }
+}
+
+/**
+ * Validate a draft before it is sent to the server.
+ *
+ * Keeps the messages field-scoped so the editor can mark the offending input
+ * instead of showing the generic `invalid_argument` translation.
+ * @param draft - Current form state.
+ * @param t - Translator.
+ * @returns The first blocking error, if any.
+ */
+export function validateDraft(
+  draft: TaskDraft,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): DraftValidation {
+  if (draft.title.trim() === '') return { error: t('form.required'), fieldErrors: {} }
+  if (draft.kind !== 'once') return { fieldErrors: {} }
+  if (draft.endAt.trim() === '') return { fieldErrors: { endAt: t('form.endAtRequired') } }
+  if (draft.startAt !== '' && draft.endAt <= draft.startAt) {
+    return { fieldErrors: { endAt: t('form.endAfterStart') } }
+  }
+  return { fieldErrors: {} }
+}

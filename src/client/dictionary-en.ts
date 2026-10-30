@@ -239,4 +239,9 @@ export const en = {
   'empty.paused': 'Nothing paused',
   'task.copySuffix': ' copy',
   'error.host_too_old': 'Plugin version mismatch: DSH is still running an older host build. Restart DSH (or reinstall the plugin) and try again.',
+  'settings.save': 'Save settings',
+  'task.onceDeadlineOnly': 'One-off · due {end}',
+  'form.endAtRequired': 'End time is required',
+  'toast.skippedNext': 'Next reminder skipped',
+  'panel.searchPlaceholder': 'Search in the current view',
 }

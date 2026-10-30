@@ -9,9 +9,9 @@ import type { TaskView } from '../../src/host/taskView'
 
 const h = React.createElement
 import { api, ApiError } from './api'
-import { draftFromTask, draftToPayload, type TaskDraft } from './task-draft'
+import { draftFromTask, draftToPayload, validateDraft, type TaskDraft } from './task-draft'
 
-export { emptyDraft, draftFromTask, draftToPayload, toLocalInput, type TaskDraft } from './task-draft'
+export { emptyDraft, draftFromTask, draftToPayload, toLocalInput, validateDraft, type TaskDraft } from './task-draft'
 import { Modal } from './ui'
 import { BasicFields, OnceFields, RuleFields } from './editor-fields'
 import { requestNotificationPermission } from './notify-permission'
@@ -31,6 +31,7 @@ export function TaskEditor(props: TaskEditorProps) {
   const { t } = props
   const [draft, setDraft] = React.useState<TaskDraft>(props.initial)
   const [error, setError] = React.useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = React.useState<{ startAt?: string; endAt?: string }>({})
   const [saving, setSaving] = React.useState(false)
   const [preview, setPreview] = React.useState<string[]>([])
 
@@ -65,14 +66,14 @@ export function TaskEditor(props: TaskEditorProps) {
 
   const save = async (): Promise<void> => {
     setError(null)
-    if (draft.title.trim() === '') {
-      setError(t('form.required'))
+    // FIX-04: field-level messages instead of a generic "参数不合法".
+    const validation = validateDraft(draft, t)
+    setFieldErrors(validation.fieldErrors)
+    if (validation.error !== undefined) {
+      setError(validation.error)
       return
     }
-    if (draft.kind === 'once' && draft.startAt !== '' && draft.endAt !== '' && draft.endAt <= draft.startAt) {
-      setError(t('form.endAfterStart'))
-      return
-    }
+    if (Object.keys(validation.fieldErrors).length > 0) return
     setSaving(true)
     try {
       // F9.3 / UX-12: only ask for the notification permission when the user
@@ -104,7 +105,7 @@ export function TaskEditor(props: TaskEditorProps) {
 
   const ruleFields = draft.kind === 'recurring'
     ? h(RuleFields, { draft, update, t })
-    : h(OnceFields, { draft, update, t })
+    : h(OnceFields, { draft, update, t, fieldErrors })
 
   return h(
     Modal,

@@ -64,15 +64,32 @@ export function TodoPanel(props: PanelProps) {
   const [firstRun, setFirstRun] = React.useState(false)
   const [readOnly, setReadOnly] = React.useState(false)
   const searchRef = React.useRef<HTMLInputElement | null>(null)
+  // FIX-01: only the newest snapshot may update the panel. Without this a slow
+  // response for the previous tab can land after the new one and leave a badge
+  // count with an empty list.
+  const requestSeqRef = React.useRef(0)
+  const abortRef = React.useRef<AbortController | null>(null)
 
   const today = browserToday()
 
-  /** Reload the current view. */
+  /**
+   * Reload the current view.
+   * @param target - View to request.
+   * @param query - Search text.
+   * @param showSkeleton - True when the switch itself should show the loading
+   *   skeleton (user changed tab/search); background refreshes keep the list.
+   */
   const load = React.useCallback(
-    async (target: ViewName = view, query: string = search): Promise<void> => {
-      setPhase((current) => (current === 'ready' ? current : 'loading'))
+    async (target: ViewName = view, query: string = search, showSkeleton = false): Promise<void> => {
+      const seq = requestSeqRef.current + 1
+      requestSeqRef.current = seq
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      if (showSkeleton) setPhase('loading')
       try {
-        const snapshot = await api.snapshot(target, query)
+        const snapshot = await api.snapshot(target, query, controller.signal)
+        if (seq !== requestSeqRef.current) return
         setItems(snapshot.items)
         setCounts(snapshot.counts)
         setTotals({ once: snapshot.byKind.once, recurring: snapshot.byKind.recurring, done: snapshot.totalDone })
@@ -80,6 +97,8 @@ export function TodoPanel(props: PanelProps) {
         setSettings(snapshot.settings)
         setPhase('ready')
       } catch (caught) {
+        if (seq !== requestSeqRef.current) return
+        if (caught instanceof ApiError && caught.code === 'network_error' && controller.signal.aborted) return
         const code = caught instanceof ApiError ? caught.code : 'internal_error'
         // The snapshot rejects `view` with `invalid_argument` only when the
         // host half is an older build that does not know the six views: DSH
@@ -92,6 +111,13 @@ export function TodoPanel(props: PanelProps) {
   )
 
   React.useEffect(() => {
+    return () => {
+      // Never let an in-flight snapshot write into an unmounted panel.
+      abortRef.current?.abort()
+    }
+  }, [])
+
+  React.useEffect(() => {
     // F6.8 / UX-15: surface a newer-schema file instead of silently pretending
     // the writes work. The health call is cheap and runs once per mount.
     void api
@@ -101,14 +127,14 @@ export function TodoPanel(props: PanelProps) {
   }, [])
 
   React.useEffect(() => {
-    void load(view, '')
+    void load(view, '', true)
     // The initial load must not re-run on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view])
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => {
-      void load(view, search)
+      void load(view, search, true)
     }, 250)
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -172,9 +198,12 @@ export function TodoPanel(props: PanelProps) {
 
   const onComplete = (task: TaskView): void => {
     const previousStatus = task.status
+    // FIX-05 / F7.18: a recurring task that has never fired has no current
+    // occurrence; "complete" means "skip the next run" rather than an error.
+    const skipNext = task.kind === 'recurring' && task.state.lastOccurrenceKey === null
     void mutate(
-      () => api.complete(task.id),
-      t('toast.completed'),
+      () => api.complete(task.id, undefined, skipNext),
+      skipNext ? t('toast.skippedNext') : t('toast.completed'),
       previousStatus === 'done' ? undefined : () => api.restore(task.id),
     )
   }
@@ -252,7 +281,7 @@ export function TodoPanel(props: PanelProps) {
           ref: searchRef,
           type: 'search',
           value: search,
-          placeholder: t('panel.search'),
+          placeholder: t('panel.searchPlaceholder'),
           'aria-label': t('panel.search'),
           onChange: (event: React.ChangeEvent<HTMLInputElement>) => setSearch(event.target.value),
         }),
