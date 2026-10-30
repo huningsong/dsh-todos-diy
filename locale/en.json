@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Work To-Do Reminders",
+    "description": "Recurring work reminders (workdays, weekly, monthly, custom cron) plus one-off tasks that remind at both start and end, with three views and derived priority."
+  }
+}

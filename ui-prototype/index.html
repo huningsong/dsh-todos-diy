@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DSH 工作待办提醒 · UI 原型 v1</title>
+<style>
+/* ============================================================
+   DSH 主题 token（取自 @deepseek-ai/dsh-client-ui-theme 0.2.1-rc.3）
+   浅色为 body 默认，深色为 [data-ds-dark-theme]
+   ============================================================ */
+:root{
+  --dsw-static-neutral-bluish-00:#fff;
+  --dsw-static-neutral-bluish-50:#f9fafb;
+  --dsw-static-neutral-bluish-60:#f9fafb;
+  --dsw-static-neutral-bluish-75:#f1f3f5;
+  --dsw-static-neutral-bluish-100:#ebeef2;
+  --dsw-static-neutral-bluish-150:#e9ecf2;
+  --dsw-static-neutral-bluish-200:#e1e5ee;
+  --dsw-static-neutral-bluish-300:#cfd3d6;
+  --dsw-static-neutral-bluish-400:#adb2b8;
+  --dsw-static-neutral-bluish-500:#979da6;
+  --dsw-static-neutral-bluish-600:#81858c;
+  --dsw-static-neutral-bluish-700:#61666b;
+  --dsw-static-neutral-bluish-750:#43454a;
+  --dsw-static-neutral-bluish-800:#353638;
+  --dsw-static-neutral-bluish-850:#2c2c2e;
+  --dsw-static-neutral-bluish-875:#232324;
+  --dsw-static-neutral-bluish-950:#151517;
+  --dsw-static-neutral-bluish-1000:#0f1115;
+  --dsw-static-green-500:#22c55e;
+  --dsw-static-amber-500:#f59e0b;
+  --dsw-static-red-600:#ec1313;
+  --dsw-static-red-400:#f25a5a;
+  --dsw-static-deepseek-500:#4176e6;
+  --dsw-static-deepseek-450:#5686fe;
+
+  --dsw-alias-bg-base:var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-1:var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-2:var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-3:var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-module-platform:var(--dsw-static-neutral-bluish-60);
+  --dsw-alias-bg-overlay:var(--dsw-static-neutral-bluish-150);
+  --dsw-alias-border-l1:#0000000a;
+  --dsw-alias-border-l2:#0000001a;
+  --dsw-alias-border-l3:#0000001f;
+  --dsw-alias-border-l4:#00000029;
+  --dsw-alias-brand-primary:var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-label-primary:var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-label-primary-foreground:var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-label-secondary:var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-label-tertiary:var(--dsw-static-neutral-bluish-600);
+  --dsw-alias-label-caption:var(--dsw-static-neutral-bluish-400);
+  --dsw-alias-interactive-bg-hover:#2631480f;
+  --dsw-alias-interactive-bg-active:#2631481a;
+  --dsw-alias-link:var(--dsw-static-deepseek-500);
+  --dsw-alias-state-success-primary:var(--dsw-static-green-500);
+  --dsw-alias-state-warn-primary:var(--dsw-static-amber-500);
+  --dsw-alias-state-error-primary:var(--dsw-static-red-600);
+  --dsw-alias-state-business-primary:var(--dsw-static-deepseek-500);
+  --dsw-alias-toast-bg:var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-toast-label:var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-button-ghost-active-fill:var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-button-ghost-active-border:var(--dsw-static-neutral-bluish-500);
+  --dsw-alias-markdown-inline-code:var(--dsw-static-neutral-50);
+  --dsw-radius-xs:4px;
+  --dsw-radius-sm:8px;
+  --dsw-radius-md:12px;
+  --dsw-radius-lg:16px;
+  --dsw-radius-panel:28px;
+  --dsw-shadow-lv3:0 0 1px 0 #0003,0 0 4px 0 #00000005,0 12px 32px 0 #00000014;
+  --dsw-font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+}
+body[data-ds-dark-theme]{
+  --dsw-alias-bg-base:var(--dsw-static-neutral-bluish-950);
+  --dsw-alias-bg-layer-1:var(--dsw-static-neutral-bluish-875);
+  --dsw-alias-bg-layer-2:var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-bg-layer-3:var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-bg-module-platform:var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-bg-overlay:var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-border-l1:#ffffff0f;
+  --dsw-alias-border-l2:#ffffff1f;
+  --dsw-alias-border-l3:#ffffff29;
+  --dsw-alias-border-l4:#fff3;
+  --dsw-alias-brand-primary:var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-label-primary:var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-label-primary-foreground:var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-label-secondary:var(--dsw-static-neutral-bluish-300);
+  --dsw-alias-label-tertiary:var(--dsw-static-neutral-bluish-400);
+  --dsw-alias-label-caption:var(--dsw-static-neutral-bluish-600);
+  --dsw-alias-interactive-bg-hover:#ffffff14;
+  --dsw-alias-interactive-bg-active:#ffffff24;
+  --dsw-alias-link:var(--dsw-static-deepseek-450);
+  --dsw-alias-state-error-primary:var(--dsw-static-red-400);
+  --dsw-alias-state-business-primary:var(--dsw-static-deepseek-400);
+  --dsw-alias-toast-bg:var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-ghost-active-fill:var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-ghost-active-border:var(--dsw-static-neutral-bluish-600);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;font-family:var(--dsw-font-family);color:var(--dsw-alias-label-primary);
+  background:var(--dsw-alias-bg-base);-webkit-font-smoothing:antialiased;
+  font-size:13px;line-height:1.5;overflow:hidden;
+}
+button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
+input,select{font:inherit;color:inherit}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--dsw-alias-border-l3);border-radius:99px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ============================ 外壳 ============================ */
+.app{display:flex;height:100vh;width:100vw;overflow:hidden}
+
+.sidebar{
+  width:248px;flex:0 0 248px;height:100%;display:flex;flex-direction:column;
+  background:var(--dsw-alias-bg-module-platform);border-right:1px solid var(--dsw-alias-border-l1);
+  padding:14px 10px 10px;
+}
+.brand{display:flex;align-items:center;gap:8px;padding:2px 8px 14px;font-weight:600;font-size:14px;letter-spacing:.2px}
+.brand-mark{width:22px;height:22px;border-radius:6px;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground);display:grid;place-items:center;font-size:12px;font-weight:700}
+.new-session{
+  display:flex;align-items:center;gap:8px;margin:0 2px 14px;padding:8px 10px;border:1px solid var(--dsw-alias-border-l2);
+  border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-1);font-size:13px;
+}
+.new-session:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.nav-label{font-size:11px;color:var(--dsw-alias-label-caption);padding:10px 10px 6px;font-weight:600;letter-spacing:.4px}
+.nav-item{
+  display:flex;align-items:center;gap:9px;height:34px;padding:0 10px;border-radius:var(--dsw-radius-sm);
+  color:var(--dsw-alias-label-secondary);font-size:13px;margin-bottom:2px;width:100%;text-align:left;
+}
+.nav-item:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.nav-item.active{background:var(--dsw-alias-button-ghost-active-fill);color:var(--dsw-alias-label-primary);font-weight:600}
+.nav-item .ico{width:16px;height:16px;display:grid;place-items:center;opacity:.85;font-size:13px}
+.nav-item .count{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground);font-size:11px;display:grid;place-items:center;font-weight:600}
+.nav-item .count.soft{background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-secondary)}
+.sidebar-foot{margin-top:auto;padding:10px 8px 4px;border-top:1px solid var(--dsw-alias-border-l1);display:flex;align-items:center;gap:8px;color:var(--dsw-alias-label-tertiary);font-size:12px}
+.avatar{width:22px;height:22px;border-radius:50%;background:var(--dsw-alias-state-business-primary);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--dsw-alias-bg-base);height:100vh}
+.topbar{height:44px;flex:0 0 44px;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-tertiary);font-size:12px}
+.topbar .crumb{display:flex;align-items:center;gap:6px}
+.topbar .spacer{flex:1}
+.icon-btn{width:28px;height:28px;border-radius:var(--dsw-radius-xs);display:grid;place-items:center;color:var(--dsw-alias-label-tertiary);font-size:14px}
+.icon-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+
+.content{flex:1;overflow-y:auto;padding:22px 28px 40px}
+.page-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px}
+.page-title{font-size:22px;line-height:1.25;font-weight:650;letter-spacing:-.2px;margin:0 0 4px}
+.page-sub{color:var(--dsw-alias-label-tertiary);font-size:12px}
+.page-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--dsw-radius-sm);font-size:13px;border:1px solid transparent;white-space:nowrap}
+.btn-primary{background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground);font-weight:600}
+.btn-primary:hover{opacity:.88}
+.btn-secondary{background:var(--dsw-alias-bg-layer-1);border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary)}
+.btn-secondary:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.btn-ghost{color:var(--dsw-alias-label-secondary)}
+.btn-ghost:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+.btn-sm{height:28px;padding:0 10px;font-size:12px;border-radius:var(--dsw-radius-xs)}
+
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.segmented{display:inline-flex;background:var(--dsw-alias-bg-module-platform);border-radius:var(--dsw-radius-sm);padding:3px;gap:2px}
+.seg{padding:5px 12px;border-radius:6px;font-size:12.5px;color:var(--dsw-alias-label-secondary)}
+.seg.active{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-weight:600;box-shadow:0 1px 2px #00000014}
+.search{position:relative;margin-left:auto}
+.search input{width:220px;height:30px;padding:0 10px 0 28px;border-radius:var(--dsw-radius-sm);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);outline:none;font-size:12.5px}
+.search input:focus{border-color:var(--dsw-alias-button-ghost-active-border);box-shadow:0 0 0 3px var(--dsw-alias-interactive-bg-hover)}
+.search .mag{position:absolute;left:9px;top:7px;font-size:12px;opacity:.5}
+
+/* ============================ 列表 ============================ */
+.group{margin-top:18px}
+.group-head{display:flex;align-items:center;gap:8px;padding:0 2px 8px;color:var(--dsw-alias-label-tertiary);font-size:11.5px;font-weight:600;letter-spacing:.3px}
+.group-head .n{color:var(--dsw-alias-label-caption);font-weight:500}
+.rows{border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);overflow:hidden;background:var(--dsw-alias-bg-layer-1)}
+.row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--dsw-alias-border-l1);cursor:pointer;position:relative}
+.row:last-child{border-bottom:none}
+.row:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.row .status-dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+.dot-active{background:var(--dsw-alias-state-success-primary)}
+.dot-paused{background:var(--dsw-alias-label-caption)}
+.dot-missed{background:var(--dsw-alias-state-error-primary)}
+.dot-done{background:var(--dsw-alias-state-business-primary)}
+.row-main{min-width:0;flex:1}
+.row-title{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:550;margin-bottom:2px}
+.row-title .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-meta{color:var(--dsw-alias-label-tertiary);font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.row-meta .sep{opacity:.4}
+.row-right{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.next{font-size:12px;color:var(--dsw-alias-label-secondary);text-align:right;white-space:nowrap}
+.next b{font-weight:600;color:var(--dsw-alias-label-primary)}
+.next.overdue b{color:var(--dsw-alias-state-error-primary)}
+.row-actions{display:flex;gap:2px;opacity:0;transition:opacity .12s}
+.row:hover .row-actions{opacity:1}
+.pill{display:inline-flex;align-items:center;gap:3px;height:18px;padding:0 6px;border-radius:9px;font-size:10.5px;font-weight:600;letter-spacing:.2px}
+.pill-recurring{background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-secondary)}
+.pill-once{background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 12%,transparent);color:var(--dsw-alias-state-business-primary)}
+.pill-paused{background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-tertiary)}
+.pill-missed{background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent);color:var(--dsw-alias-state-error-primary)}
+.pill-soon{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 16%,transparent);color:#a16207}
+body[data-ds-dark-theme] .pill-soon{color:var(--dsw-alias-state-warn-primary)}
+.empty{padding:48px 0;text-align:center;color:var(--dsw-alias-label-tertiary);font-size:13px}
+
+/* ============================ 右侧详情抽屉（列表页） ============================ */
+.split{display:flex;gap:22px;align-items:flex-start}
+.list-col{flex:1;min-width:0}
+.detail{width:300px;flex:0 0 300px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1);padding:16px;position:sticky;top:0}
+.detail h3{margin:0 0 2px;font-size:15px;font-weight:650}
+.detail .sub{color:var(--dsw-alias-label-tertiary);font-size:12px;margin-bottom:14px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--dsw-alias-border-l1);font-size:12.5px}
+.kv:last-of-type{border-bottom:none}
+.kv .k{color:var(--dsw-alias-label-tertiary);flex:0 0 auto}
+.kv .v{text-align:right;color:var(--dsw-alias-label-primary)}
+.timeline{margin-top:14px;padding-top:12px;border-top:1px solid var(--dsw-alias-border-l1)}
+.timeline .tl-title{font-size:11.5px;font-weight:600;color:var(--dsw-alias-label-tertiary);margin-bottom:8px;letter-spacing:.3px}
+.tl-item{display:flex;gap:8px;padding:5px 0;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.tl-item .t{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex:0 0 78px}
+.tl-item .ok{color:var(--dsw-alias-state-success-primary)}
+.tl-item .miss{color:var(--dsw-alias-state-error-primary)}
+
+/* ============================ 编辑器 modal ============================ */
+.modal-layer{position:fixed;inset:0;background:#0000003d;display:none;align-items:center;justify-content:center;z-index:60;padding:28px}
+.modal-layer.open{display:flex}
+body[data-ds-dark-theme] .modal-layer{background:#0000007a}
+.modal{width:720px;max-width:100%;max-height:86vh;display:flex;flex-direction:column;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg);box-shadow:var(--dsw-shadow-lv3);overflow:hidden}
+.modal-head{display:flex;align-items:center;padding:16px 20px 12px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.modal-head h2{margin:0;font-size:16px;font-weight:650}
+.modal-head .close{margin-left:auto}
+.modal-body{overflow-y:auto;padding:18px 20px 8px}
+.modal-foot{display:flex;align-items:center;gap:8px;padding:12px 20px;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
+.modal-foot .hint{color:var(--dsw-alias-label-caption);font-size:11.5px;margin-right:auto}
+
+.field{margin-bottom:16px}
+.field > label{display:block;font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);margin-bottom:6px}
+.field .desc{font-size:11.5px;color:var(--dsw-alias-label-caption);margin-top:5px}
+.input,.select,.textarea{
+  width:100%;height:34px;padding:0 10px;border-radius:var(--dsw-radius-sm);
+  border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);outline:none;font-size:13px;
+}
+.textarea{height:auto;min-height:62px;padding:8px 10px;resize:vertical;line-height:1.55}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--dsw-alias-button-ghost-active-border);box-shadow:0 0 0 3px var(--dsw-alias-interactive-bg-hover)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+.type-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
+.type-card{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);padding:11px 12px;text-align:left;background:var(--dsw-alias-bg-base)}
+.type-card .tt{font-size:13px;font-weight:600;margin-bottom:2px}
+.type-card .td{font-size:11.5px;color:var(--dsw-alias-label-tertiary)}
+.type-card.active{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary) inset;background:var(--dsw-alias-interactive-bg-hover)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{height:28px;padding:0 11px;border-radius:14px;border:1px solid var(--dsw-alias-border-l2);font-size:12px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-base)}
+.chip.active{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground);font-weight:600}
+.chip.ghost{border-style:dashed;color:var(--dsw-alias-label-tertiary)}
+.daychips .chip{width:34px;padding:0;justify-content:center;display:inline-flex;align-items:center}
+
+.hintbox{display:flex;gap:8px;padding:9px 11px;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);font-size:11.5px;line-height:1.55;margin-top:8px}
+.hintbox .i{flex:0 0 auto;opacity:.7}
+
+.switch-row{display:flex;align-items:center;gap:10px;padding:9px 0}
+.switch-row .sr-main{flex:1}
+.switch-row .sr-title{font-size:12.5px}
+.switch-row .sr-sub{font-size:11.5px;color:var(--dsw-alias-label-caption)}
+.switch{width:34px;height:20px;border-radius:10px;background:var(--dsw-alias-border-l3);position:relative;transition:.15s;flex:0 0 34px}
+.switch::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s;box-shadow:0 1px 2px #00000033}
+.switch.on{background:var(--dsw-alias-state-success-primary)}
+.switch.on::after{left:16px}
+
+.preview{border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-sm);padding:10px 12px;background:var(--dsw-alias-bg-module-platform)}
+.preview .pv-title{font-size:11px;font-weight:600;color:var(--dsw-alias-label-tertiary);margin-bottom:6px;letter-spacing:.3px}
+.preview ol{margin:0;padding-left:16px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.9}
+.preview ol li::marker{color:var(--dsw-alias-label-caption)}
+
+.checkline{display:flex;align-items:flex-start;gap:9px;padding:7px 0}
+.checkbox{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--dsw-alias-border-l4);flex:0 0 16px;margin-top:1px;display:grid;place-items:center;font-size:10px;color:transparent}
+.checkbox.on{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground)}
+.checkline .cl-main{flex:1}
+.checkline .cl-title{font-size:12.5px}
+.checkline .cl-sub{font-size:11.5px;color:var(--dsw-alias-label-caption)}
+.badge-lock{font-size:10px;color:var(--dsw-alias-label-caption);border:1px solid var(--dsw-alias-border-l2);padding:0 5px;border-radius:8px;margin-left:5px}
+
+/* ============================ 提醒浮层 shell.overlay ============================ */
+.overlay-layer{position:fixed;right:20px;bottom:20px;width:356px;display:none;flex-direction:column;gap:10px;z-index:70}
+.overlay-layer.open{display:flex}
+.reminder{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);box-shadow:var(--dsw-shadow-lv3);padding:13px 14px 11px}
+.reminder .rm-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.reminder .rm-icon{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 16%,transparent);color:#a16207}
+body[data-ds-dark-theme] .reminder .rm-icon{color:var(--dsw-alias-state-warn-primary)}
+.reminder .rm-title{font-size:13.5px;font-weight:650;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reminder .rm-time{font-size:11px;color:var(--dsw-alias-label-caption);white-space:nowrap}
+.reminder .rm-body{font-size:12px;color:var(--dsw-alias-label-secondary);margin:2px 0 10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.reminder .rm-actions{display:flex;gap:6px}
+.reminder .rm-actions .btn{flex:1;justify-content:center}
+.reminder .rm-actions .btn-primary{flex:0 0 auto;padding:0 14px}
+.reminder-collapse{display:flex;align-items:center;justify-content:space-between;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);box-shadow:var(--dsw-shadow-lv3);padding:9px 13px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.reminder-collapse b{color:var(--dsw-alias-label-primary)}
+
+/* ============================ 设置页 ============================ */
+.card{border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1);margin-bottom:16px;overflow:hidden}
+.card-head{padding:13px 16px 11px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.card-head h3{margin:0 0 2px;font-size:13.5px;font-weight:650}
+.card-head p{margin:0;font-size:11.5px;color:var(--dsw-alias-label-tertiary)}
+.card-body{padding:6px 16px 14px}
+.setting-row{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.setting-row:last-child{border-bottom:none}
+.setting-row .s-main{flex:1}
+.setting-row .s-title{font-size:12.5px;font-weight:550}
+.setting-row .s-sub{font-size:11.5px;color:var(--dsw-alias-label-caption);margin-top:1px}
+.setting-row .s-control{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+.status-ok{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--dsw-alias-state-success-primary)}
+.status-warn{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--dsw-alias-state-warn-primary)}
+.select.small,.input.small{width:auto;height:30px;font-size:12px}
+.timebox{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 9px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-xs);font-size:12px;font-variant-numeric:tabular-nums;background:var(--dsw-alias-bg-base)}
+
+/* ============================ 原型工具条 ============================ */
+.proto-dock{position:fixed;left:12px;bottom:12px;z-index:90;display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:999px;background:rgba(15,17,21,.88);color:#fff;font-size:11px;box-shadow:0 8px 24px #00000033;backdrop-filter:blur(8px);opacity:.55;transition:opacity .15s}
+.proto-dock:hover{opacity:1}
+.proto-dock .tag{font-weight:700;letter-spacing:.3px;margin-right:2px;color:#9ecbff}
+.proto-dock button{color:#fff;padding:3px 8px;border-radius:99px;font-size:11px}
+.proto-dock button:hover{background:#ffffff24}
+.proto-dock button.active{background:#ffffff33}
+body.clean .proto-dock{display:none}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--dsw-alias-toast-bg);color:var(--dsw-alias-toast-label);padding:9px 16px;border-radius:var(--dsw-radius-sm);font-size:12.5px;box-shadow:var(--dsw-shadow-lv3);opacity:0;pointer-events:none;transition:.2s;z-index:120}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ================= 模拟 DSH 侧边栏 ================= -->
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">D</span>DeepSeek Harness</div>
+    <button class="new-session"><span>＋</span> 新建会话</button>
+    <div class="nav-label">工作区</div>
+    <button class="nav-item"><span class="ico">◷</span> 会话</button>
+    <button class="nav-item"><span class="ico">▤</span> 文件</button>
+    <div class="nav-label">插件</div>
+    <button class="nav-item active" id="navTodos"><span class="ico">◔</span> 待办提醒 <span class="count" id="navCount">4</span></button>
+    <button class="nav-item"><span class="ico">◷</span> 自动化任务 <span class="count soft">2</span></button>
+    <button class="nav-item"><span class="ico">◫</span> 插件</button>
+    <div class="nav-label">会话</div>
+    <button class="nav-item"><span class="ico">💬</span> 周报材料整理</button>
+    <button class="nav-item"><span class="ico">💬</span> Q4 预算对接</button>
+    <div class="sidebar-foot"><span class="avatar">宋</span><span>综合管理岗</span><span style="margin-left:auto">⚙</span></div>
+  </aside>
+
+  <!-- ================= 主区域 ================= -->
+  <main class="main">
+    <div class="topbar">
+      <div class="crumb"><span>待办提醒</span><span style="opacity:.5">/</span><span style="color:var(--dsw-alias-label-secondary)">任务列表</span></div>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="themeBtn" title="切换深浅色">◐</button>
+      <button class="icon-btn" title="更多">⋯</button>
+    </div>
+
+    <!-- 视图：任务列表 -->
+    <section class="content" id="view-list">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">待办提醒</h1>
+          <div class="page-sub">4 条启用中 · 1 条已暂停 · 1 条已错过 · 时区 Asia/Shanghai (UTC+8)</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary" id="btnOverlayDemo">◔ 演示提醒浮层</button>
+          <button class="btn btn-primary" id="btnNew">＋ 新建任务</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="segmented" id="filterSeg">
+          <button class="seg active" data-filter="all">全部</button>
+          <button class="seg" data-filter="today">今天</button>
+          <button class="seg" data-filter="week">未来 7 天</button>
+          <button class="seg" data-filter="paused">已暂停</button>
+          <button class="seg" data-filter="missed">已错过</button>
+        </div>
+        <div class="search"><span class="mag">⌕</span><input id="searchInput" placeholder="搜索标题与说明…" /></div>
+      </div>
+
+      <div class="split">
+        <div class="list-col" id="taskGroups"></div>
+
+        <!-- 右侧详情 -->
+        <aside class="detail" id="detailPane">
+          <h3>查看今日待办</h3>
+          <div class="sub">循环任务 · 每个工作日 09:00</div>
+          <div class="kv"><span class="k">状态</span><span class="v">启用中</span></div>
+          <div class="kv"><span class="k">时区</span><span class="v">Asia/Shanghai · UTC+8</span></div>
+          <div class="kv"><span class="k">下次触发</span><span class="v">今天 09:00</span></div>
+          <div class="kv"><span class="k">提醒方式</span><span class="v">浮层 · 系统通知</span></div>
+          <div class="kv"><span class="k">例外日</span><span class="v">跳过 10-01 ~ 10-07</span></div>
+          <div class="kv"><span class="k">最近触发</span><span class="v">今天 09:00:02</span></div>
+          <div class="timeline">
+            <div class="tl-title">最近记录</div>
+            <div class="tl-item"><span class="t">今天 09:00</span><span class="ok">✓ 浮层已送达</span></div>
+            <div class="tl-item"><span class="t">昨天 09:00</span><span class="ok">✓ 浮层已送达</span></div>
+            <div class="tl-item"><span class="t">10-28 09:00</span><span class="ok">✓ 浮层已送达</span></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 视图：设置 -->
+    <section class="content" id="view-settings" hidden>
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">设置</h1>
+          <div class="page-sub">修改后立即生效并持久化到 $DSH_HOME/dsh-todos-diy/tasks.json</div>
+        </div>
+        <div class="page-actions"><button class="btn btn-secondary" id="btnBackList">← 返回任务</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>时间</h3><p>新建任务默认继承以下设置，已有任务不受影响</p></div>
+        <div class="card-body">
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">默认时区</div><div class="s-sub">规则按任务时区解释；中国标准时间无夏令时</div></div>
+            <div class="s-control"><select class="select small"><option>Asia/Shanghai (UTC+8)</option><option>Asia/Tokyo (UTC+9)</option><option>Europe/London (UTC+0)</option></select></div>
+          </div>
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">工作日口径</div><div class="s-sub">内置 2024–2027 中国法定节假日与调休表</div></div>
+            <div class="s-control"><select class="select small"><option>跟随法定节假日</option><option>固定周一至周五</option></select></div>
+          </div>
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">调度精度</div><div class="s-sub">轮询间隔 60 秒；误差 ≤ 60 秒</div></div>
+            <div class="s-control"><span class="timebox">60 秒</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>免打扰</h3><p>时段内不弹浮层，合并为一条摘要；不改变任务状态</p></div>
+        <div class="card-body">
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">启用免打扰</div><div class="s-sub">默认关闭</div></div>
+            <div class="s-control"><div class="switch" data-toggle></div></div>
+          </div>
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">时段</div><div class="s-sub">跨午夜区间正确解析</div></div>
+            <div class="s-control"><span class="timebox">22:00</span><span>→</span><span class="timebox">08:00</span></div>
+          </div>
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">仅工作日</div><div class="s-sub">周末全天不打扰</div></div>
+            <div class="s-control"><div class="switch" data-toggle></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>提醒方式</h3><p>浮层为必选通道；其余按能力降级</p></div>
+        <div class="card-body">
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">页面浮层 shell.overlay</div><div class="s-sub">DSH 打开即生效</div></div>
+            <div class="s-control"><div class="switch on" data-toggle></div></div>
+          </div>
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">系统通知</div><div class="s-sub">仅在页面不可见时尝试；浏览器权限需授权</div></div>
+            <div class="s-control"><span class="status-warn">● 未授权</span><button class="btn btn-secondary btn-sm">请求权限</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>数据</h3><p>v1 使用单 JSON 原子写，支持导入导出与 schema 迁移</p></div>
+        <div class="card-body">
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">数据文件</div><div class="s-sub">$DSH_HOME/dsh-todos-diy/tasks.json · schemaVersion 1 · 6 条任务</div></div>
+            <div class="s-control"><span class="status-ok">● 正常</span></div>
+          </div>
+          <div class="setting-row">
+            <div class="s-main"><div class="s-title">导出 / 导入</div><div class="s-sub">导出完整 JSON；导入前自动备份</div></div>
+            <div class="s-control"><button class="btn btn-secondary btn-sm">导出</button><button class="btn btn-secondary btn-sm">导入</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ================= 提醒浮层 ================= -->
+<div class="overlay-layer" id="overlayLayer">
+  <div class="reminder">
+    <div class="rm-head"><span class="rm-icon">◔</span><span class="rm-title">查看今日待办</span><span class="rm-time">今天 09:00</span></div>
+    <div class="rm-body">打开待办清单，确认今天三件最重要的事：月度材料、例会纪要、报销单。</div>
+    <div class="rm-actions">
+      <button class="btn btn-primary btn-sm" data-reminder-act="complete">完成本次</button>
+      <button class="btn btn-secondary btn-sm" data-reminder-act="snooze">稍后 15 分钟</button>
+      <button class="btn btn-ghost btn-sm" data-reminder-act="dismiss">关闭</button>
+    </div>
+  </div>
+  <div class="reminder">
+    <div class="rm-head"><span class="rm-icon" style="background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 14%,transparent);color:var(--dsw-alias-state-business-primary)">▤</span><span class="rm-title">月度材料提交</span><span class="rm-time">今天 09:00</span></div>
+    <div class="rm-body">提交 10 月综合管理材料至内网系统，含考勤汇总与费用台账。</div>
+    <div class="rm-actions">
+      <button class="btn btn-primary btn-sm" data-reminder-act="complete">完成本次</button>
+      <button class="btn btn-secondary btn-sm" data-reminder-act="snooze">稍后 15 分钟</button>
+      <button class="btn btn-ghost btn-sm" data-reminder-act="dismiss">关闭</button>
+    </div>
+  </div>
+  <div class="reminder">
+    <div class="rm-head"><span class="rm-icon" style="background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent);color:var(--dsw-alias-state-error-primary)">!</span><span class="rm-title">季度材料提交</span><span class="rm-time">已错过 · 昨天 18:00</span></div>
+    <div class="rm-body">结束节点提醒已错过（超过 5 分钟宽限期），不会自动补发。可在历史中查看。</div>
+    <div class="rm-actions">
+      <button class="btn btn-primary btn-sm" data-reminder-act="complete">标记完成</button>
+      <button class="btn btn-secondary btn-sm" data-reminder-act="snooze">明天再提醒</button>
+      <button class="btn btn-ghost btn-sm" data-reminder-act="dismiss">关闭</button>
+    </div>
+  </div>
+  <div class="reminder-collapse"><span>还有 <b>2</b> 条待办提醒</span><span style="color:var(--dsw-alias-label-caption)">展开 ›</span></div>
+</div>
+
+<!-- ================= 编辑器 ================= -->
+<div class="modal-layer" id="modalLayer">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2 id="modalTitle">新建任务</h2>
+      <button class="icon-btn close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="type-switch">
+        <button class="type-card active" data-type="recurring">
+          <div class="tt">循环任务</div>
+          <div class="td">工作日 / 每周 / 每月 / 自定义 cron</div>
+        </button>
+        <button class="type-card" data-type="once">
+          <div class="tt">单次任务</div>
+          <div class="td">指定开始与结束时间，可两端提醒</div>
+        </button>
+      </div>
+
+      <div class="field">
+        <label>任务名称</label>
+        <input class="input" id="fTitle" value="查看今日待办" maxlength="200" />
+        <div class="desc">1–200 字符；提醒卡片与列表都使用该名称</div>
+      </div>
+
+      <div class="field">
+        <label>说明</label>
+        <textarea class="textarea" id="fNote">打开待办清单，确认今天三件最重要的事：月度材料、例会纪要、报销单。</textarea>
+      </div>
+
+      <!-- 循环任务 -->
+      <div id="formRecurring">
+        <div class="field">
+          <label>重复规则</label>
+          <div class="chips" id="ruleChips">
+            <button class="chip active" data-rule="workdays">每个工作日</button>
+            <button class="chip" data-rule="weekly">每周</button>
+            <button class="chip" data-rule="monthly">每月</button>
+            <button class="chip" data-rule="cron">自定义 cron</button>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field"><label>时间</label><input class="input" value="09:00" /></div>
+          <div class="field"><label>时区</label><select class="select"><option>Asia/Shanghai (UTC+8)</option><option>Asia/Tokyo (UTC+9)</option></select></div>
+        </div>
+
+        <div class="field">
+          <label>工作日口径</label>
+          <div class="chips">
+            <button class="chip active">跟随中国法定节假日与调休</button>
+            <button class="chip">固定周一至周五</button>
+          </div>
+          <div class="desc">内置 2024–2027 节假日/调休表；国庆、春节自动跳过，调休补班的周末正常提醒</div>
+        </div>
+
+        <div class="field" id="weekdayField" style="display:none">
+          <label>星期</label>
+          <div class="chips daychips">
+            <button class="chip active">一</button><button class="chip active">二</button><button class="chip active">三</button>
+            <button class="chip active">四</button><button class="chip active">五</button><button class="chip">六</button><button class="chip">日</button>
+          </div>
+        </div>
+
+        <div class="field" id="monthdayField" style="display:none">
+          <label>每月日期</label>
+          <div class="chips" id="monthDays">
+            <button class="chip active">1</button><button class="chip">2</button><button class="chip">3</button><button class="chip">4</button>
+            <button class="chip">5</button><button class="chip">6</button><button class="chip">7</button><button class="chip">8</button>
+            <button class="chip">9</button><button class="chip">10</button><button class="chip">11</button><button class="chip">12</button>
+            <button class="chip">13</button><button class="chip">14</button><button class="chip active">15</button><button class="chip">16</button>
+            <button class="chip">17</button><button class="chip">18</button><button class="chip">19</button><button class="chip">20</button>
+            <button class="chip">21</button><button class="chip">22</button><button class="chip">23</button><button class="chip">24</button>
+            <button class="chip">25</button><button class="chip">26</button><button class="chip">27</button><button class="chip">28</button>
+            <button class="chip">29</button><button class="chip active">30</button><button class="chip">31</button>
+          </div>
+          <div class="desc">2 月没有 30 号时自动顺延到 2 月最后一天（默认）；可在设置改为跳过该月</div>
+        </div>
+
+        <div class="field" id="cronField" style="display:none">
+          <label>Cron 表达式</label>
+          <input class="input" value="0 9 * * 1-5" />
+          <div class="desc">5 字段 Vixie：分 时 日 月 周；支持 *、单值、a-b、*/n、a-b/n、逗号列表</div>
+        </div>
+
+        <div class="field">
+          <label>例外日 <span style="font-weight:400;color:var(--dsw-alias-label-caption)">（可选，按任务时区的本地日期）</span></label>
+          <div class="chips" style="margin-bottom:6px">
+            <button class="chip active">跳过 2026-10-01 ~ 10-07（国庆）</button>
+            <button class="chip active">补班 2026-10-11（周日）</button>
+            <button class="chip ghost">＋ 添加日期</button>
+          </div>
+          <div class="desc">skipDates 跳过；extraWorkdays 在非规则日补触发一次</div>
+        </div>
+      </div>
+
+      <!-- 单次任务 -->
+      <div id="formOnce" style="display:none">
+        <div class="row2">
+          <div class="field"><label>开始时间</label><input class="input" value="2026-11-05 14:00" /></div>
+          <div class="field"><label>结束时间 <span style="font-weight:400;color:var(--dsw-alias-label-caption)">（可选）</span></label><input class="input" value="2026-11-05 18:00" /></div>
+        </div>
+        <div class="field">
+          <label>提醒节点 <span style="font-weight:400;color:var(--dsw-alias-label-caption)">（已定：起止都提醒）</span></label>
+          <div class="chips">
+            <button class="chip active">开始提醒</button>
+            <button class="chip active">结束提醒</button>
+          </div>
+          <div class="desc">开始与结束各算一次独立提醒，各自最多触发一次；结束时间为必填</div>
+        </div>
+        <div class="hintbox"><span class="i">ⓘ</span><span>结束时间同时用于任务详情中的「进行中 / 已结束」展示；不填结束时间无法保存。</span></div>
+      </div>
+
+      <div class="field" style="margin-top:16px">
+        <label>提醒方式</label>
+        <div class="checkline"><div class="checkbox on">✓</div><div class="cl-main"><div class="cl-title">页面浮层 <span class="badge-lock">必选</span></div><div class="cl-sub">DSH 打开时在右下角弹出</div></div></div>
+        <div class="checkline"><div class="checkbox">✓</div><div class="cl-main"><div class="cl-title">系统通知</div><div class="cl-sub">仅在页面不可见时尝试；需浏览器授权</div></div></div>
+        <div class="hintbox" style="margin-top:4px"><span class="i">ⓘ</span><span>v1 不接入 Agent 会话：不会向任何会话发送提醒消息，也不产生模型轮次。</span></div>
+      </div>
+
+      <div class="row2">
+        <div class="field"><label>提前量</label><input class="input" value="0 分钟" /><div class="desc">0–1440 分钟；提前提醒会取代正点提醒</div></div>
+        <div class="field"><label>提示音</label><div class="switch-row" style="padding-top:6px"><div class="switch" data-toggle></div><span style="font-size:12px;color:var(--dsw-alias-label-tertiary)">浮层出现时播放一次</span></div></div>
+      </div>
+
+      <div class="field">
+        <label>接下来 5 次触发</label>
+        <div class="preview">
+          <div class="pv-title">按 Asia/Shanghai 计算</div>
+          <ol>
+            <li>2026-10-30 09:00（今天）</li>
+            <li>2026-11-02 09:00（周一）</li>
+            <li>2026-11-03 09:00（周二）</li>
+            <li>2026-11-04 09:00（周三）</li>
+            <li>2026-11-05 09:00（周四）</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="hint">保存后从下一个未来时刻开始生效，不回填历史</span>
+      <button class="btn btn-ghost" id="modalCancel">取消</button>
+      <button class="btn btn-primary" id="modalSave">保存任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- 原型工具条 -->
+<div class="proto-dock">
+  <span class="tag">原型</span>
+  <button data-view="list" class="active">列表</button>
+  <button data-view="new-recurring">新建循环</button>
+  <button data-view="new-once">新建单次</button>
+  <button data-view="overlay">提醒浮层</button>
+  <button data-view="settings">设置</button>
+  <button data-view="dark">深色</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== 数据 ===================== */
+const tasks = [
+  { id:'t1', title:'查看今日待办', note:'打开待办清单，确认今天三件最重要的事。', kind:'recurring', rule:'每个工作日 09:00', tz:'Asia/Shanghai', next:'今天 09:00', nextLabel:'已到点', status:'active', group:'today', badge:'soon', channels:'浮层 · 系统通知' },
+  { id:'t2', title:'月度材料提交', note:'提交 10 月综合管理材料至内网系统。', kind:'recurring', rule:'每月 1 号、30 号 09:00', tz:'Asia/Shanghai', next:'今天 09:00', nextLabel:'已到点', status:'active', group:'today', badge:'soon', channels:'浮层' },
+  { id:'t3', title:'季度材料提交', note:'提交 Q4 综合管理材料至内网系统。', kind:'once', rule:'单次 · 11-05 14:00 → 18:00', tz:'Asia/Shanghai', next:'11-05 14:00 开始', nextLabel:'6 天后', status:'active', group:'week', badge:'once', channels:'浮层 · 系统通知' },
+  { id:'t4', title:'周例会', note:'准备例会材料与上周行动项。', kind:'recurring', rule:'每周一 10:00', tz:'Asia/Shanghai', next:'11-02 10:00', nextLabel:'3 天后', status:'active', group:'week', badge:'recurring', channels:'浮层' },
+  { id:'t5', title:'月底对账', note:'与财务核对当月报销台账。', kind:'recurring', rule:'每月最后一天 17:00', tz:'Asia/Shanghai', next:'10-31 17:00', nextLabel:'明天', status:'paused', group:'paused', badge:'paused', channels:'浮层' },
+  { id:'t6', title:'提交培训签到表', note:'国庆前提交部门培训签到表。', kind:'once', rule:'单次 · 10-29 18:00', tz:'Asia/Shanghai', next:'10-29 18:00', nextLabel:'已错过', status:'missed', group:'missed', badge:'missed', channels:'浮层' },
+];
+
+const GROUPS = [
+  { key:'today', label:'今天', hint:'3 条' },
+  { key:'week', label:'未来 7 天', hint:'2 条' },
+  { key:'paused', label:'已暂停', hint:'1 条' },
+  { key:'missed', label:'已错过', hint:'1 条' },
+];
+
+let filter = 'all';
+let search = '';
+
+function metaOf(t){
+  const bits = [`<span>${t.rule}</span>`, `<span class="sep">·</span><span>${t.tz}</span>`, `<span class="sep">·</span><span>${t.channels}</span>`];
+  return bits.join('');
+}
+
+function render(){
+  const wrap = document.getElementById('taskGroups');
+  const q = search.trim().toLowerCase();
+  let html = '';
+  for (const g of GROUPS){
+    if (filter !== 'all' && filter !== g.key) continue;
+    const items = tasks.filter(t => t.group === g.key && (!q || (t.title + t.note).toLowerCase().includes(q)));
+    if (items.length === 0) continue;
+    html += `<div class="group"><div class="group-head">${g.label}<span class="n">${items.length}</span></div><div class="rows">`;
+    for (const t of items){
+      const dot = t.status === 'paused' ? 'dot-paused' : t.status === 'missed' ? 'dot-missed' : 'dot-active';
+      const pill = t.badge === 'once' ? '<span class="pill pill-once">单次</span>'
+        : t.badge === 'paused' ? '<span class="pill pill-paused">已暂停</span>'
+        : t.badge === 'missed' ? '<span class="pill pill-missed">已错过</span>'
+        : t.badge === 'soon' ? '<span class="pill pill-soon">今天</span>'
+        : '<span class="pill pill-recurring">循环</span>';
+      html += `<div class="row" data-id="${t.id}">
+        <span class="status-dot ${dot}"></span>
+        <div class="row-main">
+          <div class="row-title"><span class="t">${t.title}</span>${pill}</div>
+          <div class="row-meta">${metaOf(t)}</div>
+        </div>
+        <div class="row-right">
+          <div class="next ${t.status==='missed'?'overdue':''}"><b>${t.next}</b><br><span style="color:var(--dsw-alias-label-caption);font-size:11px">${t.nextLabel}</span></div>
+          <div class="row-actions">
+            <button class="icon-btn" title="${t.status==='paused'?'恢复':'暂停'}" data-act="pause">${t.status==='paused'?'▶':'⏸'}</button>
+            <button class="icon-btn" title="更多">⋯</button>
+          </div>
+        </div>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+  if (!html) html = `<div class="empty">没有符合条件的任务。<br><span style="font-size:12px;opacity:.7">试试清空搜索，或新建一条任务。</span></div>`;
+  wrap.innerHTML = html;
+
+  // 计数
+  document.getElementById('navCount').textContent = tasks.filter(t=>t.status==='active').length;
+}
+
+/* ===================== 交互 ===================== */
+document.getElementById('filterSeg').addEventListener('click', (e)=>{
+  const b = e.target.closest('.seg'); if(!b) return;
+  document.querySelectorAll('#filterSeg .seg').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); filter = b.dataset.filter; render();
+});
+document.getElementById('searchInput').addEventListener('input', (e)=>{ search = e.target.value; render(); });
+
+document.getElementById('taskGroups').addEventListener('click', (e)=>{
+  const row = e.target.closest('.row'); if(!row) return;
+  const id = row.dataset.id;
+  if (e.target.closest('[data-act="pause"]')){
+    const t = tasks.find(x=>x.id===id);
+    if (t.status === 'paused'){ t.status='active'; t.group='today'; t.badge='soon'; t.nextLabel='已恢复'; }
+    else { t.status='paused'; t.group='paused'; t.badge='paused'; t.nextLabel='已暂停'; }
+    render(); toast(t.status==='paused'?'已暂停，恢复后从下一个未来时刻继续':'已恢复'); return;
+  }
+  openEditor('recurring', id);
+});
+
+/* 主题 */
+document.getElementById('themeBtn').addEventListener('click', ()=>{
+  document.body.toggleAttribute('data-ds-dark-theme');
+});
+
+/* 原型工具条 */
+document.querySelector('.proto-dock').addEventListener('click', (e)=>{
+  const b = e.target.closest('button'); if(!b) return;
+  const v = b.dataset.view;
+  if (v==='list'){ closeAll(); document.getElementById('view-settings').hidden = true; document.getElementById('view-list').hidden = false; }
+  if (v==='settings'){ closeAll(); document.getElementById('view-list').hidden = true; document.getElementById('view-settings').hidden = false; }
+  if (v==='new-recurring'){ openEditor('recurring'); }
+  if (v==='new-once'){ openEditor('once'); }
+  if (v==='overlay'){ document.getElementById('overlayLayer').classList.toggle('open'); }
+  if (v==='dark'){ document.body.toggleAttribute('data-ds-dark-theme'); }
+});
+
+/* 新建/编辑 */
+const modal = document.getElementById('modalLayer');
+function openEditor(type, id){
+  document.getElementById('modalTitle').textContent = id ? '编辑任务' : (type==='once' ? '新建单次任务' : '新建循环任务');
+  document.querySelectorAll('.type-card').forEach(c=>c.classList.toggle('active', c.dataset.type===type));
+  document.getElementById('formRecurring').style.display = type==='once' ? 'none':'block';
+  document.getElementById('formOnce').style.display = type==='once' ? 'block':'none';
+  if (id){
+    const t=tasks.find(x=>x.id===id);
+    if(t){ document.getElementById('fTitle').value=t.title; document.getElementById('fNote').value=t.note; }
+  } else {
+    document.getElementById('fTitle').value = type==='once' ? '提交季度材料' : '查看今日待办';
+    document.getElementById('fNote').value = type==='once' ? '提交 Q4 综合管理材料至内网系统。' : '打开待办清单，确认今天三件最重要的事：月度材料、例会纪要、报销单。';
+  }
+  modal.classList.add('open');
+}
+function closeAll(){ modal.classList.remove('open'); }
+
+document.getElementById('btnNew').addEventListener('click', ()=>openEditor('recurring'));
+document.getElementById('btnOverlayDemo').addEventListener('click', ()=>{
+  document.getElementById('overlayLayer').classList.toggle('open');
+});
+document.getElementById('btnBackList').addEventListener('click', ()=>{
+  document.getElementById('view-settings').hidden = true; document.getElementById('view-list').hidden = false;
+});
+document.getElementById('modalClose').addEventListener('click', closeAll);
+document.getElementById('modalCancel').addEventListener('click', closeAll);
+document.getElementById('modalSave').addEventListener('click', ()=>{
+  closeAll(); toast('已保存，下一次触发已重算');
+});
+modal.addEventListener('click', (e)=>{ if (e.target===modal) closeAll(); });
+document.addEventListener('keydown', (e)=>{ if (e.key==='Escape') closeAll(); });
+
+document.querySelectorAll('.type-card').forEach(c=>{
+  c.addEventListener('click', ()=>openEditor(c.dataset.type));
+});
+
+/* 规则 chips */
+document.getElementById('ruleChips').addEventListener('click', (e)=>{
+  const b = e.target.closest('.chip'); if(!b) return;
+  document.querySelectorAll('#ruleChips .chip').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  const r = b.dataset.rule;
+  document.getElementById('weekdayField').style.display = r==='weekly' ? 'block':'none';
+  document.getElementById('monthdayField').style.display = r==='monthly' ? 'block':'none';
+  document.getElementById('cronField').style.display = r==='cron' ? 'block':'none';
+});
+
+/* 各种小交互 */
+document.querySelectorAll('[data-toggle]').forEach(el=>el.addEventListener('click',()=>el.classList.toggle('on')));
+document.querySelectorAll('.checkbox').forEach(el=>el.addEventListener('click',()=>el.classList.toggle('on')));
+document.getElementById('monthDays').addEventListener('click',(e)=>{ const c=e.target.closest('.chip'); if(c) c.classList.toggle('active'); });
+document.querySelectorAll('.chips:not(#ruleChips):not(#monthDays)').forEach(box=>{
+  box.addEventListener('click',(e)=>{ const c=e.target.closest('.chip'); if(c && !c.classList.contains('ghost')){ if(box.classList.contains('daychips')) c.classList.toggle('active'); else { box.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); c.classList.add('active'); } } });
+});
+
+/* 提醒动作 */
+document.getElementById('overlayLayer').addEventListener('click',(e)=>{
+  const b = e.target.closest('[data-reminder-act]'); if(!b) return;
+  const card = b.closest('.reminder');
+  card.style.opacity='0'; card.style.transform='translateY(6px)'; card.style.transition='.18s';
+  setTimeout(()=>{ card.remove(); if(!document.querySelector('#overlayLayer .reminder')) document.getElementById('overlayLayer').classList.remove('open'); },190);
+  const map={complete:'已完成本次',snooze:'已稍后提醒 15 分钟',dismiss:'已关闭本条提醒'};
+  toast(map[b.dataset.reminderAct]);
+});
+
+/* toast */
+let toastTimer;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>el.classList.remove('show'), 1800);
+}
+
+/* 干净模式：?clean=1 隐藏原型工具条，用于截图；?view=settings|new-once|new-recurring|overlay 直接进入某视图；?dark=1 深色 */
+const qs = new URLSearchParams(location.search);
+if (qs.get('clean') === '1') document.body.classList.add('clean');
+if (qs.get('dark') === '1') document.body.setAttribute('data-ds-dark-theme','');
+
+render();
+
+if (qs.get('view') === 'settings'){ document.getElementById('view-list').hidden = true; document.getElementById('view-settings').hidden = false; }
+if (qs.get('view') === 'new-once'){ openEditor('once'); }
+if (qs.get('view') === 'new-recurring'){ openEditor('recurring'); }
+if (qs.get('view') === 'overlay'){ document.getElementById('overlayLayer').classList.add('open'); }
+</script>
+</body>
+</html>

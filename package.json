@@ -1,0 +1,64 @@
+{
+  "name": "dsh-todos-diy",
+  "version": "0.1.0",
+  "description": "DSH 工作待办提醒插件：循环规则、单次起止双节点、三视图与提醒浮层 · Work todo reminders for DeepSeek Harness",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "engines": {
+    "node": ">=22.19.0",
+    "dsh": "^0.2.1-rc.3"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "files": [
+    "lib",
+    "locale",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "assets"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.client.json",
+    "test": "tsc -p tsconfig.test.json && node --test \".test-build/test/*.test.js\"",
+    "verify": "npm run typecheck && npm test && node scripts/verify-pack.mjs",
+    "clean": "rm -rf lib .test-build"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "todo",
+    "reminder",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^18.3.31",
+    "esbuild": "^0.28.2",
+    "typescript": "5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huningsong/dsh-todos-diy.git"
+  },
+  "homepage": "https://github.com/huningsong/dsh-todos-diy#readme",
+  "bugs": {
+    "url": "https://github.com/huningsong/dsh-todos-diy/issues"
+  }
+}

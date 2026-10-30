@@ -1,0 +1,7 @@
+# dsh-todos-diy bundle patch: inserts this plugin into a profile's layer stack.
+- insert:
+    - id: todos-diy
+      name: 'dsh-todos-diy'
+      config:
+        tickIntervalMs: 60000
+        timeZone: Asia/Shanghai

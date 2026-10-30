@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>工作待办 · 待办/已完成/超期 + 派生优先级 + 置顶</title>
+<style>
+:root{
+  --bg:#fff;--bg-soft:#f9fafb;--bg-hover:#2631480f;--bg-active:#2631481a;
+  --line:#0000000f;--line2:#0000001a;--line3:#00000029;
+  --label:#0f1115;--label2:#61666b;--label3:#81858c;--caption:#adb2b8;
+  --brand:#0f1115;--on-brand:#fff;--link:#4176e6;
+  --green:#22c55e;--amber:#f59e0b;--red:#ec1313;--blue:#4176e6;--gray:#adb2b8;
+  --radius:8px;--radius-md:12px;--radius-lg:16px;
+  --shadow:0 0 1px 0 #0003,0 0 4px 0 #00000005,0 12px 32px 0 #00000014;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+}
+body[data-dark]{
+  --bg:#151517;--bg-soft:#1b1b1c;--bg-hover:#ffffff14;--bg-active:#ffffff24;
+  --line:#ffffff0f;--line2:#ffffff1f;--line3:#fff3;
+  --label:#f9fafb;--label2:#cfd3d6;--label3:#adb2b8;--caption:#81858c;
+  --brand:#f9fafb;--on-brand:#0f1115;
+  --green:#22c55e;--amber:#f59e0b;--red:#f25a5a;--blue:#5686fe;--gray:#61666b;
+  --shadow:0 0 1px 0 #0003,0 0 4px 0 #00000005,0 12px 32px 0 #00000014;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:var(--font);font-size:13px;line-height:1.5;color:var(--label);background:var(--bg);-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--line3);border-radius:99px}::-webkit-scrollbar-track{background:transparent}
+
+.app{display:flex;height:100vh}
+.sidebar{width:248px;flex:0 0 248px;background:var(--bg-soft);border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:8px;padding:2px 8px 14px;font-weight:600;font-size:14px}
+.brand-mark{width:22px;height:22px;border-radius:6px;background:var(--brand);color:var(--on-brand);display:grid;place-items:center;font-size:12px;font-weight:700}
+.new-session{display:flex;align-items:center;gap:8px;margin:0 2px 14px;padding:8px 10px;border:1px solid var(--line2);border-radius:var(--radius);background:var(--bg);font-size:13px}
+.nav-label{font-size:11px;color:var(--caption);padding:10px 10px 6px;font-weight:600;letter-spacing:.4px}
+.nav-item{display:flex;align-items:center;gap:9px;height:34px;padding:0 10px;border-radius:var(--radius);color:var(--label2);font-size:13px;margin-bottom:2px;width:100%;text-align:left}
+.nav-item:hover{background:var(--bg-hover)}
+.nav-item.active{background:var(--bg-active);color:var(--label);font-weight:600}
+.nav-item .count{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--brand);color:var(--on-brand);font-size:11px;display:grid;place-items:center;font-weight:600}
+.nav-item .count.soft{background:var(--bg-active);color:var(--label2)}
+.sidebar-foot{margin-top:auto;padding:10px 8px 4px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px;color:var(--label3);font-size:12px}
+.avatar{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:44px;flex:0 0 44px;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--line);color:var(--label3);font-size:12px}
+.topbar .spacer{flex:1}
+.icon-btn{width:28px;height:28px;border-radius:4px;display:grid;place-items:center;color:var(--label3);font-size:14px}
+.icon-btn:hover{background:var(--bg-hover);color:var(--label)}
+
+.content{flex:1;overflow-y:auto;padding:22px 28px 50px}
+.page-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.page-title{font-size:22px;line-height:1.25;font-weight:650;letter-spacing:-.2px;margin:0 0 4px}
+.page-sub{color:var(--label3);font-size:12px}
+.page-actions{margin-left:auto;display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--radius);font-size:13px;border:1px solid transparent}
+.btn-primary{background:var(--brand);color:var(--on-brand);font-weight:600}
+.btn-secondary{background:var(--bg);border-color:var(--line2);color:var(--label)}
+.btn-secondary:hover{background:var(--bg-hover)}
+.btn-sm{height:26px;padding:0 9px;font-size:12px;border-radius:4px}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tab{position:relative;padding:9px 14px 10px;font-size:13px;color:var(--label2);display:flex;align-items:center;gap:7px}
+.tab:hover{color:var(--label)}
+.tab.active{color:var(--label);font-weight:600}
+.tab.active::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;border-radius:2px;background:var(--brand)}
+.tab .n{min-width:20px;height:18px;padding:0 6px;border-radius:9px;background:var(--bg-active);color:var(--label2);font-size:11px;display:grid;place-items:center;font-weight:600}
+.tab.active .n{background:var(--brand);color:var(--on-brand)}
+
+.rule-bar{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:var(--radius);background:var(--bg-soft);border:1px solid var(--line);color:var(--label3);font-size:11.5px;margin-bottom:14px}
+.rule-bar b{color:var(--label2);font-weight:600}
+.rule-bar .sep{opacity:.4}
+
+.group{margin-top:14px}
+.group-head{display:flex;align-items:center;gap:8px;padding:0 2px 8px;color:var(--label3);font-size:11.5px;font-weight:600;letter-spacing:.3px}
+.group-head .n{color:var(--caption);font-weight:500}
+.group-head .line{flex:1;height:1px;background:var(--line)}
+.rows{border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;background:var(--bg)}
+.row{display:flex;align-items:center;gap:11px;padding:11px 13px;border-bottom:1px solid var(--line);position:relative}
+.row:last-child{border-bottom:none}
+.row:hover{background:var(--bg-hover)}
+.row.pinned{background:color-mix(in srgb,var(--amber) 5%,transparent)}
+.row.done .row-title{color:var(--label3);text-decoration:line-through;text-decoration-color:var(--caption)}
+.row.done .row-meta{opacity:.6}
+.check{width:17px;height:17px;border-radius:50%;border:1.5px solid var(--line3);flex:0 0 17px;display:grid;place-items:center;font-size:10px;color:transparent;cursor:pointer;transition:.12s}
+.check:hover{border-color:var(--green);color:color-mix(in srgb,var(--green) 60%,transparent)}
+.check.on{background:var(--green);border-color:var(--green);color:#fff}
+.row-main{min-width:0;flex:1}
+.row-title{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:550;margin-bottom:2px}
+.row-title .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-meta{color:var(--label3);font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.row-meta .sep{opacity:.4}
+.badge{display:inline-flex;align-items:center;gap:3px;height:19px;padding:0 7px;border-radius:9px;font-size:10.5px;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.b-high{background:color-mix(in srgb,var(--red) 13%,transparent);color:var(--red)}
+.b-mid{background:color-mix(in srgb,var(--amber) 16%,transparent);color:#a16207}
+body[data-dark] .b-mid{color:var(--amber)}
+.b-low{background:color-mix(in srgb,var(--blue) 13%,transparent);color:var(--blue)}
+.b-none{background:var(--bg-active);color:var(--label3)}
+.b-pin{background:color-mix(in srgb,var(--amber) 16%,transparent);color:#a16207}
+body[data-dark] .b-pin{color:var(--amber)}
+.due{font-size:11.5px;color:var(--label2);white-space:nowrap;text-align:right;line-height:1.35}
+.due b{font-weight:600;color:var(--label)}
+.due.over b{color:var(--red)}
+.due small{color:var(--caption);font-size:10.5px}
+.row-tools{display:flex;align-items:center;gap:1px;opacity:0;transition:.12s}
+.row:hover .row-tools{opacity:1}
+.row.pinned .row-tools{opacity:1}
+.tool{width:26px;height:26px;border-radius:4px;display:grid;place-items:center;color:var(--label3);font-size:13px}
+.tool:hover{background:var(--bg-active);color:var(--label)}
+.tool.pin-on{color:var(--amber)}
+.empty{padding:54px 0;text-align:center;color:var(--label3);font-size:13px;line-height:2}
+
+.legend{display:flex;gap:16px;flex-wrap:wrap;padding:11px 13px;border:1px dashed var(--line2);border-radius:var(--radius);margin-top:18px;color:var(--label3);font-size:11.5px}
+.legend .item{display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%}
+.d1{background:var(--red)}.d2{background:var(--amber)}.d3{background:var(--blue)}.d4{background:var(--gray)}
+
+.qbar{display:flex;align-items:center;gap:6px;margin-bottom:14px;padding:6px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-soft)}
+.qbtn{padding:5px 11px;border-radius:6px;font-size:12px;color:var(--label2)}
+.qbtn:hover{background:var(--bg-hover)}
+.qbtn.active{background:var(--bg);color:var(--label);font-weight:600;box-shadow:0 1px 2px #00000014}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);background:#353638;color:#fff;padding:9px 16px;border-radius:var(--radius);font-size:12.5px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.2s;z-index:99}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+body[data-dark] .toast{background:#43454a}
+.clean .proto{display:none}
+.proto{position:fixed;left:12px;bottom:12px;z-index:90;display:flex;gap:6px;padding:6px 8px;border-radius:999px;background:rgba(15,17,21,.88);color:#fff;font-size:11px;box-shadow:0 8px 24px #00000033;opacity:.6;transition:.15s}
+.proto:hover{opacity:1}
+.proto .tag{font-weight:700;color:#9ecbff}
+.proto button{color:#fff;padding:3px 8px;border-radius:99px;font-size:11px}
+.proto button.active,.proto button:hover{background:#ffffff2e}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">D</span>DeepSeek Harness</div>
+    <button class="new-session">＋ 新建会话</button>
+    <div class="nav-label">工作区</div>
+    <button class="nav-item">◷ 会话</button>
+    <button class="nav-item">▤ 文件</button>
+    <div class="nav-label">插件</div>
+    <button class="nav-item active">◔ 工作待办 <span class="count" id="navCount">8</span></button>
+    <button class="nav-item">◷ 自动化任务 <span class="count soft">2</span></button>
+    <div class="sidebar-foot"><span class="avatar">宋</span><span>综合管理岗</span></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar"><span>工作待办</span><span style="opacity:.5">/</span><span style="color:var(--label2)" id="crumb">待办</span><div class="spacer"></div>
+      <button class="icon-btn" id="themeBtn" title="深浅色">◐</button>
+      <button class="icon-btn">⋯</button>
+    </div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">工作待办</h1>
+          <div class="page-sub" id="pageSub">8 条待办 · 3 条今天到期 · 2 条已超期 · 优先级按剩余天数每天自动更新</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary" id="btnRecalc">↻ 重算优先级</button>
+          <button class="btn btn-primary">＋ 新建待办</button>
+        </div>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="todo">待办 <span class="n" id="nTodo">8</span></button>
+        <button class="tab" data-tab="done">已完成 <span class="n" id="nDone">4</span></button>
+        <button class="tab" data-tab="overdue">超期 <span class="n" id="nOverdue">2</span></button>
+      </div>
+
+      <div class="rule-bar" id="ruleBar">
+        <span>优先级规则：</span>
+        <b><span class="dot d1" style="display:inline-block;margin-right:4px"></span>高</b> 今天 / 已超期
+        <span class="sep">·</span>
+        <b><span class="dot d2" style="display:inline-block;margin-right:4px"></span>中</b> 3 天内
+        <span class="sep">·</span>
+        <b><span class="dot d3" style="display:inline-block;margin-right:4px"></span>低</b> 7 天内
+        <span class="sep">·</span>
+        <b><span class="dot d4" style="display:inline-block;margin-right:4px"></span>—</b> 7 天以上或无截止
+        <span style="margin-left:auto;color:var(--caption)">每日 00:05 自动重算</span>
+      </div>
+
+      <div id="list"></div>
+
+      <div class="legend" id="legend">
+        <span class="item">⏱ 剩余天数按「截止日 − 今天」计算，跨天 00:00 刷新</span>
+        <span class="item">📌 置顶任务固定在最上方，完成后自动取消置顶</span>
+        <span class="item">✓ 完成后进入「已完成」，不再参与优先级计算</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="proto">
+  <span class="tag">原型</span>
+  <button data-tab="todo" class="active">待办</button>
+  <button data-tab="done">已完成</button>
+  <button data-tab="overdue">超期</button>
+  <button id="darkBtn">深色</button>
+</div>
+
+<script>
+/* ================= 数据：今天 = 2026-10-30 ================= */
+const TODAY = new Date(2026, 9, 30);
+
+const tasks = [
+  { id:'a1', title:'提交 10 月综合管理材料', note:'含考勤汇总、费用台账、培训记录', due:'2026-10-30', pinned:true,  done:false, status:'active' },
+  { id:'a2', title:'准备周一例会材料',       note:'上周行动项 + 本周议题',           due:'2026-11-02', pinned:true,  done:false },
+  { id:'a3', title:'核对 Q4 预算初稿',       note:'与财务确认三项差异',               due:'2026-10-30', pinned:false, done:false },
+  { id:'a4', title:'回复供应商报价邮件',     note:'三家比价结论',                     due:'2026-10-31', pinned:false, done:false },
+  { id:'a5', title:'整理年度培训计划',       note:'汇总各部门培训需求',               due:'2026-11-01', pinned:false, done:false, status:'paused' },
+  { id:'a6', title:'更新固定资产台账',       note:'新增 12 台笔记本',                 due:'2026-11-04', pinned:false, done:false },
+  { id:'a7', title:'起草年度工作总结',       note:'先列提纲，12 月再填内容',           due:'2026-11-20', pinned:false, done:false },
+  { id:'a8', title:'预约体检',               note:'选 11 月中旬的档期',               due:'',           pinned:false, done:false },
+  { id:'o1', title:'提交培训签到表',         note:'国庆前部门培训',                   due:'2026-10-29', pinned:false, done:false },
+  { id:'o2', title:'归还借用的投影仪',       note:'行政部 3 楼',                       due:'2026-10-28', pinned:false, done:false },
+  { id:'d1', title:'完成月度考勤统计',       note:'汇总 10 月全员考勤',                 due:'2026-10-28', pinned:false, done:true, doneAt:'10月28日 17:20' },
+  { id:'d2', title:'发出国庆值班表',         note:'覆盖 10 月 1–7 日',                   due:'2026-10-27', pinned:false, done:true, doneAt:'10月27日 11:05' },
+  { id:'d3', title:'采购办公用品',           note:'A4 纸、墨盒、签字笔',               due:'2026-10-24', pinned:false, done:true, doneAt:'10月24日 15:40' },
+  { id:'d4', title:'提交第三季度用印记录',   note:'法务已归档',                         due:'2026-10-20', pinned:false, done:true, doneAt:'10月20日 09:12' },
+];
+
+const ARCHIVE = {
+  '2026-Q3': [
+    { id:'q3a', title:'提交第三季度用印记录', note:'法务已归档', due:'2026-09-28', pinned:false, done:true, doneAt:'9月28日 09:12' },
+    { id:'q3b', title:'完成 Q3 预算复盘', note:'与财务核对三项差异', due:'2026-09-25', pinned:false, done:true, doneAt:'9月25日 16:40' },
+    { id:'q3c', title:'组织三季度培训', note:'参训 42 人', due:'2026-09-18', pinned:false, done:true, doneAt:'9月18日 11:20' },
+  ],
+  '2026-Q2': [
+    { id:'q2a', title:'提交上半年工作总结', note:'已归档', due:'2026-06-30', pinned:false, done:true, doneAt:'6月30日 17:05' },
+    { id:'q2b', title:'完成办公用品半年盘点', note:'账实相符', due:'2026-06-20', pinned:false, done:true, doneAt:'6月20日 15:30' },
+  ],
+};
+let archiveQ = 'current';
+
+const DAY = 86400000;
+function parseD(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function daysLeft(t){ const d=parseD(t.due); if(!d) return null; return Math.round((d-TODAY)/DAY); }
+function fmtDate(s){ if(!s) return '无截止'; const [y,m,d]=s.split('-').map(Number); return `${m}月${d}日`; }
+function fmtLeft(n){ if(n===null) return '—'; if(n<0) return `超期 ${-n} 天`; if(n===0) return '今天到期'; if(n===1) return '明天'; return `${n} 天后`; }
+function isOverdue(t){ const n=daysLeft(t); return !t.done && t.status!=='paused' && n!==null && n<0; }
+function isTodo(t){ return !t.done; }
+
+/* ---- 派生优先级：完全由剩余天数计算，不手工设置 ---- */
+function priorityOf(t){
+  if (t.done) return null;
+  if (t.status === 'paused') return { key:'paused', label:'已暂停', cls:'b-none' };
+  const n = daysLeft(t);
+  if (n === null) return { key:'none', label:'—',   cls:'b-none' };
+  if (n <= 0)     return { key:'high', label:'高',  cls:'b-high' };   // 今天到期 or 已超期
+  if (n <= 3)     return { key:'mid',  label:'中',  cls:'b-mid'  };   // 3 天内
+  if (n <= 7)     return { key:'low',  label:'低',  cls:'b-low'  };   // 7 天内
+  return { key:'none', label:'—', cls:'b-none' };                     // 7 天以上
+}
+
+/* ---- 排序：置顶 > 优先级 > 截止日 ---- */
+const ORDER = { high:0, mid:1, low:2, none:3, paused:4 };
+function sortTodo(list){
+  return [...list].sort((a,b)=>{
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    const pa = priorityOf(a), pb = priorityOf(b);
+    const oa = ORDER[pa.key], ob = ORDER[pb.key];
+    if (oa !== ob) return oa - ob;
+    const da = daysLeft(a), db = daysLeft(b);
+    if (da === null && db === null) return a.title.localeCompare(b.title,'zh');
+    if (da === null) return 1;
+    if (db === null) return -1;
+    return da - db;
+  });
+}
+
+let tab = 'todo';
+
+function rowHtml(t, mode){
+  const p = priorityOf(t);
+  const n = daysLeft(t);
+  const over = isOverdue(t);
+  const pinBtn = mode==='todo'
+    ? `<button class="tool ${t.pinned?'pin-on':''}" data-act="pin" data-id="${t.id}" title="${t.pinned?'取消置顶':'置顶'}">${t.pinned?'📌':'📎'}</button>`
+    : '';
+  const check = mode==='done'
+    ? `<div class="check on" data-act="uncheck" data-id="${t.id}" title="恢复为待办">✓</div>`
+    : mode==='archive'
+    ? `<div class="check on" data-act="restore" data-id="${t.id}" title="从归档恢复为待办">↩</div>`
+    : `<div class="check" data-act="check" data-id="${t.id}" title="标记完成"></div>`;
+  const badges = [
+    t.pinned && mode==='todo' ? '<span class="badge b-pin">📌 置顶</span>' : '',
+    p ? `<span class="badge ${p.cls}">${p.label}</span>` : '<span class="badge b-none">已完成</span>',
+  ].filter(Boolean).join('');
+  return `<div class="row ${t.pinned?'pinned':''} ${t.done?'done':''}" data-id="${t.id}">
+    ${check}
+    <div class="row-main">
+      <div class="row-title"><span class="t">${t.title}</span>${badges}</div>
+      <div class="row-meta"><span>${t.note}</span><span class="sep">·</span><span>截止 ${fmtDate(t.due)}</span></div>
+    </div>
+    <div class="due ${over?'over':''}">${mode==='done' || mode==='archive'
+      ? `<b style="color:var(--green);font-weight:600">✓ 已完成</b><br><small>${t.doneAt || '已完成'}</small>`
+      : t.status==='paused'
+      ? `<b style="color:var(--label3);font-weight:600">已暂停</b><br><small>${t.due ? '原截止 '+t.due : '无截止'}</small>`
+      : `<b>${fmtLeft(n)}</b><br><small>${t.due || '未设截止'}</small>`}</div>
+    <div class="row-tools">${pinBtn}<button class="tool" title="更多">⋯</button></div>
+  </div>`;
+}
+
+function render(){
+  const todo = tasks.filter(isTodo);
+  const done = tasks.filter(t=>t.done);
+  const overdue = tasks.filter(isOverdue);
+  const todoBadge = todo.filter(t=>t.status!=='paused').length;
+  document.getElementById('nTodo').textContent = todoBadge;
+  document.getElementById('nDone').textContent = done.length;
+  document.getElementById('nOverdue').textContent = overdue.length;
+  document.getElementById('navCount').textContent = todoBadge;
+  const todayN = todo.filter(t=>{const n=daysLeft(t);return n!==null&&n<=0&&!isOverdue(t);}).length;
+  const overN = overdue.length;
+  document.getElementById('pageSub').textContent = `${todo.length} 条待办 · ${todayN} 条今天到期 · ${overN} 条已超期 · 优先级按剩余天数每天自动更新`;
+  document.getElementById('crumb').textContent = tab==='todo'?'待办':(tab==='done'?'已完成':'超期');
+  document.getElementById('legend').style.display = tab==='done' ? 'none' : 'flex';
+
+  const wrap = document.getElementById('list');
+  let html = '';
+
+  if (tab === 'todo'){
+    const sorted = sortTodo(todo.filter(t=>!isOverdue(t)));
+    const pinned = sorted.filter(t=>t.pinned);
+    const rest = sorted.filter(t=>!t.pinned);
+    if (pinned.length){
+      html += `<div class="group"><div class="group-head"><span>📌 置顶</span><span class="n">${pinned.length}</span><span class="line"></span><span style="font-weight:400;color:var(--caption)">完成后自动取消置顶</span></div><div class="rows">${pinned.map(t=>rowHtml(t,'todo')).join('')}</div></div>`;
+    }
+    const groups = [
+      ['high','高优先级','今天 / 已超期'],
+      ['mid','中优先级','3 天内'],
+      ['low','低优先级','7 天内'],
+      ['none','无优先级','7 天以上或无截止'],
+      ['paused','已暂停','主动搁置 · 不算超期、不参与优先级'],
+    ];
+    for (const [k,label,hint] of groups){
+      const items = rest.filter(t=>priorityOf(t).key===k);
+      if (!items.length) continue;
+      html += `<div class="group"><div class="group-head"><span>${label}</span><span class="n">${items.length}</span><span class="line"></span><span style="font-weight:400;color:var(--caption)">${hint}</span></div><div class="rows">${items.map(t=>rowHtml(t,'todo')).join('')}</div></div>`;
+    }
+  }
+
+  if (tab === 'overdue'){
+    const items = sortTodo(overdue);
+    html = items.length
+      ? `<div class="group"><div class="group-head"><span>已超期</span><span class="n">${items.length}</span><span class="line"></span><span style="font-weight:400;color:var(--caption)">超期任务优先级自动置为「高」</span></div><div class="rows">${items.map(t=>rowHtml(t,'todo')).join('')}</div></div>`
+      : `<div class="empty">没有超期的待办 🎉</div>`;
+  }
+
+  if (tab === 'done'){
+    const items = [...done].sort((a,b)=> (b.due||'').localeCompare(a.due||''));
+    const qBar = `<div class="qbar">
+      <button class="qbtn ${archiveQ==='current'?'active':''}" data-q="current">本季度（2026-Q4）</button>
+      <button class="qbtn ${archiveQ==='2026-Q3'?'active':''}" data-q="2026-Q3">2026-Q3</button>
+      <button class="qbtn ${archiveQ==='2026-Q2'?'active':''}" data-q="2026-Q2">2026-Q2</button>
+      <span style="margin-left:auto;color:var(--caption);font-size:11.5px">永久保存 · 每季度归档为独立 JSON</span>
+    </div>`;
+    if (archiveQ === 'current'){
+      html = qBar + (items.length
+        ? `<div class="group"><div class="group-head"><span>本季度完成</span><span class="n">${items.length}</span><span class="line"></span><span style="font-weight:400;color:var(--caption)">置顶已在完成时自动清除</span></div><div class="rows">${items.map(t=>rowHtml(t,'done')).join('')}</div></div>`
+        : `<div class="empty">本季度还没有完成的任务</div>`);
+    } else {
+      const arch = ARCHIVE[archiveQ] || [];
+      html = qBar + (arch.length
+        ? `<div class="group"><div class="group-head"><span>${archiveQ} · 归档</span><span class="n">${arch.length}</span><span class="line"></span><span style="font-weight:400;color:var(--caption)">只读 · 可恢复</span></div><div class="rows">${arch.map(t=>rowHtml(t,'archive')).join('')}</div></div>`
+        : `<div class="empty">该季度没有归档任务</div>`);
+    }
+  }
+
+  wrap.innerHTML = html;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+}
+
+/* 交互 */
+document.getElementById('tabs').addEventListener('click', e=>{
+  const b=e.target.closest('.tab'); if(!b) return; tab=b.dataset.tab; render();
+});
+document.querySelector('.proto').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if (b.dataset.tab){ tab=b.dataset.tab; render(); document.querySelectorAll('.proto button').forEach(x=>x.classList.toggle('active', x===b)); }
+  if (b.id==='darkBtn') document.body.toggleAttribute('data-dark');
+});
+document.getElementById('themeBtn').addEventListener('click',()=>document.body.toggleAttribute('data-dark'));
+document.getElementById('btnRecalc').addEventListener('click',()=>{
+  render();
+  toast('已按今天（2026-10-30）重算：高 ' + tasks.filter(t=>!t.done&&priorityOf(t).key==='high').length + ' · 中 ' + tasks.filter(t=>!t.done&&priorityOf(t).key==='mid').length + ' · 低 ' + tasks.filter(t=>!t.done&&priorityOf(t).key==='low').length);
+});
+document.getElementById('list').addEventListener('click', e=>{
+  const qb = e.target.closest('.qbtn');
+  if (qb){ archiveQ = qb.dataset.q; render(); return; }
+  const el = e.target.closest('[data-act]'); if(!el) return;
+  const t = tasks.find(x=>x.id===el.dataset.id) || (ARCHIVE[archiveQ]||[]).find(x=>x.id===el.dataset.id); if(!t) return;
+  if (el.dataset.act==='check'){ t.done = true; t.pinned = false; t.doneAt = '刚刚'; render(); toast(`已完成「${t.title}」，置顶已自动取消`); }
+  if (el.dataset.act==='uncheck'){ t.done = false; render(); toast(`「${t.title}」已恢复到待办`); }
+  if (el.dataset.act==='restore'){ toast('已从归档恢复到待办（原型示意）'); }
+  if (el.dataset.act==='pin'){ t.pinned = !t.pinned; render(); toast(t.pinned ? '已置顶' : '已取消置顶'); }
+});
+let tm;
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(tm); tm=setTimeout(()=>el.classList.remove('show'),2000); }
+
+if (new URLSearchParams(location.search).get('clean')==='1') document.body.classList.add('clean');
+const q = new URLSearchParams(location.search);
+if (q.get('tab')) tab = q.get('tab');
+if (q.get('dark')==='1') document.body.setAttribute('data-dark','');
+render();
+</script>
+</body>
+</html>

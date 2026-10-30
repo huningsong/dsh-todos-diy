@@ -1,0 +1,89 @@
+/**
+ * `TaskView` projection (§7.4 / F4.10–F4.14).
+ *
+ * The API and the agent tools return this shape, never the raw stored task. It
+ * adds the read-only derived fields (`priority`, `fired`, `nextAt`, `timeZone`,
+ * `utcOffset`, `overdueDays`) and drops nothing the UI needs. Deriving on read
+ * is what makes priority "只读、不落盘" true by construction.
+ */
+
+import { nextFireAt } from './rules/occurrence.js'
+import { daysOverdue, isOverdue, priorityOf } from './rules/priority.js'
+import type { HolidayTable } from './rules/holidays.js'
+import { formatUtcOffset } from './rules/timezone.js'
+import type { Priority, Task } from './rules/types.js'
+
+/** The public projection of one task. */
+export interface TaskView extends Omit<Task, 'state'> {
+  /** Derived priority; `paused` for a paused task (D-20/D-22). */
+  priority: Priority
+  /** Read-only aggregate: a one-off task is done when both nodes fired. */
+  fired: boolean
+  /** IANA zone the task is evaluated in. */
+  timeZone: string
+  /** `UTC±HH:MM` for the current instant, for the list row (F8.2). */
+  utcOffset: string
+  /** Next fire instant (advance-shifted), ISO, or null. */
+  nextAt: string | null
+  /** Whole days overdue; null when not overdue (D-22: paused is never overdue). */
+  overdueDays: number | null
+  /** True when the task should show the red「超期」marker. */
+  overdue: boolean
+  /** The persisted state block, exposed for the detail drawer. */
+  state: Task['state']
+}
+
+/** Options for {@link toTaskView}. */
+export interface ViewOptions {
+  /** Today's local date in the task's zone. */
+  today: string
+  /** Current instant, used for the offset label and `nextAt`. */
+  now: Date
+  /** Holiday table for `workdays` next-occurrence maths. */
+  holidays?: HolidayTable
+}
+
+/**
+ * Project one task.
+ * @param task - Stored task.
+ * @param options - Today, now and the holiday table.
+ * @returns The public view.
+ */
+export function toTaskView(task: Task, options: ViewOptions): TaskView {
+  const timeZone = taskTimeZone(task)
+  const priority = priorityOf(task, options.today)
+  const next = task.status === 'active' ? nextFireAt(task, options.now, options.holidays) : null
+  const overdueDays = daysOverdue(task, options.today)
+  return {
+    ...task,
+    priority,
+    fired: task.kind === 'once' ? task.state.firedStart && task.state.firedEnd : false,
+    timeZone,
+    utcOffset: formatUtcOffset(options.now.getTime(), timeZone),
+    nextAt: next === null ? null : next.toISOString(),
+    overdueDays,
+    overdue: isOverdue(task, options.today),
+    state: task.state,
+  }
+}
+
+/**
+ * The zone a task is evaluated in: the rule's zone for a recurring task, else
+ * the global default.
+ * @param task - Stored task.
+ * @param fallback - Global default zone.
+ * @returns IANA zone identifier.
+ */
+export function taskTimeZone(task: Task, fallback = 'Asia/Shanghai'): string {
+  return task.rule?.timeZone ?? fallback
+}
+
+/**
+ * Project a list of tasks.
+ * @param tasks - Stored tasks.
+ * @param options - Shared projection options.
+ * @returns Views in the same order.
+ */
+export function toTaskViews(tasks: readonly Task[], options: ViewOptions): TaskView[] {
+  return tasks.map((task) => toTaskView(task, options))
+}
