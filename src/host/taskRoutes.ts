@@ -11,6 +11,8 @@ import type { ServerResponse } from 'node:http'
 import type { Task } from './rules/types.js'
 import { route, sendJson } from './http.js'
 import { rejectLegacyFields } from './validate.js'
+import { assertStoreWritable } from './repoGuard.js'
+import { ValidationError } from './validationError.js'
 import { nodeArchiveFs } from './archive.js'
 import { ok, queryValue, readObjectBody } from './routeKit.js'
 import { toTaskView } from './taskView.js'
@@ -174,6 +176,7 @@ export function taskRoutes(
       kind: 'exact',
       path: `${PREFIX}/tasks/remind`,
       handler: route(options, 'POST', async (req, res) => {
+        assertStoreWritable(ctx.store)
         const body = await readObjectBody(req)
         const id = requireId(body, res)
         if (id === null) return
@@ -211,6 +214,7 @@ export function taskRoutes(
       kind: 'exact',
       path: `${PREFIX}/tasks/restore`,
       handler: route(options, 'POST', async (req, res) => {
+        assertStoreWritable(ctx.store)
         const body = await readObjectBody(req)
         const id = requireId(body, res)
         if (id === null) return
@@ -227,8 +231,11 @@ export function taskRoutes(
             (next) => {
               // Persist the live document *before* the archive is touched: a
               // crash can then only duplicate the task, never lose it (F4.19).
+              assertStoreWritable(ctx.store)
               ctx.store.set(next)
-              ctx.store.flush()
+              if (!ctx.store.flush()) {
+                throw new ValidationError('storage_error', 'failed to write tasks.json; the restore was aborted')
+              }
             },
           )
           if (!result.restored) {

@@ -9,6 +9,7 @@ import { describe, it } from 'node:test'
 
 import { createRepository } from '../src/host/repo.js'
 import { createStore } from '../src/host/store.js'
+import { createRoutes } from '../src/host/routes.js'
 import { emptyState, SCHEMA_VERSION } from '../src/host/state.js'
 import { readArchiveIndex, readQuarter, archiveCompleted, rebuildIndex } from '../src/host/archive.js'
 import { storagePaths } from '../src/host/paths.js'
@@ -388,5 +389,44 @@ describe('D-25 #7b: a v1 archive quarter file is migrated on disk at startup', (
     assert.equal(written.schemaVersion, 2)
     assert.equal(Object.hasOwn(written.tasks[0], 'dueDate'), false)
     assert.equal(written.tasks[0].once.startAtSource, 'explicit')
+  })
+})
+
+describe('Review round 3: every direct-write route is gated by readOnly', () => {
+  /** Build a read-only route table by loading a future-schema state file. */
+  function readOnlyRoutes() {
+    const fs = createMemoryFs()
+    fs.mkdir(DATA_DIR)
+    fs.files.set(`${DATA_DIR}/tasks.json`, JSON.stringify({ schemaVersion: 99, tasks: [], settings: {}, meta: {} }))
+    const store = createStore({ dataDir: DATA_DIR, fs, now: () => NOW })
+    store.load()
+    const repo = createRepository({ store, now: () => NOW, debounceMs: 0 })
+    // The full route table needs a RouteContext; reuse the harness builder and
+    // simply swap in the read-only store.
+    const harness = routesFor(NOW)
+    const ctx = { ...harness.ctx, store, repo }
+    return { routes: createRoutes(ctx), store }
+  }
+
+  it('refuses /import', async () => {
+    const { routes } = readOnlyRoutes()
+    const res = await callRoute(routes, '/import', {
+      method: 'POST',
+      body: { mode: 'merge', payload: { schemaVersion: 2, tasks: [] } },
+    })
+    assert.equal(res.statusCode, 409)
+    assert.equal(res.json<{ error: { code: string } }>().error.code, 'storage_read_only')
+  })
+
+  it('refuses /archive/run', async () => {
+    const { routes } = readOnlyRoutes()
+    const res = await callRoute(routes, '/archive/run', { method: 'POST', body: {} })
+    assert.equal(res.statusCode, 409)
+  })
+
+  it('refuses restore of a live task', async () => {
+    const { routes } = readOnlyRoutes()
+    const res = await callRoute(routes, '/tasks/restore', { method: 'POST', body: { id: 'tr_x' } })
+    assert.equal(res.statusCode, 409)
   })
 })

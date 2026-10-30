@@ -45,6 +45,8 @@ export interface ImportCandidate {
     settings: Settings | null;
     deliveries: PersistedState['deliveries'];
     warnings: string[];
+    /** Number of structurally invalid task entries that were skipped. */
+    skipped: number;
 }
 /**
  * Validate an import payload before anything is mutated.

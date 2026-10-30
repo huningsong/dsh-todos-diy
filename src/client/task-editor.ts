@@ -78,7 +78,11 @@ export function emptyDraft(timeZone: string): TaskDraft {
  * @returns Editable draft.
  */
 export function draftFromTask(task: TaskView, fallbackZone: string): TaskDraft {
-  const base = emptyDraft(fallbackZone)
+  // F2.6: the task's own zone wins over the global default — otherwise editing a
+  // Tokyo task in a Shanghai-default install would show (and rewrite) the wrong
+  // wall-clock times.
+  const taskZone = task.timeZone ?? fallbackZone
+  const base = emptyDraft(taskZone)
   const rule = task.rule
   const draft: TaskDraft = {
     ...base,
@@ -113,8 +117,8 @@ export function draftFromTask(task: TaskView, fallbackZone: string): TaskDraft {
   }
   if (task.once !== null) {
     draft.startAtSource = task.once.startAtSource
-    draft.startAt = task.once.startAtSource === 'created' ? '' : toLocalInput(task.once.startAt, rule?.timeZone ?? fallbackZone)
-    draft.endAt = toLocalInput(task.once.endAt, rule?.timeZone ?? fallbackZone)
+    draft.startAt = task.once.startAtSource === 'created' ? '' : toLocalInput(task.once.startAt, taskZone)
+    draft.endAt = toLocalInput(task.once.endAt, taskZone)
   }
   return draft
 }

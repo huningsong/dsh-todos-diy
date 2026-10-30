@@ -71,6 +71,8 @@ export interface ImportCandidate {
   settings: Settings | null
   deliveries: PersistedState['deliveries']
   warnings: string[]
+  /** Number of structurally invalid task entries that were skipped. */
+  skipped: number
 }
 
 /**
@@ -129,7 +131,7 @@ export function parseImport(payload: unknown): ImportCandidate {
   const deliveriesRaw = document['deliveries']
   const deliveries = Array.isArray(deliveriesRaw) ? (deliveriesRaw as PersistedState['deliveries']) : []
   if (skipped > 0) warnings.push(`${String(skipped)} task(s) skipped`)
-  return { tasks, settings, deliveries, warnings }
+  return { tasks, settings, deliveries, warnings, skipped }
 }
 
 /**

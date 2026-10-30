@@ -35,6 +35,8 @@ export interface ArchiveIndexEntry {
 /** `archive/index.json` shape. */
 export interface ArchiveIndex {
   schemaVersion: number
+  /** True when the file was written by a newer plugin; it must not be rewritten. */
+  unsupported?: boolean
   quarters: ArchiveIndexEntry[]
 }
 
@@ -150,6 +152,11 @@ export function readArchiveIndex(
     // F6.8: the index shares `SCHEMA_VERSION` with the main file; a v1 index is
     // upgraded in memory (entries untouched) and rewritten on the next archive.
     const version = typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1
+    if (version > SCHEMA_VERSION) {
+      // F6.8: never downgrade an archive index written by a newer plugin.
+      logger?.warn?.(`todos-diy: archive index schemaVersion ${String(version)} is newer than this plugin; leaving it untouched`)
+      return { schemaVersion: version, quarters: [], unsupported: true }
+    }
     if (version < SCHEMA_VERSION) {
       // F6.8 / F9.5: the index uses the same migration function as the other
       // files and is upgraded on disk so it never stays at an old version.
@@ -257,6 +264,10 @@ export function archiveCompleted(state: PersistedState, options: ArchiveOptions)
 
   if (!fs.exists(paths.archiveDir)) fs.mkdir(paths.archiveDir)
   const index = readArchiveIndex(paths, fs, logger)
+  if (index.unsupported === true) {
+    logger?.warn?.('todos-diy: archive index is newer than this plugin; refusing to rewrite it')
+    return { archived: [], skipped: ['*'], duplicatesRemoved: 0 }
+  }
   const byQuarter = new Map<string, Task[]>()
   for (const task of toArchive) {
     // F4.16: the quarter is decided in the task's own zone — a one-off task
@@ -279,7 +290,12 @@ export function archiveCompleted(state: PersistedState, options: ArchiveOptions)
     let existing: Task[] = []
     if (fs.exists(filePath)) {
       try {
-        const parsed = JSON.parse(fs.readFile(filePath)) as QuarterFile
+        const parsed = JSON.parse(fs.readFile(filePath)) as QuarterFile & { schemaVersion?: number }
+        if (typeof parsed.schemaVersion === 'number' && parsed.schemaVersion > SCHEMA_VERSION) {
+          logger?.warn?.(`todos-diy: archive file ${fileName} is newer than this plugin; skipping quarter`)
+          skipped.push(quarter)
+          continue
+        }
         existing = Array.isArray(parsed.tasks) ? parsed.tasks : []
       } catch (error) {
         // Data-loss guard (F4.19 / §8.3): if the existing quarter file cannot
@@ -379,6 +395,7 @@ export function readQuarter(
   if (!fs.exists(filePath)) return null
   try {
     const parsed = JSON.parse(fs.readFile(filePath)) as QuarterFile & { schemaVersion?: number }
+    if (typeof parsed.schemaVersion === 'number' && parsed.schemaVersion > SCHEMA_VERSION) return null
     const rawTasks = Array.isArray(parsed.tasks) ? parsed.tasks : []
     // F6.8 / AC-41: a v1 quarter file goes through the same task migration as
     // the main document. A task that cannot be migrated safely leaves the file

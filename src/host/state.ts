@@ -11,6 +11,7 @@
  */
 
 import type { Task, TaskStatus } from './rules/types.js'
+import { parseCron } from './rules/cron.js'
 
 /** Current on-disk schema version. Bump together with a migration. */
 export const SCHEMA_VERSION = 2
@@ -284,8 +285,16 @@ function coerceRule(raw: Record<string, unknown>): Task['rule'] {
   if (preset !== 'workdays' && preset !== 'weekly' && preset !== 'monthly' && preset !== 'custom') return null
   const cron = raw['cron']
   if (typeof cron !== 'string') return null
+  // F6.2/F6.7: a hand-edited or imported rule must not be able to crash the
+  // read path. An unparseable cron drops the task instead of poisoning
+  // `/snapshot`.
+  try {
+    parseCron(cron)
+  } catch {
+    return null
+  }
   const timeZone = raw['timeZone']
-  if (typeof timeZone !== 'string') return null
+  if (typeof timeZone !== 'string' || !isKnownZone(timeZone)) return null
   const holidayCalendar = raw['holidayCalendar'] === 'none' ? 'none' : 'CN'
   const monthlyOverflow = raw['monthlyOverflow'] === 'skip' ? 'skip' : 'lastDay'
   return {
@@ -310,6 +319,7 @@ function coerceOnce(raw: Record<string, unknown>): Task['once'] {
   if (start === null || end === null) return null
   if (Date.parse(end) <= Date.parse(start)) return null
   const timeZone = typeof raw['timeZone'] === 'string' && raw['timeZone'].trim() !== '' ? raw['timeZone'] : 'Asia/Shanghai'
+  if (!isKnownZone(timeZone)) return null
   // A persisted window always carries the origin flag; a file that predates it
   // can only have come from an explicit user entry (v1 required startAt).
   const startAtSource = raw['startAtSource'] === 'created' ? 'created' : 'explicit'
@@ -339,7 +349,7 @@ export function coerceSettings(raw: Record<string, unknown>): Settings {
   )
   if (!channels.includes('overlay')) channels.unshift('overlay')
   return {
-    timeZone: str(raw['timeZone'], 'Asia/Shanghai'),
+    timeZone: isKnownZone(str(raw['timeZone'], 'Asia/Shanghai')) ? str(raw['timeZone'], 'Asia/Shanghai') : 'Asia/Shanghai',
     tickIntervalMs: clampInt(raw['tickIntervalMs'], 30_000, 300_000, 60_000),
     graceMinutes: clampInt(raw['graceMinutes'], 0, 60, 5),
     defaultChannels: [...new Set(channels)],
@@ -394,5 +404,19 @@ function coerceRecovery(raw: unknown): RecoveryRecord | null {
     reason,
     message: str(raw['message'], ''),
     backupFile: typeof raw['backupFile'] === 'string' ? raw['backupFile'] : null,
+  }
+}
+
+/**
+ * Whether a string is a resolvable IANA zone.
+ * @param zone - Candidate.
+ * @returns True when `Intl` accepts it.
+ */
+function isKnownZone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: zone })
+    return true
+  } catch {
+    return false
   }
 }

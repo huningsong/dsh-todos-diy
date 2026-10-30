@@ -139,7 +139,10 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
           includeArchived: queryFlag(url, 'includeArchived'),
         })
         ok(res, {
-          items: toTaskViews(result.items, { now: ctx.now(), holidays: ctx.holidays }),
+          // F4.21: counts and item stages must come from ONE instant. `repo.list`
+          // already fixed `serverTime`; reuse it instead of calling ctx.now()
+          // again (a boundary could fall between the two calls).
+          items: toTaskViews(result.items, { now: new Date(result.serverTime), holidays: ctx.holidays }),
           nextCursor: result.nextCursor,
           counts: result.counts,
           byKind: result.byKind,

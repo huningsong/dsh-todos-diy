@@ -12,6 +12,7 @@ import { ok, readObjectBody } from './routeKit.js'
 import { backupBeforeImport, buildExport, mergeTasks, parseImport, settingsExport } from './transfer.js'
 import { defaultSettings } from './state.js'
 import { assertStoreWritable } from './repoGuard.js'
+import { ValidationError } from './validationError.js'
 
 /** Prefix all plugin routes live under. */
 const PREFIX = '/api/dsh-todos-diy'
@@ -46,6 +47,7 @@ export function transferRoutes(
       kind: 'exact',
       path: `${PREFIX}/import`,
       handler: route(options, 'POST', async (req, res) => {
+        assertStoreWritable(ctx.store)
         const body = await readObjectBody(req)
         const mode = body['mode']
         if (mode !== 'replace' && mode !== 'merge') {
@@ -75,10 +77,12 @@ export function transferRoutes(
           imported = merged.added
         }
         ctx.store.set(current)
-        ctx.store.flush()
+        if (!ctx.store.flush()) {
+          throw new ValidationError('storage_error', 'failed to write tasks.json; the import was not persisted')
+        }
         ok(res, {
           imported,
-          skipped: 0,
+          skipped: candidate.skipped,
           backupFile,
           mode,
           warnings: candidate.warnings,

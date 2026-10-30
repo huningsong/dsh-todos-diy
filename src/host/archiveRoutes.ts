@@ -10,6 +10,8 @@ import { route, sendJson, type LoggerLike } from './http.js'
 import { ok, queryInt, queryValue, readObjectBody } from './routeKit.js'
 import type { RouteContext, RouteDefinition } from './routes.js'
 import { toTaskViews } from './taskView.js'
+import { assertStoreWritable } from './repoGuard.js'
+import { ValidationError } from './validationError.js'
 
 /** Prefix all plugin routes live under. */
 const PREFIX = '/api/dsh-todos-diy'
@@ -63,6 +65,7 @@ export function archiveRoutes(ctx: RouteContext, options: ArchiveRouteOptions): 
       kind: 'exact',
       path: `${PREFIX}/archive/run`,
       handler: route(options, 'POST', async (req, res) => {
+        assertStoreWritable(ctx.store)
         const body = await readObjectBody(req)
         const quarter = typeof body['quarter'] === 'string' ? body['quarter'] : undefined
         const result = archiveCompleted(ctx.store.state, {
@@ -75,7 +78,9 @@ export function archiveRoutes(ctx: RouteContext, options: ArchiveRouteOptions): 
         })
         if (result.archived.length > 0) {
           ctx.store.set(ctx.store.state)
-          ctx.store.flush()
+          if (!ctx.store.flush()) {
+            throw new ValidationError('storage_error', 'failed to write tasks.json after archiving')
+          }
         }
         ok(res, result)
       }),

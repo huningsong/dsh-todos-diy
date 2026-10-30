@@ -39,6 +39,11 @@ export function ReminderOverlay(props: OverlayProps) {
   const [expanded, setExpanded] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const stackRef = React.useRef<HTMLDivElement | null>(null)
+  // A card can stay pending for many polls (UX-01: the overlay never
+  // self-dismisses), so the chime and the OS notification must be remembered
+  // per occurrence. Otherwise every 20 s tick would buzz again.
+  const chimed = React.useRef<Set<string>>(new Set())
+  const notified = React.useRef<Set<string>>(new Set())
 
   /** Fetch pending cards; also pushes system notifications for cards that ask. */
   const poll = React.useCallback(async (): Promise<void> => {
@@ -54,7 +59,11 @@ export function ReminderOverlay(props: OverlayProps) {
       setError(null)
       // F5.8: a card may ask for a short built-in chime. Autoplay policies can
       // reject it; that must stay silent and never block the overlay.
-      if (visible.some((card) => card.sound)) playChime()
+      const freshSound = visible.filter((card) => card.sound && !chimed.current.has(card.occurrenceKey))
+      if (freshSound.length > 0) {
+        playChime()
+        for (const card of freshSound) chimed.current.add(card.occurrenceKey)
+      }
       // Only cards actually rendered may raise a system notification: a
       // DND-held row is folded into the summary and must not buzz individually
       // (F5.6). The summary itself raises one notification instead.
@@ -75,6 +84,8 @@ export function ReminderOverlay(props: OverlayProps) {
         if (typeof Notification === 'undefined') continue
         if (Notification.permission !== 'granted') continue
         if (document.visibilityState !== 'hidden') continue
+        if (notified.current.has(card.occurrenceKey)) continue
+        notified.current.add(card.occurrenceKey)
         try {
           new Notification(card.title, { body: card.text, tag: card.occurrenceKey })
           await api.reportSystem(card.occurrenceKey, true)

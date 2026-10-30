@@ -27,6 +27,8 @@ export interface ArchiveIndexEntry {
 /** `archive/index.json` shape. */
 export interface ArchiveIndex {
     schemaVersion: number;
+    /** True when the file was written by a newer plugin; it must not be rewritten. */
+    unsupported?: boolean;
     quarters: ArchiveIndexEntry[];
 }
 /** File-system seam, mirroring `store.ts` so tests can use the memory double. */
