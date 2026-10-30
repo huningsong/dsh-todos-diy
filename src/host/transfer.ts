@@ -14,6 +14,7 @@ import { migrateState } from './migrations.js'
 import type { PersistedState, Settings } from './state.js'
 import type { Task } from './rules/types.js'
 import { coerceTask } from './state.js'
+import { coerceCompletionEvent } from './stateRecords.js'
 
 /** One exported bundle. */
 export interface ExportBundle {
@@ -145,9 +146,27 @@ export function parseImport(payload: unknown): ImportCandidate {
   const deliveriesRaw = document['deliveries']
   const deliveries = Array.isArray(deliveriesRaw) ? (deliveriesRaw as PersistedState['deliveries']) : []
   const eventsRaw = document['completionEvents']
-  const completionEvents = Array.isArray(eventsRaw) ? (eventsRaw as PersistedState['completionEvents']) : []
+  const completionEvents: PersistedState['completionEvents'] = []
+  if (Array.isArray(eventsRaw)) {
+    for (const candidate of eventsRaw) {
+      const event = coerceCompletionEvent(candidate)
+      if (event === null) {
+        warnings.push('completion event skipped: malformed entry')
+        continue
+      }
+      completionEvents.push(event)
+    }
+  }
   if (skipped > 0) warnings.push(`${String(skipped)} task(s) skipped`)
-  return { tasks, settings, deliveries, completionEvents, warnings, skipped }
+  const uniqueEvents = new Map(completionEvents.map((event) => [event.id, event]))
+  return {
+    tasks,
+    settings,
+    deliveries,
+    completionEvents: [...uniqueEvents.values()].slice(-5000),
+    warnings,
+    skipped,
+  }
 }
 
 /**

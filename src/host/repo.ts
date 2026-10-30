@@ -244,19 +244,19 @@ export function createRepository(options: RepositoryOptions): Repository {
           return { task: completed, completedOccurrenceKey: completed.state.completedOccurrenceKey, nextAt: null }
         }
         // Recurring: skip the current occurrence and stay active (F4.4).
-        // F1.2: only an `active` task may be completed; a paused/archived/done
-        // task must be refused so the caller learns the state transition is
-        // illegal instead of silently rewriting bookkeeping fields.
+        // F1.2: only an `active` task may be completed.
         if (task.status !== 'active') {
           throw new ValidationError('invalid_state', describeTransition(task.status, 'active'))
         }
         let key = occurrenceKey ?? task.state.lastOccurrenceKey
+        // A-02: the same occurrence must not be counted twice.
+        const duplicate = key !== null && key !== undefined &&
+          store.state.completionEvents.some((event) => event.taskId === task.id && event.occurrenceKey === key)
+        if (duplicate) return { task, completedOccurrenceKey: key, nextAt: null }
         /** When `skipNext` synthesized the key, its instant is the new floor. */
         let skippedAt: string | null = null
         if (key === null || key === undefined) {
-          // F7.18: a brand-new recurring task has no occurrence yet. With
-          // `skipNext` we resolve the next one from the rule and advance past
-          // it, so "skip the next run" works before the first fire.
+          // F7.18: resolve the next occurrence for a never-fired task.
           if (!skipNext) {
             throw new ValidationError('no_occurrence', 'this recurring task has no occurrence to complete')
           }

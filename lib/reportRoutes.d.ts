@@ -16,7 +16,11 @@ import type { RouteContext, RouteDefinition } from './routes.js';
  */
 export declare function resolveAnchor(raw: string | undefined, timeZone: string, now: Date): string;
 /**
- * Load every archived task visible in the archive index.
+ * Load archived tasks **without writing anything** (A-04).
+ *
+ * `readArchiveIndex`/`rebuildIndex` migrate index and quarter files on disk,
+ * which would make `GET /reports` a write path. This reader parses the same
+ * files in memory and never persists a migration.
  * @param ctx - Route context.
  * @returns Archived tasks (empty when the archive is unavailable).
  */

@@ -183,3 +183,30 @@ describe('Review round 4: a newer archive index is never downgraded', () => {
     assert.equal(fs.files.get(`${DATA_DIR}/archive/index.json`), original)
   })
 })
+
+describe('Review fixes: high-version archive protection (A-03)', () => {
+  it('refuses to restore a task from a newer quarter file', () => {
+    const fs = createMemoryFs()
+    const paths = storagePaths(DATA_DIR)
+    fs.mkdir(paths.archiveDir)
+    fs.writeFile(paths.archiveIndex, JSON.stringify({
+      schemaVersion: 3,
+      quarters: [{ quarter: '2026-Q3', file: 'completed-2026-Q3.json', count: 1, start: '', end: '' }],
+    }))
+    const quarter = { schemaVersion: 4, quarter: '2026-Q3', tasks: [{ ...makeTask({ kind: 'once' }), id: 'tr_newer' }] }
+    fs.writeFile(`${paths.archiveDir}/completed-2026-Q3.json`, JSON.stringify(quarter))
+    const before = fs.readFile(`${paths.archiveDir}/completed-2026-Q3.json`)
+    const result = restoreArchivedTask(emptyState(NOW), 'tr_newer', paths, fs, NOW)
+    assert.equal(result.restored, false)
+    assert.equal(fs.readFile(`${paths.archiveDir}/completed-2026-Q3.json`), before)
+  })
+
+  it('rebuildIndex skips a newer quarter file', () => {
+    const fs = createMemoryFs()
+    const paths = storagePaths(DATA_DIR)
+    fs.mkdir(paths.archiveDir)
+    fs.writeFile(`${paths.archiveDir}/completed-2026-Q3.json`, JSON.stringify({ schemaVersion: 4, quarter: '2026-Q3', tasks: [] }))
+    const index = rebuildIndex(paths, fs)
+    assert.equal(index.quarters.length, 0)
+  })
+})

@@ -292,5 +292,6 @@ export const zh = {
   'report.stats.rate': '完成率 {rate}%',
   'report.file.weekly': '工作周报-{date}.md',
   'report.file.monthly': '工作月报-{month}.md',
+  'error.network_error': '网络错误，请稍后重试',
 }
 

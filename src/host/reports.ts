@@ -22,6 +22,8 @@ export interface ReportItem {
   completedAt?: string | null
   overdueDays?: number
   nextAt?: string | null
+  /** Zone the row's times should be displayed in (F2.6/B-03). */
+  timeZone?: string
 }
 
 /** The JSON contract of `GET /reports`. */
@@ -86,6 +88,21 @@ function addMonthsFirst(date: LocalDate, months: number): LocalDate {
 }
 
 /**
+ * Resolve a local midnight boundary, falling back to the first valid hour when
+ * a DST spring-forward gap deletes 00:00 (e.g. America/Asuncion 2023-10-01).
+ * @param date - Local date.
+ * @param timeZone - IANA zone.
+ * @returns Unix milliseconds of the boundary.
+ */
+function boundaryInstant(date: LocalDate, timeZone: string): number {
+  for (const hour of [0, 1, 2, 3]) {
+    const ms = localToInstant({ ...date, hour, minute: 0 }, timeZone)
+    if (ms !== undefined) return ms
+  }
+  throw new Error('report period boundary does not exist in this time zone')
+}
+
+/**
  * Resolve the reporting window around an anchor day.
  * @param kind - `weekly` (Mon–Sun) or `monthly` (natural month).
  * @param anchor - `YYYY-MM-DD` in `timeZone`.
@@ -101,12 +118,9 @@ export function periodOf(kind: 'weekly' | 'monthly', anchor: string, timeZone: s
     : firstOfMonth(parsed)
   const nextStartDate = kind === 'weekly' ? addDays(startDate, 7) : addMonthsFirst(startDate, 1)
   const nextEndDate = kind === 'weekly' ? addDays(nextStartDate, 7) : addMonthsFirst(nextStartDate, 1)
-  const startMs = localToInstant({ ...startDate, hour: 0, minute: 0 }, timeZone)
-  const nextStartMs = localToInstant({ ...nextStartDate, hour: 0, minute: 0 }, timeZone)
-  const nextEndMs = localToInstant({ ...nextEndDate, hour: 0, minute: 0 }, timeZone)
-  if (startMs === undefined || nextStartMs === undefined || nextEndMs === undefined) {
-    throw new Error('report period falls in a DST gap')
-  }
+  const startMs = boundaryInstant(startDate, timeZone)
+  const nextStartMs = boundaryInstant(nextStartDate, timeZone)
+  const nextEndMs = boundaryInstant(nextEndDate, timeZone)
   const lastDay = kind === 'weekly'
     ? addDays(nextStartDate, -1)
     : { year: startDate.year, month: startDate.month, day: daysInMonth(startDate.year, startDate.month) }
@@ -163,8 +177,28 @@ export function buildReport(input: ReportInput): ReportData {
       count: 1,
       dueAt: task.once?.endAt ?? null,
       completedAt: task.doneAt,
+      timeZone: task.once?.timeZone ?? input.timeZone,
     })
   }
+  // B-01: events are the fallback for one-off tasks that no longer exist (purged
+  // or imported history). A task's own doneAt wins when both are present.
+  const completedIds = new Set(completed.map((item) => item.id))
+  for (const event of input.events) {
+    if (event.kind !== 'once') continue
+    if (!within(event.completedAt, startMs, endMs)) continue
+    if (completedIds.has(event.taskId)) continue
+    completed.push({
+      id: event.taskId,
+      title: event.taskTitle,
+      kind: 'once',
+      count: 1,
+      dueAt: event.dueAt,
+      completedAt: event.completedAt,
+      timeZone: event.timeZone,
+    })
+    completedIds.add(event.taskId)
+  }
+
   const recurring = new Map<string, ReportItem>()
   for (const event of input.events) {
     if (event.kind !== 'recurring') continue
@@ -178,6 +212,7 @@ export function buildReport(input: ReportInput): ReportData {
         count: 1,
         dueAt: event.dueAt,
         completedAt: event.completedAt,
+        timeZone: event.timeZone,
       })
     } else {
       current.count = (current.count ?? 1) + 1
@@ -199,6 +234,7 @@ export function buildReport(input: ReportInput): ReportData {
       kind: 'once',
       dueAt: task.once.endAt,
       overdueDays: Math.max(0, Math.floor((nowMs - dueMs) / 86_400_000)),
+      timeZone: task.once.timeZone,
     })
   }
   overdue.sort((left, right) => (left.dueAt ?? '') < (right.dueAt ?? '') ? -1 : 1)
@@ -207,7 +243,13 @@ export function buildReport(input: ReportInput): ReportData {
   for (const task of all) {
     if (task.status === 'archived') continue
     if (!within(task.createdAt, startMs, endMs)) continue
-    created.push({ id: task.id, title: task.title, kind: task.kind, dueAt: task.kind === 'once' ? task.once?.endAt ?? null : null })
+    created.push({
+      id: task.id,
+      title: task.title,
+      kind: task.kind,
+      dueAt: task.kind === 'once' ? task.once?.endAt ?? null : null,
+      timeZone: task.kind === 'once' ? task.once?.timeZone : task.rule?.timeZone,
+    })
   }
   created.sort((left, right) => (left.id < right.id ? -1 : 1))
 
@@ -218,7 +260,13 @@ export function buildReport(input: ReportInput): ReportData {
     if (nextAt === null) continue
     const at = Date.parse(nextAt)
     if (Number.isNaN(at) || at < Date.parse(period.nextStart) || at > nextEndMs) continue
-    upcoming.push({ id: task.id, title: task.title, kind: task.kind, nextAt })
+    upcoming.push({
+      id: task.id,
+      title: task.title,
+      kind: task.kind,
+      nextAt,
+      timeZone: task.kind === 'once' ? task.once?.timeZone : task.rule?.timeZone,
+    })
   }
   upcoming.sort((left, right) => (left.nextAt ?? '') < (right.nextAt ?? '') ? -1 : 1)
 

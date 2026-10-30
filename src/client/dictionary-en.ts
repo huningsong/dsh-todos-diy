@@ -292,4 +292,5 @@ export const en = {
   'report.stats.rate': 'Completion rate {rate}%',
   'report.file.weekly': 'weekly-report-{date}.md',
   'report.file.monthly': 'monthly-report-{month}.md',
+  'error.network_error': 'Network error — please try again',
 }

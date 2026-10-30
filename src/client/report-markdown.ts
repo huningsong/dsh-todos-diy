@@ -53,11 +53,12 @@ function row(item: ReportItem, t: Translate, timeZone: string, checked: boolean)
   if (item.overdueDays !== undefined && item.overdueDays > 0) {
     return `- ${box} ${item.title}${suffix}（${t('report.item.overdueDays', { n: item.overdueDays })}）`
   }
+  const zone = item.timeZone ?? timeZone
   if (item.nextAt !== undefined && item.nextAt !== null) {
-    return `- ${box} ${item.title}${suffix}（${shortTime(item.nextAt, timeZone)}）`
+    return `- ${box} ${item.title}${suffix}（${shortTime(item.nextAt, zone)}）`
   }
   if (item.dueAt !== undefined && item.dueAt !== null && item.completedAt === undefined) {
-    return `- ${box} ${item.title}${suffix}（${shortTime(item.dueAt, timeZone)}）`
+    return `- ${box} ${item.title}${suffix}（${shortTime(item.dueAt, zone)}）`
   }
   return `- ${box} ${item.title}${suffix}`
 }

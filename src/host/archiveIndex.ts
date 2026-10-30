@@ -100,6 +100,11 @@ export function rebuildIndex(
     const quarter = match[1] as string
     try {
       const file = JSON.parse(fs.readFile(join(paths.archiveDir, name))) as QuarterFile & { schemaVersion?: number }
+      // A-03: a quarter written by a newer plugin stays out of this index.
+      if (typeof file.schemaVersion === 'number' && file.schemaVersion > SCHEMA_VERSION) {
+        logger?.warn?.(`todos-diy: archive file ${name} is newer than this plugin; skipped`)
+        continue
+      }
       let tasks = Array.isArray(file.tasks) ? file.tasks : []
       // F6.8 / AC-41: a quarter file left at v1 is migrated **on disk** during
       // the startup rebuild, so the archive reaches the current schema without

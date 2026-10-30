@@ -18,6 +18,8 @@ export interface ReportItem {
     completedAt?: string | null;
     overdueDays?: number;
     nextAt?: string | null;
+    /** Zone the row's times should be displayed in (F2.6/B-03). */
+    timeZone?: string;
 }
 /** The JSON contract of `GET /reports`. */
 export interface ReportData {

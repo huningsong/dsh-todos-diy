@@ -236,3 +236,102 @@ async function call(
   await entry.handler(fakeRequest({ url: `/api/dsh-todos-diy${url}`, method: 'GET' }) as never, res as never)
   return res
 }
+
+describe('Review fixes: A-01 DST midnight gap', () => {
+  it('falls back to the first valid hour when midnight is deleted', () => {
+    const period = periodOf('monthly', '2023-10-15', 'America/Asuncion')
+    assert.equal(period.start, '2023-10-01T04:00:00.000Z')
+    assert.equal(period.end, '2023-11-01T02:59:59.999Z')
+  })
+
+  it('keeps a weekly anchor valid when the week starts in a gap', () => {
+    const period = periodOf('weekly', '2021-03-24', 'Asia/Tehran')
+    assert.equal(Number.isNaN(Date.parse(period.start)), false)
+    assert.ok(Date.parse(period.end) > Date.parse(period.start))
+  })
+})
+
+describe('Review fixes: A-02 duplicate occurrence completion', () => {
+  it('does not append a second event for the same occurrence', async () => {
+    const fs = createMemoryFs(); fs.mkdir(DATA_DIR)
+    const store = createStore({ dataDir: DATA_DIR, fs, now: () => NOW }); store.load()
+    const repo = createRepository({ store, now: () => NOW, debounceMs: 0 })
+    const task = await repo.create({ title: 'dup', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
+    const key = 'tr_x@2026-10-29T01:00:00.000Z'
+    await repo.complete(task.id, key)
+    await repo.complete(task.id, key)
+    assert.equal(store.state.completionEvents.length, 1)
+  })
+})
+
+describe('Review fixes: B-01 one-off event fallback', () => {
+  it('recovers a purged one-off completion from its event', () => {
+    const report = buildReport({
+      kind: 'weekly', anchor: '2026-10-30', timeZone: ZONE, now: NOW,
+      tasks: [], archived: [], events: [{
+        id: 'ev_x', taskId: 'tr_gone', taskTitle: '已删除任务', kind: 'once',
+        occurrenceKey: 'tr_gone@2026-10-28T02:00:00.000Z', completedAt: '2026-10-28T02:00:00.000Z',
+        dueAt: '2026-10-27T10:00:00.000Z', timeZone: ZONE,
+      }],
+    })
+    assert.deepEqual(report.completed.map((item) => item.id), ['tr_gone'])
+    assert.equal(report.stats.completed, 1)
+  })
+
+  it('prefers task doneAt over a duplicate once event', () => {
+    const task = done('tr_a', '任务内完成', '2026-10-28T10:00:00+08:00')
+    const report = buildReport({
+      kind: 'weekly', anchor: '2026-10-30', timeZone: ZONE, now: NOW,
+      tasks: [task], archived: [], events: [{
+        id: 'ev_a', taskId: 'tr_a', taskTitle: '任务内完成', kind: 'once',
+        occurrenceKey: 'tr_a@x', completedAt: '2026-10-28T02:00:00.000Z', dueAt: null, timeZone: ZONE,
+      }],
+    })
+    assert.equal(report.completed.length, 1)
+  })
+})
+
+describe('Review fixes: B-03 task time zone on report rows', () => {
+  it('keeps the task zone on upcoming rows', () => {
+    const task = makeTask({ kind: 'recurring', rule: makeRule({ timeZone: 'Asia/Tokyo', cron: '0 9 * * 1-5' }) })
+    task.id = 'tr_tokyo'
+    const report = buildReport({
+      kind: 'weekly', anchor: '2026-10-30', timeZone: 'Asia/Shanghai', now: NOW,
+      tasks: [task], archived: [], events: [],
+      nextAtFor: () => '2026-11-02T00:00:00.000Z',
+    })
+    assert.equal(report.upcoming[0]?.timeZone, 'Asia/Tokyo')
+  })
+})
+
+describe('Review fixes: A-04 report route never writes archive files', () => {
+  it('leaves a v2 archive index and quarter untouched', async () => {
+    const { routes, store, fs } = routesFor(NOW)
+    const paths = store.paths
+    fs.mkdir(paths.archiveDir)
+    const index = { schemaVersion: 2, quarters: [{ quarter: '2026-Q3', file: 'completed-2026-Q3.json', count: 1, start: '', end: '' }] }
+    const quarter = { schemaVersion: 2, quarter: '2026-Q3', tasks: [] }
+    fs.writeFile(paths.archiveIndex, JSON.stringify(index))
+    fs.writeFile(`${paths.archiveDir}/completed-2026-Q3.json`, JSON.stringify(quarter))
+    const beforeIndex = fs.readFile(paths.archiveIndex)
+    const beforeQuarter = fs.readFile(`${paths.archiveDir}/completed-2026-Q3.json`)
+    const res = await call(routes, '/reports?kind=weekly&anchor=2026-10-30')
+    assert.equal(res.statusCode, 200)
+    assert.equal(fs.readFile(paths.archiveIndex), beforeIndex)
+    assert.equal(fs.readFile(`${paths.archiveDir}/completed-2026-Q3.json`), beforeQuarter)
+  })
+})
+
+describe('Review fixes: B-02 malformed completionEvents on import', () => {
+  it('drops malformed events instead of crashing the report', async () => {
+    const { parseImport } = await import('../src/host/transfer.js')
+    const candidate = parseImport({ schemaVersion: 3, tasks: [], deliveries: [], completionEvents: [null, { id: 'bad' }] })
+    assert.deepEqual(candidate.completionEvents, [])
+    assert.ok(candidate.warnings.some((warning) => warning.includes('completion event')))
+    const report = buildReport({
+      kind: 'weekly', anchor: '2026-10-30', timeZone: ZONE, now: NOW,
+      tasks: candidate.tasks, archived: [], events: candidate.completionEvents,
+    })
+    assert.equal(report.stats.completed, 0)
+  })
+})
