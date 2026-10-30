@@ -25,7 +25,7 @@
 |---|---|---|---|---|---|
 | **R1** | 2026-10-30 | `requirements/需求-v1.md` v1；D-01…D-24；`decisions/UX-决策记录.md` | `reviews/round1/评审-独立意见.md` | v0.1.0 旧模型（`dueDate`、三视图）；历史基线 552 tests / 144 suites | 已发布基线 |
 | **R2** | 2026-10-30 | D-25 时间/状态模型：`requirements/优化-任务时间与状态模型.md`、`requirements/评估-任务时间与状态逻辑.md` | `reviews/round2/评审-本轮需求.md` + `评审-本轮需求-负责人意见.md`；8 个 P0、20 个 P1 | 当前工作树 572 tests / 161 suites 通过；D-25 尚未进入 `src/` | 需求已评审，待开发 |
-| **R3** | 2026-10-30 | 按 `requirements/需求-v1.md` v1.3 实现 D-25；NLP 留 v1.1 | 不新增评审轮次，按 v1.3 开工门 | v0.2.0：**670 tests / 195 suites / 0 fail**；三份 tsc 0 错误；verify-pack OK | **已实现（0.2.0）** |
+| **R3** | 2026-10-30 | 按 `requirements/需求-v1.md` v1.3 实现 D-25；NLP 留 v1.1 | 不新增评审轮次，按 v1.3 开工门 | v0.2.0：**673 tests / 196 suites / 0 fail**；三份 tsc 0 错误；verify-pack OK | **已实现（0.2.0）** |
 
 ## 关键入口
 

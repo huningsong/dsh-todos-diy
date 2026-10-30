@@ -56,6 +56,7 @@ export function routesFor(now: Date, options: RouteHarnessOptions = {}) {
     healthSnapshot: () => health.snapshot(holidays),
     today: () => '2026-10-30',
     now: () => now,
+    setSystemNotification: (granted: boolean) => health.setSystemNotificationCapability(granted),
     gate: (req) => {
       if (options.noConnection === true) {
         const remote = req.socket?.remoteAddress ?? ''

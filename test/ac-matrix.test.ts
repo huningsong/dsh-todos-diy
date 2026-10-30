@@ -6,7 +6,7 @@
  */
 
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it } from 'node:test'
@@ -26,7 +26,15 @@ describe('AC coverage matrix', () => {
   it('marks each row as automated, scripted or manual', () => {
     for (const line of matrix.split('\n')) {
       if (!line.startsWith('| AC-')) continue
-      assert.match(line, /\| (自动|脚本|手工) \|$/, `row must declare a status: ${line}`)
+      assert.match(line, /\| (自动|自动\+手工|脚本|手工) \|$/, `row must declare a status: ${line}`)
+    }
+  })
+
+  it('only references test files that exist', () => {
+    const referenced = [...matrix.matchAll(/`(test\/[A-Za-z0-9_-]+\.test\.ts)`/g)].map((match) => match[1] as string)
+    assert.ok(referenced.length > 10, 'the matrix should reference the automated suites')
+    for (const relative of new Set(referenced)) {
+      assert.equal(existsSync(join(here, '..', '..', relative)), true, `missing test file: ${relative}`)
     }
   })
 })

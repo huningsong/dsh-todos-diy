@@ -19,7 +19,7 @@
 | AC-12 | 稍后提醒 | `test/fixes4.test.ts`、`test/review-fixes.test.ts` | 自动 |
 | AC-13 | 浮层默认通道 | `test/delivery.test.ts` | 自动 |
 | AC-14 | 前台/后台通道降级 | 手工（真实 OS 通知） | 手工 |
-| AC-15 | 权限拒绝降级 | `test/routes.test.ts`（capabilities）+ 手工 | 自动 |
+| AC-15 | 权限拒绝降级 | `test/d25.integration.test.ts`（/health + /capabilities）；真实 OS 通知需手工 | 自动+手工 |
 | AC-16 | 投递幂等 + 回执 | `test/delivery.test.ts` | 自动 |
 | AC-17 | 冷启动 60 秒内调度 | `test/apply.test.ts` + E2E | 自动 |
 | AC-18 | 重启逐字段一致 | `test/store.test.ts`、`test/state.test.ts` | 自动 |
@@ -27,12 +27,12 @@
 | AC-20 | kill -9 原子写 | `test/store.test.ts`（模拟） | 手工 |
 | AC-21 | 禁用后无残留 timer | `test/apply.test.ts`（disposer） | 手工 |
 | AC-22 | 9 个工具 | `test/tools.test.ts` | 自动 |
-| AC-23 | 入口/三态/重试 | `test/routes.test.ts` + 手工 | 自动 |
-| AC-24 | 中英切换 | `test/dictionary.test.ts`（键一致性） | 自动 |
+| AC-23 | 入口/三态/重试 | 手工（真实浏览器渲染） | 手工 |
+| AC-24 | 中英切换 | `test/dictionary.test.ts`（键集合/占位符一致）；真实切换需手工 | 自动+手工 |
 | AC-25 | 导出/导入 | `test/transfer.test.ts` | 自动 |
 | AC-26 | 跨站 403 | `test/routes.test.ts`、`test/http.test.ts` | 自动 |
 | AC-27 | 60 秒内投递 | `test/resolve-tick.test.ts` | 自动 |
-| AC-28 | 无会话消息/无 sessionId | `test/d25.model.test.ts`、`test/delivery.test.ts` | 自动 |
+| AC-28 | 无会话消息/无 sessionId | `test/d25.integration.test.ts`（TaskView / deliveries 无 sessionId） | 自动 |
 | AC-29 | 四页签 + 两筛选 | `test/d25.model.test.ts`、`test/priority.test.ts` | 自动 |
 | AC-30 | 进行中完成计数 | `test/d25.model.test.ts`、`test/d25.integration.test.ts` | 自动 |
 | AC-31 | 优先级随时间变化 | `test/priority.test.ts`、`test/d25.model.test.ts` | 自动 |
@@ -54,4 +54,5 @@
 ## 说明
 
 - `手工` 项需要真实操作系统通知、真实进程强杀或宿主插件管理器，自动化环境无法等价复现；发布前按 `docs/testing/测试记录.md` 执行。
+- `自动+手工` 表示自动化覆盖了协议/数据层，视觉与真实操作系统行为仍需手工确认。
 - 覆盖位置只列“主用例”，同一 AC 可能还有多处断言。

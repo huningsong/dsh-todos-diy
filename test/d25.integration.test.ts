@@ -430,3 +430,26 @@ describe('Review round 3: every direct-write route is gated by readOnly', () => 
     assert.equal(res.statusCode, 409)
   })
 })
+
+describe('AC-15 / AC-28: capability reporting and session independence', () => {
+  it('reports systemNotification=null before any client report, then the reported value', async () => {
+    const { routes } = routesFor(NOW)
+    const before = await callRoute(routes, '/health')
+    const beforeValue = before.json<{ value: { capabilities: { systemNotification: boolean | null } } }>().value
+    assert.equal(beforeValue.capabilities.systemNotification, null)
+    const report = await callRoute(routes, '/capabilities', { method: 'POST', body: { systemNotification: false } })
+    assert.equal(report.statusCode, 200)
+    const after = await callRoute(routes, '/health')
+    assert.equal(after.json<{ value: { capabilities: { systemNotification: boolean | null } } }>().value.capabilities.systemNotification, false)
+  })
+
+  it('never exposes a sessionId anywhere in a TaskView or delivery row', async () => {
+    const { routes, repo } = routesFor(NOW)
+    const task = await repo.create({ title: 'x', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
+    const view = await callRoute(routes, '/tasks/get', { url: `/tasks/get?id=${task.id}` })
+    assert.equal(JSON.stringify(view.json()).includes('sessionId'), false)
+    await callRoute(routes, '/tasks/remind', { method: 'POST', body: { id: task.id } })
+    const deliveries = await callRoute(routes, '/deliveries')
+    assert.equal(JSON.stringify(deliveries.json()).includes('sessionId'), false)
+  })
+})
