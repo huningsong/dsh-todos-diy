@@ -215,6 +215,8 @@ export const en = {
   'error.no_occurrence': 'Nothing to complete right now',
   'error.conflict': 'Changed in another window — refresh and retry',
   'error.read_only': 'Another instance is using the data',
+  'error.storage_read_only': 'The data file belongs to a newer plugin version; this build is read-only.',
+  'error.plugin_too_old': 'The data file was written by a newer plugin version. This build is read-only until you upgrade.',
   'error.schema_mismatch': 'Incompatible import file',
   'error.storage_error': 'Save failed — check the disk',
   'error.forbidden': 'Not permitted',

@@ -12,6 +12,7 @@ import { ValidationError } from './validationError.js'
 
 export { ValidationError, type ErrorCode } from './validationError.js'
 export { validateOnce, parseInstant } from './validateTime.js'
+export { validateSettingsPatch } from './validateSettings.js'
 
 /** Limits from §7.4. */
 export const LIMITS = {

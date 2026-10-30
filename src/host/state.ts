@@ -255,6 +255,10 @@ export function coerceTask(raw: unknown): Task | null {
       lastOccurrenceKey: typeof stateRaw['lastOccurrenceKey'] === 'string' ? stateRaw['lastOccurrenceKey'] : null,
       firedStart: stateRaw['firedStart'] === true,
       firedEnd: stateRaw['firedEnd'] === true,
+      firedStartAdvance: stateRaw['firedStartAdvance'] === true,
+      firedEndAdvance: stateRaw['firedEndAdvance'] === true,
+      missedStart: stateRaw['missedStart'] === true,
+      missedEnd: stateRaw['missedEnd'] === true,
       missedAt: nullableIso(stateRaw['missedAt']),
       missedCount: Number.isFinite(Number(stateRaw['missedCount'])) ? Math.max(0, Math.trunc(Number(stateRaw['missedCount']))) : 0,
       snoozeUntil: nullableIso(stateRaw['snoozeUntil']),
@@ -309,7 +313,8 @@ function coerceOnce(raw: Record<string, unknown>): Task['once'] {
   const end = nullableIso(raw['endAt'])
   if (start === null || end === null) return null
   if (Date.parse(end) <= Date.parse(start)) return null
-  return { startAt: start, endAt: end }
+  const timeZone = typeof raw['timeZone'] === 'string' && raw['timeZone'].trim() !== '' ? raw['timeZone'] : 'Asia/Shanghai'
+  return { startAt: start, endAt: end, timeZone }
 }
 
 /** Coerce a `YYYY-MM-DD` list: invalid entries dropped, de-duplicated, sorted. */

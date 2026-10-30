@@ -48,12 +48,7 @@ export interface CronSpec {
     dayOfMonthStar: boolean;
     dayOfWeekStar: boolean;
 }
-/**
- * Parse and canonicalize a 5-field Vixie cron expression.
- * @param expression - Candidate expression.
- * @returns Parsed spec with the canonical spelling attached.
- * @throws CronError with `code: 'invalid_cron'` and the offending `field`.
- */
+/** Parse a cron expression, memoised by exact text (NF6: 1000-task tick budget). */
 export declare function parseCron(expression: string): CronSpec;
 /**
  * Canonicalize a cron expression without exposing the parsed structure.

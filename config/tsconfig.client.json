@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
@@ -13,5 +17,9 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src/client/**/*.ts", "src/host/taskView.ts", "src/host/rules/types.ts"]
+  "include": [
+    "../src/client/**/*.ts",
+    "../src/host/taskView.ts",
+    "../src/host/rules/types.ts"
+  ]
 }

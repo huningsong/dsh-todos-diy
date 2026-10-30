@@ -159,13 +159,13 @@ export function deliveryRecordsFor(task: Task, occurrence: Occurrence, now: Date
 /**
  * Deliveries that still need the user's attention.
  *
- * A record is pending while it has neither `readAt` nor `ignoredAt`, its bound
- * task is still in a state that can be reminded, and it is recent enough to be
- * worth showing (90 minutes — an old unacknowledged card should not haunt a
- * restart forever).
+ * A record is pending while it has neither `readAt` nor `ignoredAt` and its
+ * bound task is still in a state that can be reminded. There is deliberately
+ * **no age limit**: UX-01 says the overlay must not disappear on its own, so an
+ * unacknowledged card survives a restart until the user dismisses it.
  * @param records - Persisted delivery log.
  * @param tasks - Current tasks (to resolve titles and status).
- * @param now - Current instant.
+ * @param now - Current instant (kept for signature stability).
  * @returns Pending overlay records, newest last.
  */
 export function pendingDeliveries(
@@ -174,14 +174,13 @@ export function pendingDeliveries(
   now: Date,
 ): { record: DeliveryRecord; task: Task }[] {
   const byId = new Map(tasks.map((task) => [task.id, task]))
-  const horizon = now.getTime() - 90 * 60_000
+  void now
   const pending: { record: DeliveryRecord; task: Task }[] = []
   for (const record of records) {
     if (record.channel !== 'overlay') continue
     if (record.status !== 'ok') continue
     if (record.readAt !== null || record.ignoredAt !== null || record.dismissedAt !== null) continue
-    const at = Date.parse(record.at)
-    if (Number.isNaN(at) || at < horizon) continue
+    if (Number.isNaN(Date.parse(record.at))) continue
     const taskId = record.occurrenceKey.split('@')[0] ?? ''
     const task = byId.get(taskId)
     if (task === undefined) continue

@@ -35,6 +35,7 @@ export interface OverlayProps {
 export function ReminderOverlay(props: OverlayProps) {
   const { t } = props
   const [cards, setCards] = React.useState<ReminderCardPayload[]>([])
+  const [dndSummary, setDndSummary] = React.useState<{ count: number; occurrences: string[]; titles: string[] } | null>(null)
   const [expanded, setExpanded] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const stackRef = React.useRef<HTMLDivElement | null>(null)
@@ -43,9 +44,30 @@ export function ReminderOverlay(props: OverlayProps) {
   const poll = React.useCallback(async (): Promise<void> => {
     try {
       const result = await api.due()
-      setCards(result.items)
+      // When the DND window ends, the held batch collapses into one summary
+      // card (F5.6 / UX-05). Only the held rows are folded away — any other
+      // card that just came due must still show, or F5.1's "within 60 s" breaks.
+      const summaryKeys = new Set(result.dndSummary?.occurrences ?? [])
+      const visible = result.items.filter((card) => !summaryKeys.has(card.occurrenceKey))
+      setCards(visible)
+      setDndSummary(result.dndSummary ?? null)
       setError(null)
-      for (const card of result.items) {
+      // Only cards actually rendered may raise a system notification: a
+      // DND-held row is folded into the summary and must not buzz individually
+      // (F5.6). The summary itself raises one notification instead.
+      if (result.dndSummary !== undefined && document.visibilityState === 'hidden') {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          try {
+            new Notification(t('overlay.summary', { n: result.dndSummary.count }), {
+              body: result.dndSummary.titles.slice(0, 3).join('、'),
+              tag: 'dsh-todos-diy:dnd-summary',
+            })
+          } catch {
+            // A failed summary notification must not break the poll.
+          }
+        }
+      }
+      for (const card of visible) {
         if (!card.channels.includes('system')) continue
         if (typeof Notification === 'undefined') continue
         if (Notification.permission !== 'granted') continue
@@ -64,11 +86,14 @@ export function ReminderOverlay(props: OverlayProps) {
 
   React.useEffect(() => {
     void poll()
+    // The system-notification branch only runs while the page is *hidden*, so
+    // the poller must keep ticking in the background too (F5.2 / AC-14).
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void poll()
+      void poll()
     }, POLL_MS)
     const onVisible = (): void => {
-      if (document.visibilityState === 'visible') void poll()
+      // Coming back to the page is the moment a held card matters most.
+      void poll()
     }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('dsh-todos-diy:changed', onVisible)
@@ -109,6 +134,21 @@ export function ReminderOverlay(props: OverlayProps) {
     }
   }
 
+  /** Dismiss every reminder held by the DND batch. */
+  const dismissSummary = async (): Promise<void> => {
+    const summary = dndSummary
+    if (summary === null) return
+    setDndSummary(null)
+    for (const key of summary.occurrences) {
+      try {
+        await api.ack(key, 'dismiss')
+      } catch {
+        // Leave the rest; the next poll re-derives the summary from the log.
+      }
+    }
+    window.dispatchEvent(new CustomEvent('dsh-todos-diy:changed'))
+  }
+
   /** Dismiss every visible card. */
   const dismissAll = async (): Promise<void> => {
     const snapshot = [...cards]
@@ -127,7 +167,7 @@ export function ReminderOverlay(props: OverlayProps) {
     window.dispatchEvent(new CustomEvent('dsh-todos-diy:changed'))
   }
 
-  if (cards.length === 0) return null
+  if (cards.length === 0 && dndSummary === null) return null
 
   const visible = expanded ? cards : cards.slice(0, 3)
   const hidden = cards.length - visible.length
@@ -142,6 +182,34 @@ export function ReminderOverlay(props: OverlayProps) {
       'aria-live': 'assertive',
       'aria-label': t('overlay.a11y', { n: cards.length }),
     },
+    dndSummary === null
+      ? null
+      : h(
+          'div',
+          { className: 'dtd-reminder', 'data-testid': 'dnd-summary' },
+          h(
+            'div',
+            { className: 'dtd-reminderHead' },
+            h('span', { className: 'glyph' }, h(BellGlyph, { size: 14 })),
+            h('span', { className: 'dtd-reminderTitle' }, t('overlay.summary', { n: dndSummary.count })),
+          ),
+          h('p', { className: 'dtd-reminderText' }, dndSummary.titles.join('、')),
+          h(
+            'div',
+            { className: 'dtd-reminderActions' },
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dtd-btn small ghost',
+                onClick: () => {
+                  void dismissSummary()
+                },
+              },
+              t('overlay.dismiss'),
+            ),
+          ),
+        ),
     h(
       'div',
       { className: 'dtd-overlayStack', ref: stackRef },

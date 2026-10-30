@@ -13,6 +13,7 @@ import { canTransition, describeTransition } from './stateMachine.js'
 import type { Store } from './store.js'
 import type { Task } from './rules/types.js'
 import { sweepExpiredArchives } from './retention.js'
+import { assertStoreWritable } from './repoGuard.js'
 import { localDateKey } from './rules/timezone.js'
 import { createDebouncedFlush, createWriteQueue, type WriteQueue } from './writeQueue.js'
 import { queryTasks, todayKey } from './repoQuery.js'
@@ -52,6 +53,11 @@ export function createRepository(options: RepositoryOptions): Repository {
     if (store.flush()) writeCount += 1
   }, options.debounceMs ?? 200)
 
+  /** Refuse a mutation when the store is read-only (F6.8). */
+  const assertWritable = (): void => {
+    assertStoreWritable(store)
+  }
+
   /** Mark the store dirty and arm the debounced physical write. */
   function touch(): void {
     store.markDirty()
@@ -89,6 +95,7 @@ export function createRepository(options: RepositoryOptions): Repository {
       return store.state.settings
     },
     updateSettings(patch) {
+      assertWritable()
       const next: Settings = {
         ...store.state.settings,
         ...patch,
@@ -108,6 +115,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async create(input) {
       return queue.run(() => {
+        assertWritable()
         const task = buildTask(input, store.state.settings, clock())
         store.state.tasks.push(task)
         touch()
@@ -116,6 +124,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async update(id, expectedRevision, patch) {
       return queue.run(() => {
+        assertWritable()
         const current = requireTask(id)
         if (current.revision !== expectedRevision) {
           throw new ValidationError('conflict', 'task was modified by another request', {
@@ -129,6 +138,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async pause(id) {
       return queue.run(() => {
+        assertWritable()
         const task = requireTask(id)
         if (task.status === 'paused') return { id, status: 'paused' as const, changed: false }
         if (!canTransition(task.status, 'paused')) {
@@ -140,6 +150,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async resume(id) {
       return queue.run(() => {
+        assertWritable()
         const task = requireTask(id)
         if (task.status === 'active') return { id, status: 'active' as const, changed: false }
         if (!canTransition(task.status, 'active')) {
@@ -151,6 +162,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async complete(id, occurrenceKey, now = clock()) {
       return queue.run(() => {
+        assertWritable()
         const task = requireTask(id)
         const stamp = now.toISOString()
         if (task.kind === 'once') {
@@ -200,6 +212,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async snooze(id, minutes, now = clock()) {
       return queue.run(() => {
+        assertWritable()
         const task = requireTask(id)
         const value = Number(minutes)
         if (!Number.isInteger(value) || value < 1 || value > 1440) {
@@ -219,6 +232,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async pin(id, pinned) {
       return queue.run(() => {
+        assertWritable()
         const task = requireTask(id)
         if (typeof pinned !== 'boolean') {
           throw new ValidationError('invalid_argument', 'pinned must be a boolean', { field: 'pinned' })
@@ -230,6 +244,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async remove(id, purge = false) {
       return queue.run(() => {
+        assertWritable()
         const task = requireTask(id)
         if (purge) {
           store.state.tasks = store.state.tasks.filter((candidate) => candidate.id !== id)
@@ -249,6 +264,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async restore(id) {
       return queue.run(() => {
+        assertWritable()
         const task = requireTask(id)
         if (task.status === 'active') return task
         if (!canTransition(task.status, 'active')) {
@@ -275,6 +291,7 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async recordDeliveries(incoming) {
       return queue.run(() => {
+        assertWritable()
         for (const record of incoming) {
           // Same `occurrenceKey + channel` only ever succeeds once (F5.5).
           const existing = store.state.deliveries.find(
@@ -290,12 +307,14 @@ export function createRepository(options: RepositoryOptions): Repository {
     },
     async replaceDeliveries(records) {
       return queue.run(() => {
+        assertWritable()
         store.state.deliveries = [...records]
         touch()
       })
     },
     async applyTick(changes: TickChange[], now) {
       return queue.run(() => {
+        assertWritable() // defensive: no write path may bypass F6.8
         const stamp = now.toISOString()
         for (const change of changes) {
           const index = indexOf(change.taskId)
@@ -305,14 +324,51 @@ export function createRepository(options: RepositoryOptions): Repository {
           if (change.firedKey !== undefined) {
             state.lastOccurrenceKey = change.firedKey
             state.lastFiredAt = change.firedAt ?? stamp
-            if (change.phase === 'start') state.firedStart = true
-            if (change.phase === 'end') state.firedEnd = true
+            // `node` is the semantic one-off node; `phase` is `advance` when a
+            // lead-time reminder fired, which must NOT count as the natural node
+            // (F3.4) but does have to be recorded so it never repeats (F5.7).
+            if (change.node === 'start') {
+              if (change.phase === 'advance') state.firedStartAdvance = true
+              else state.firedStart = true
+            }
+            if (change.node === 'end') {
+              if (change.phase === 'advance') state.firedEndAdvance = true
+              else state.firedEnd = true
+            }
           }
           if (change.missedKey !== undefined) {
-            state.missedAt = change.missedAt ?? stamp
+            // Keep the newest watermark: rows arrive ascending, and a stale one
+            // must never move the watermark backwards.
+            const next = change.missedAt ?? stamp
+            if (state.missedAt === null || next > state.missedAt) state.missedAt = next
             state.missedCount += 1
+            // A missed occurrence must also advance the de-duplication marker:
+            // otherwise `dueOccurrences` keeps returning it and the next tick
+            // marks it missed again (F6.4: the record is durable, not per-tick).
+            // Only the newest row may move the marker, and only forward.
+            const isNewest = state.missedAt === next
+            if (isNewest && (state.lastOccurrenceKey === null || change.missedKey > state.lastOccurrenceKey)) {
+              state.lastOccurrenceKey = change.missedKey
+              state.lastFiredAt = next
+            }
+            // Per-node missed markers keep a one-off node from being counted
+            // twice (the global key comparison cannot express two nodes).
+            if (change.node === 'start') state.missedStart = true
+            if (change.node === 'end') state.missedEnd = true
           }
-          store.state.tasks[index] = { ...task, state }
+          const updated: Task = { ...task, state }
+          // F3.6: a one-off task whose start and end have both fired is done.
+          // The transition happens here, in the same write as the claim, so the
+          // list never shows an "active" task with nothing left to do.
+          const bothNodesSettled =
+            (state.firedStart || state.firedStartAdvance || state.missedStart) &&
+            (state.firedEnd || state.firedEndAdvance || state.missedEnd)
+          if (updated.kind === 'once' && updated.status === 'active' && bothNodesSettled) {
+            updated.status = 'done'
+            updated.doneAt = stamp
+            updated.pinned = false
+          }
+          store.state.tasks[index] = updated
         }
         store.state.meta.lastTickAt = stamp
         touch()

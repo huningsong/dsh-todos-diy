@@ -12,7 +12,7 @@ import type { TaskStatus } from './rules/types.js'
 const TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   active: ['paused', 'done', 'archived'],
   paused: ['active', 'archived'],
-  done: ['archived', 'active'],
+  done: ['archived'],
   archived: ['active'],
 }
 

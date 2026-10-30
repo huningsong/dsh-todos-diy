@@ -235,6 +235,8 @@ export function missedOccurrences(
   if (Number.isNaN(floor.getTime())) return []
   const floorMs = floor.getTime()
   const beforeMs = naturalBefore.getTime()
+  // `occurrencesBetween` takes an exclusive lower bound, which is exactly the
+  // watermark semantics we need: a record at `floor` is already accounted for.
   const natural = occurrencesBetween(task.rule, floor, naturalBefore, table, limit + 1)
   const earlier = natural
     .filter((instant) => instant.getTime() > floorMs && instant.getTime() < beforeMs)

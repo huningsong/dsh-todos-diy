@@ -88,13 +88,13 @@ export declare function deliveryRecordsFor(task: Task, occurrence: Occurrence, n
 /**
  * Deliveries that still need the user's attention.
  *
- * A record is pending while it has neither `readAt` nor `ignoredAt`, its bound
- * task is still in a state that can be reminded, and it is recent enough to be
- * worth showing (90 minutes — an old unacknowledged card should not haunt a
- * restart forever).
+ * A record is pending while it has neither `readAt` nor `ignoredAt` and its
+ * bound task is still in a state that can be reminded. There is deliberately
+ * **no age limit**: UX-01 says the overlay must not disappear on its own, so an
+ * unacknowledged card survives a restart until the user dismisses it.
  * @param records - Persisted delivery log.
  * @param tasks - Current tasks (to resolve titles and status).
- * @param now - Current instant.
+ * @param now - Current instant (kept for signature stability).
  * @returns Pending overlay records, newest last.
  */
 export declare function pendingDeliveries(records: readonly DeliveryRecord[], tasks: readonly Task[], now: Date): {

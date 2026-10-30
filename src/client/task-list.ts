@@ -41,6 +41,8 @@ export interface TaskListProps {
   onRemindNow: (task: TaskView) => void
   /** Restore one task from an archived quarter (F4.18). */
   onRestoreArchived?: (task: TaskView) => void
+  /** True when the data file belongs to a newer plugin; all writes are blocked. */
+  readOnly?: boolean
 }
 
 /**
@@ -55,6 +57,7 @@ function renderRow(task: TaskView, props: TaskListProps): React.ReactElement {
     task,
     today: props.today,
     t: props.t,
+    readOnly: props.readOnly === true,
     onOpen: () => props.onOpen(task),
     onComplete: () => props.onComplete(task),
     onPin: () => props.onPin(task),
@@ -91,6 +94,23 @@ export function TaskList(props: TaskListProps) {
     )
   }
 
+  // The done view owns its own empty state: the quarter switcher must stay
+  // reachable even when the current quarter has no completed tasks (F4.17).
+  if (view === 'done') {
+    return h(
+      'div',
+      { className: 'dtd-body' },
+      h(ArchiveView, {
+        currentItems: props.items,
+        today: props.today,
+        t,
+        onOpen: props.onOpen,
+        onRestore: (task: TaskView) => props.onRestoreArchived?.(task),
+        onChanged: () => props.onRetry(),
+      }),
+    )
+  }
+
   if (props.items.length === 0) {
     return h(
       'div',
@@ -121,7 +141,11 @@ export function TaskList(props: TaskListProps) {
               ),
             ),
           )
-        : h('button', { type: 'button', className: 'dtd-btn', onClick: props.onNew }, t('panel.new')),
+        : h(
+            'button',
+            { type: 'button', className: 'dtd-btn', onClick: props.onNew, disabled: props.readOnly === true },
+            t('panel.new'),
+          ),
     )
   }
 
@@ -143,21 +167,6 @@ export function TaskList(props: TaskListProps) {
           h('ul', { className: 'dtd-rows' }, group.items.map((task) => renderRow(task, props))),
         ),
       ),
-    )
-  }
-
-  if (view === 'done') {
-    return h(
-      'div',
-      { className: 'dtd-body' },
-      h(ArchiveView, {
-        currentItems: props.items,
-        today: props.today,
-        t,
-        onOpen: props.onOpen,
-        onRestore: (task: TaskView) => props.onRestoreArchived?.(task),
-        onChanged: () => props.onRetry(),
-      }),
     )
   }
 

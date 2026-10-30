@@ -41,6 +41,12 @@ export interface OnceWindow {
     startAt: string;
     /** ISO 8601 with offset; strictly later than `startAt`. */
     endAt: string;
+    /**
+     * The task's own IANA zone (F2.6). A one-off task has no `rule`, so without
+     * this field every list row would show the global default offset instead of
+     * the zone its times were entered in.
+     */
+    timeZone: string;
 }
 /** Per-task notification settings. */
 export interface NotifySettings {
@@ -56,6 +62,19 @@ export interface TaskState {
     lastOccurrenceKey: string | null;
     firedStart: boolean;
     firedEnd: boolean;
+    /**
+     * Advance-reminder delivery markers per one-off node.
+     *
+     * `firedStart`/`firedEnd` describe the natural node (that is what F3.4
+     * defines), while an advance reminder fires *before* it. Without a separate
+     * marker a task with `advanceMinutes > 0` would never satisfy both booleans
+     * and would re-deliver its advance occurrence forever.
+     */
+    firedStartAdvance: boolean;
+    firedEndAdvance: boolean;
+    /** Set when a one-off node was recorded as missed, so it is never re-counted. */
+    missedStart: boolean;
+    missedEnd: boolean;
     missedAt: string | null;
     missedCount: number;
     snoozeUntil: string | null;

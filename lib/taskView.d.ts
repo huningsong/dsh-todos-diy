@@ -10,6 +10,16 @@ import type { HolidayTable } from './rules/holidays.js';
 import type { Priority, Task } from './rules/types.js';
 /** The public projection of one task. */
 export interface TaskView extends Omit<Task, 'state'> {
+    /**
+     * The rule with its preset-specific fields expanded (`time`, `weekdays`,
+     * `monthDays`), so a TaskView can be fed straight back into
+     * `POST /tasks/create` for a lossless round-trip (F1.1).
+     */
+    rule: (Task['rule'] & {
+        time?: string;
+        weekdays?: number[];
+        monthDays?: number[];
+    }) | null;
     /** Derived priority; `paused` for a paused task (D-20/D-22). */
     priority: Priority;
     /** Read-only aggregate: a one-off task is done when both nodes fired. */
@@ -31,6 +41,8 @@ export interface TaskView extends Omit<Task, 'state'> {
 export interface ViewOptions {
     /** Today's local date in the task's zone. */
     today: string;
+    /** Resolve today per task when tasks span zones (§8.1). */
+    todayFor?: (task: Task) => string;
     /** Current instant, used for the offset label and `nextAt`. */
     now: Date;
     /** Holiday table for `workdays` next-occurrence maths. */
@@ -58,3 +70,10 @@ export declare function taskTimeZone(task: Task, fallback?: string): string;
  * @returns Views in the same order.
  */
 export declare function toTaskViews(tasks: readonly Task[], options: ViewOptions): TaskView[];
+/**
+ * Expand a stored canonical rule back into the preset-specific fields the
+ * editor and the create API expect (F1.1 round-trip).
+ * @param rule - Stored rule.
+ * @returns Rule plus `time` / `weekdays` / `monthDays` as applicable.
+ */
+export declare function expandRule(rule: NonNullable<Task['rule']>): NonNullable<TaskView['rule']>;

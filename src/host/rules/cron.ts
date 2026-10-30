@@ -256,7 +256,19 @@ function parseField(raw: string, spec: FieldSpec): CronField {
  * @returns Parsed spec with the canonical spelling attached.
  * @throws CronError with `code: 'invalid_cron'` and the offending `field`.
  */
+const parseCache = new Map<string, CronSpec>()
+
+/** Parse a cron expression, memoised by exact text (NF6: 1000-task tick budget). */
 export function parseCron(expression: string): CronSpec {
+  const cached = parseCache.get(expression)
+  if (cached !== undefined) return cached
+  const parsed = parseCronUncached(expression)
+  if (parseCache.size < 512) parseCache.set(expression, parsed)
+  return parsed
+}
+
+/** Uncached cron parser. */
+function parseCronUncached(expression: string): CronSpec {
   if (typeof expression !== 'string' || expression.trim() === '') {
     throw new CronError('cron expression must be a non-empty string', 'expression')
   }

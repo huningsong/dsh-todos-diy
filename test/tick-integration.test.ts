@@ -67,11 +67,13 @@ async function tick(harnessRef: Harness, now: Date): Promise<ReturnType<typeof r
       firedKey: occurrence.key,
       firedAt: now.toISOString(),
       phase: occurrence.phase,
+      node: occurrence.node ?? null,
     })),
     ...plan.markMissed.map((occurrence) => ({
       taskId: occurrence.taskId,
       missedKey: occurrence.key,
-      missedAt: now.toISOString(),
+      // Mirror the production tick: the occurrence's own instant is the mark.
+      missedAt: occurrence.at.toISOString(),
     })),
   ]
   if (changes.length > 0) {
@@ -95,7 +97,11 @@ describe('tick — first run', () => {
     assert.equal(plan.fire.length, 1)
     const persisted = JSON.parse(h.fs.files.get(STATE) as string)
     const stored = persisted.tasks.find((entry: { id: string }) => entry.id === task.id)
+    // 10-29 is a normal Thursday whose 09:00 occurrence was also due (the task
+    // was created at 08:00 the previous day), so the plan fires the latest one
+    // and records 10-29 as missed first.
     assert.equal(stored.state.lastOccurrenceKey, `${task.id}@2026-10-30T01:00:00.000Z`)
+    assert.equal(stored.state.missedCount, 1)
   })
 
   it('does not fire twice for the same occurrence on a second tick (AC-09)', async () => {

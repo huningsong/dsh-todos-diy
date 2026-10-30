@@ -27,6 +27,8 @@ export interface TaskRowProps {
   onDuplicate: () => void
   onDelete: () => void
   onRemindNow: () => void
+  /** Read-only mode: row actions are hidden and the checkbox does nothing. */
+  readOnly?: boolean
 }
 
 /**
@@ -119,6 +121,7 @@ export function TaskRow(props: TaskRowProps) {
       type: 'button',
       className: 'dtd-check',
       'aria-label': t('task.complete'),
+      disabled: props.readOnly === true,
       onClick: (event: React.MouseEvent) => {
         event.stopPropagation()
         props.onComplete()
@@ -150,7 +153,9 @@ export function TaskRow(props: TaskRowProps) {
       h('span', { className: due.overdue ? 'overdue big' : 'big' }, due.text),
       h('span', null, isPaused ? t('priority.paused') : nextText),
     ),
-    h(
+    props.readOnly === true
+      ? null
+      : h(
       'div',
       { className: 'dtd-rowActions', onClick: (event: React.MouseEvent) => event.stopPropagation() },
       h(

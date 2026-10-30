@@ -5,7 +5,7 @@
  * it without a circular import.
  */
 /** Envelope error code shared by HTTP and agent tools (§7.12). */
-export type ErrorCode = 'invalid_argument' | 'invalid_cron' | 'invalid_timezone' | 'not_found' | 'invalid_state' | 'no_occurrence' | 'conflict' | 'read_only' | 'schema_mismatch' | 'storage_error' | 'forbidden' | 'internal_error' | 'payload_too_large' | 'unauthorized';
+export type ErrorCode = 'invalid_argument' | 'invalid_cron' | 'invalid_timezone' | 'not_found' | 'invalid_state' | 'no_occurrence' | 'conflict' | 'read_only' | 'storage_read_only' | 'schema_mismatch' | 'storage_error' | 'forbidden' | 'internal_error' | 'payload_too_large' | 'unauthorized';
 /** A validation failure carrying its envelope code. */
 export declare class ValidationError extends Error {
     /** Envelope code. */

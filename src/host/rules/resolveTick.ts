@@ -89,20 +89,27 @@ export function resolveTick(
     const latest = due[0]
     if (latest === undefined) continue
     // Everything strictly before the latest due occurrence is backlog: it is
-    // recorded as missed and never delivered (F6.4, "零回填"). The limit covers
-    // the whole per-task record, so the firing candidate is one of the slots.
-    // Convert the shift-and-probe bounds into natural time: `latest.at` is
-    // advance-shifted, and so is `lastFiredAt`.
+    // recorded as missed and never delivered (F6.4, "零回填"). Both bounds are
+    // converted into natural time because `latest.at` and `lastFiredAt` are
+    // advance-shifted, while `missedAt` is already a natural occurrence instant.
     const advanceMs = Math.max(0, Math.min(1440, Math.trunc(task.notify.advanceMinutes))) * 60_000
     const lastFired = lastFiredInstant(task)
+    const lastMissed = lastMissedInstant(task)
     const naturalBefore = new Date(latest.at.getTime() + advanceMs)
-    // A fired advance reminder at 08:50 corresponds to the 09:00 natural
-    // occurrence, so the natural floor is the fired instant *plus* the offset.
     const naturalLastFired = lastFired === null ? null : new Date(lastFired.getTime() + advanceMs)
+    // Take the later of (fired watermark, missed watermark) in natural time.
+    const floor =
+      naturalLastFired === null
+        ? lastMissed
+        : lastMissed === null
+          ? naturalLastFired
+          : naturalLastFired.getTime() >= lastMissed.getTime()
+            ? naturalLastFired
+            : lastMissed
     const backlog = missedOccurrences(
       task,
       naturalBefore,
-      naturalLastFired,
+      floor,
       Math.max(0, missedLimit - 1),
       options.holidays,
     )
@@ -124,8 +131,17 @@ function collectOnceDue(task: Task, now: Date): Occurrence[] {
   const result: Occurrence[] = []
   const nowMs = now.getTime()
   for (const occurrence of onceOccurrences(task)) {
-    if (occurrence.node === 'start' && task.state.firedStart) continue
-    if (occurrence.node === 'end' && task.state.firedEnd) continue
+    // A node is delivered at most once per mode: the natural flag covers the
+    // on-time reminder, and the advance flag covers the lead-time one. The exact
+    // key check is the belt-and-braces guard for a crash between claim and write
+    // (F5.7/F5.5/F3.4).
+    if (occurrence.node === 'start' && (task.state.firedStart || task.state.firedStartAdvance)) continue
+    if (occurrence.node === 'end' && (task.state.firedEnd || task.state.firedEndAdvance)) continue
+    // A missed node is just as final as a fired one: re-reporting it on the
+    // next tick would inflate missedCount without bound (F6.4).
+    if (occurrence.node === 'start' && task.state.missedStart) continue
+    if (occurrence.node === 'end' && task.state.missedEnd) continue
+    if (task.state.lastOccurrenceKey === occurrence.key) continue
     if (occurrence.at.getTime() <= nowMs) result.push(occurrence)
   }
   return result
@@ -191,4 +207,27 @@ function dueSnooze(task: Task, now: Date, graceMinutes: number): Occurrence | un
     return undefined
   }
   return { taskId: task.id, at, phase: 'advance', key, kind: task.kind }
+}
+
+/**
+ * Parse `state.missedAt` into an instant.
+ * @param task - Task to inspect.
+ * @returns Instant, or null when nothing was recorded as missed.
+ */
+function lastMissedInstant(task: Task): Date | null {
+  if (task.state.missedAt === null) return null
+  const parsed = new Date(task.state.missedAt)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+/**
+ * The later of two optional instants.
+ * @param left - First instant.
+ * @param right - Second instant.
+ * @returns The later one, or null when both are null.
+ */
+function laterOf(left: Date | null, right: Date | null): Date | null {
+  if (left === null) return right
+  if (right === null) return left
+  return left.getTime() >= right.getTime() ? left : right
 }

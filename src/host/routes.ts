@@ -13,12 +13,16 @@ import type { Repository } from './repo.js'
 import type { Store } from './store.js'
 import type { HolidayTable } from './rules/holidays.js'
 import type { DeliveryRecord, Settings } from './state.js'
+import type { Task } from './rules/types.js'
 import { archiveCompleted, readArchiveIndex, readQuarter, nodeArchiveFs, type ArchiveFs } from './archive.js'
 import { route, sendJson, type LoggerLike } from './http.js'
 import { ok, queryFlag, queryInt, queryValue, readObjectBody } from './routeKit.js'
-import { toTaskViews } from './taskView.js'
+import { taskTimeZone, toTaskViews } from './taskView.js'
+import { localDateKey } from './rules/timezone.js'
 import { validateTimeZone } from './validate.js'
 import { validateRule } from './validate.js'
+import { validateSettingsPatch } from './validateSettings.js'
+import { ValidationError } from './validationError.js'
 import { nextOccurrence } from './rules/occurrence.js'
 import { taskRoutes } from './taskRoutes.js'
 import {
@@ -31,6 +35,7 @@ import {
 } from './delivery.js'
 import { occurrenceKey as makeOccurrenceKey } from './rules/occurrence.js'
 import { transferRoutes } from './transferRoutes.js'
+import { isWithinDnd } from './dnd.js'
 
 /** Shared state every route needs. */
 export interface RouteContext {
@@ -130,7 +135,12 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
           today,
         })
         ok(res, {
-          items: toTaskViews(result.items, { today, now: ctx.now(), holidays: ctx.holidays }),
+          items: toTaskViews(result.items, {
+            today,
+            now: ctx.now(),
+            holidays: ctx.holidays,
+            todayFor: (task) => localDayKeyForTask(task, ctx),
+          }),
           nextCursor: result.nextCursor,
           counts: result.counts,
           prioritySummary: result.prioritySummary,
@@ -171,7 +181,12 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
         const offset = Math.max(0, queryInt(url, 'cursor') === undefined ? 0 : Number(queryValue(url, 'cursor')))
         const page = found.tasks.slice(offset, offset + limit)
         ok(res, {
-          items: toTaskViews(page, { today, now: ctx.now(), holidays: ctx.holidays }),
+          items: toTaskViews(page, {
+            today,
+            now: ctx.now(),
+            holidays: ctx.holidays,
+            todayFor: (task) => localDayKeyForTask(task, ctx),
+          }),
           nextCursor: offset + limit < found.tasks.length ? String(offset + limit) : null,
           quarter,
         })
@@ -204,7 +219,21 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
       path: `${PREFIX}/due`,
       handler: route(options, 'GET', async (_req, res) => {
         const now = ctx.now()
-        const pending = pendingDeliveries(ctx.repo.deliveries(), ctx.repo.snapshotTasks(), now)
+        const settings = ctx.repo.settings()
+        const inDnd = isWithinDnd(settings.dnd, now, settings.timeZone)
+        const all = pendingDeliveries(ctx.repo.deliveries(), ctx.repo.snapshotTasks(), now)
+        // A `dnd-held` row stays hidden while the quiet window is active; once
+        // it ends the whole batch becomes one summary card (F5.6 / UX-05).
+        const pending = all.filter(({ record }) => record.error !== 'dnd-held' || !inDnd)
+        const heldRows = inDnd ? [] : all.filter(({ record }) => record.error === 'dnd-held')
+        const dndSummary =
+          heldRows.length === 0
+            ? null
+            : {
+                count: heldRows.length,
+                occurrences: heldRows.map(({ record }) => record.occurrenceKey),
+                titles: heldRows.map(({ task }) => task.title).slice(0, 20),
+              }
         const cards = pending.map(({ record, task }) => {
           const at = new Date(record.at)
           const occurrence = {
@@ -216,7 +245,7 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
           }
           return buildReminderCard(task, occurrence)
         })
-        ok(res, { items: cards, serverTime: now.toISOString() })
+        ok(res, { items: cards, ...(dndSummary === null ? {} : { dndSummary }), serverTime: now.toISOString() })
       }),
     },
     {
@@ -288,8 +317,9 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
             await ctx.repo.complete(taskId, occurrenceKey)
           } catch (error) {
             // A recurring task with no current occurrence cannot be completed;
-            // dismissing the card is still the right outcome.
-            if (!(error instanceof Error) || !String(error).includes('no_occurrence')) throw error
+            // dismissing the card is still the right outcome. Match the code,
+            // not the message, so an unrelated failure is not swallowed.
+            if (!(error instanceof ValidationError) || error.code !== 'no_occurrence') throw error
           }
         }
         if (action === 'snooze') {
@@ -333,17 +363,17 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
       path: `${PREFIX}/settings/update`,
       handler: route(options, 'POST', async (req, res) => {
         const body = await readObjectBody(req)
-        const patch: Partial<Settings> = {}
-        if (body['timeZone'] !== undefined) patch.timeZone = validateTimeZone(body['timeZone'])
-        if (body['tickIntervalMs'] !== undefined) patch.tickIntervalMs = Number(body['tickIntervalMs'])
-        if (body['graceMinutes'] !== undefined) patch.graceMinutes = Number(body['graceMinutes'])
-        if (Array.isArray(body['defaultChannels'])) {
-          patch.defaultChannels = (body['defaultChannels'] as string[]).filter(
-            (channel): channel is 'overlay' | 'system' => channel === 'overlay' || channel === 'system',
-          )
-        }
-        if (body['dnd'] !== null && typeof body['dnd'] === 'object') {
-          patch.dnd = body['dnd'] as Settings['dnd']
+        let patch: Partial<Settings>
+        try {
+          patch = validateSettingsPatch(body)
+        } catch (error) {
+          if (error instanceof ValidationError) {
+            sendJson(res, 400, {
+              error: { code: error.code, message: error.message, details: error.details },
+            })
+            return
+          }
+          throw error
         }
         ok(res, ctx.repo.updateSettings(patch))
       }),
@@ -351,3 +381,12 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
   ]
 }
 
+/**
+ * Today's local date for a task in its own zone (§8.1).
+ * @param task - Task being projected.
+ * @param ctx - Route context.
+ * @returns `YYYY-MM-DD` in that task's zone.
+ */
+function localDayKeyForTask(task: Task, ctx: RouteContext): string {
+  return localDateKey(ctx.now().getTime(), taskTimeZone(task, ctx.config.timeZone))
+}

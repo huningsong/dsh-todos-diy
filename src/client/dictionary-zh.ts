@@ -215,6 +215,8 @@ export const zh = {
   'error.no_occurrence': '当前没有可完成的提醒',
   'error.conflict': '已被其它窗口修改，请刷新后重试',
   'error.read_only': '另一个实例正在使用数据',
+  'error.storage_read_only': '数据文件由更新版本的插件写入，当前为只读模式。',
+  'error.plugin_too_old': '数据文件由更新版本的插件写入，当前插件版本过旧，只能只读浏览。请升级插件后重试。',
   'error.schema_mismatch': '导入文件版本不兼容',
   'error.storage_error': '保存失败，请检查磁盘',
   'error.forbidden': '没有权限',

@@ -237,6 +237,9 @@ export function archiveCompleted(state: PersistedState, options: ArchiveOptions)
   }
 
   const archived: { quarter: string; count: number }[] = []
+  const skipped: string[] = []
+  /** Ids actually written to a readable quarter file; only these may leave the main file. */
+  const safelyArchived = new Set<string>()
   for (const [quarter, tasks] of [...byQuarter.entries()].sort((left, right) =>
     compareQuarters(left[0], right[0]),
   )) {
@@ -248,8 +251,11 @@ export function archiveCompleted(state: PersistedState, options: ArchiveOptions)
         const parsed = JSON.parse(fs.readFile(filePath)) as QuarterFile
         existing = Array.isArray(parsed.tasks) ? parsed.tasks : []
       } catch (error) {
-        logger.warn?.(`todos-diy: archive file ${fileName} unreadable, skipping quarter: ${String(error)}`)
-        archived.push({ quarter, count: 0 })
+        // Data-loss guard (F4.19 / §8.3): if the existing quarter file cannot
+        // be read, leave that batch in the main file. Removing it here would
+        // make the tasks disappear from both places.
+        logger.warn?.(`todos-diy: archive file ${fileName} unreadable, keeping its tasks in the main file: ${String(error)}`)
+        skipped.push(quarter)
         continue
       }
     }
@@ -269,18 +275,22 @@ export function archiveCompleted(state: PersistedState, options: ArchiveOptions)
     }
     if (entryIndex === -1) index.quarters.push(entry)
     else index.quarters[entryIndex] = entry
+    for (const task of tasks) safelyArchived.add(task.id)
     archived.push({ quarter, count: tasks.length })
   }
 
-  // Step 2: only now drop the archived ids from the main document.
-  const archivedIds = new Set(toArchive.map((task) => task.id))
-  state.tasks = state.tasks.filter((task) => !archivedIds.has(task.id))
+  // Step 2: only drop the ids that were actually written to a readable quarter
+  // file. A skipped quarter keeps its tasks in the main document.
+  if (safelyArchived.size === 0) {
+    return { archived, skipped, duplicatesRemoved: 0 }
+  }
+  state.tasks = state.tasks.filter((task) => !safelyArchived.has(task.id))
 
   // Step 3: refresh the index.
   index.quarters.sort((left, right) => compareQuarters(left.quarter, right.quarter))
   writeJsonAtomic(fs, paths.archiveIndex, { schemaVersion: 1, quarters: index.quarters })
-  logger.info?.(`todos-diy: archived ${String(toArchive.length)} completed task(s)`)
-  return { archived, skipped: [], duplicatesRemoved: 0 }
+  logger.info?.(`todos-diy: archived ${String(safelyArchived.size)} completed task(s)`)
+  return { archived, skipped, duplicatesRemoved: 0 }
 }
 
 /**

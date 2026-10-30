@@ -1,9 +1,7 @@
 /**
- * The main panel (F8.1–F8.15).
- *
- * Structure: header → three view tabs with badges → the always-visible priority
- * rule strip → toolbar (search) → grouped task list. Clicking a row opens the
- * editor; the row's hover controls cover the three frequent actions.
+ * The main panel (F8.1–F8.15): header → view tabs → priority strip → search →
+ * grouped task list. Clicking a row opens the editor; hover controls cover the
+ * three frequent row actions.
  */
 
 import * as React from 'react'
@@ -13,6 +11,10 @@ import { api, ApiError, type SettingsPayload } from './api'
 import { TaskEditor, draftFromTask, draftToPayload, emptyDraft, type TaskDraft } from './task-editor'
 import { TaskRow } from './task-row'
 import { SettingsModal } from './settings-modal'
+import { TaskHistoryModal } from './task-history'
+import { usePanelActions, type ToastState } from './panel-actions'
+import { ConfirmDeleteModal } from './confirm-delete'
+import { usePanelShortcuts } from './panel-shortcuts'
 import { buildExamples } from './examples'
 import { TaskList } from './task-list'
 import {
@@ -22,7 +24,6 @@ import {
   SearchGlyph,
   TodoGlyph,
   browserToday,
-  dayDiff,
 } from './ui'
 
 const h = React.createElement
@@ -34,10 +35,8 @@ export interface PanelProps {
   t: (key: string, params?: Record<string, string | number>) => string
 }
 
-/** The stored view preference key (F8.11: the tab survives a refresh). */
+/** Stored view preference (F8.11) and first-run marker (F8.15). */
 const TAB_KEY = 'dsh-todos-diy.tab'
-
-/** The "seen the example cards" key (F8.15). */
 const FIRST_RUN_KEY = 'dsh-todos-diy.firstRun'
 
 /** The main panel component. */
@@ -55,9 +54,12 @@ export function TodoPanel(props: PanelProps) {
   const [errorCode, setErrorCode] = React.useState<string>('internal_error')
   const [editor, setEditor] = React.useState<{ draft: TaskDraft; id: string | null; revision: number | null } | null>(null)
   const [menu, setMenu] = React.useState<{ x: number; y: number; task: TaskView } | null>(null)
-  const [toast, setToast] = React.useState<{ text: string; undo?: () => void } | null>(null)
+  const [toast, setToast] = React.useState<ToastState | null>(null)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
+  const [history, setHistory] = React.useState<TaskView | null>(null)
+  const [confirmDelete, setConfirmDelete] = React.useState<TaskView | null>(null)
   const [firstRun, setFirstRun] = React.useState(false)
+  const [readOnly, setReadOnly] = React.useState(false)
   const searchRef = React.useRef<HTMLInputElement | null>(null)
 
   const today = browserToday()
@@ -79,6 +81,15 @@ export function TodoPanel(props: PanelProps) {
     },
     [view, search],
   )
+
+  React.useEffect(() => {
+    // F6.8 / UX-15: surface a newer-schema file instead of silently pretending
+    // the writes work. The health call is cheap and runs once per mount.
+    void api
+      .health()
+      .then((snapshot) => setReadOnly(snapshot.readOnly === true))
+      .catch(() => setReadOnly(false))
+  }, [])
 
   React.useEffect(() => {
     void load(view, '')
@@ -120,27 +131,6 @@ export function TodoPanel(props: PanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, search])
 
-  // Page-level shortcuts (UX-18: in-page only, never global).
-  React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      const target = event.target as HTMLElement | null
-      const typing =
-        target !== null &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-      if (typing) return
-      if (event.key === 'n' || event.key === 'N') {
-        event.preventDefault()
-        openNew()
-      } else if (event.key === '/') {
-        event.preventDefault()
-        searchRef.current?.focus()
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings])
-
   /** Open the editor for a new task. */
   const openNew = (): void => {
     setEditor({ draft: emptyDraft(settings?.timeZone ?? 'Asia/Shanghai'), id: null, revision: null })
@@ -151,39 +141,11 @@ export function TodoPanel(props: PanelProps) {
     setEditor({ draft: draftFromTask(task, settings?.timeZone ?? 'Asia/Shanghai'), id: task.id, revision: task.revision })
   }
 
-  /** Show a transient toast; an optional undo makes it actionable (UX-02). */
-  const showToast = (text: string, undo?: () => void): void => {
-    setToast({ text, ...(undo === undefined ? {} : { undo }) })
-    window.setTimeout(() => setToast(null), undo === undefined ? 2600 : 5000)
-  }
-
-  /** Map an API failure to a translated toast. */
-  const reportError = (caught: unknown): void => {
-    const code = caught instanceof ApiError ? caught.code : 'internal_error'
-    const translated = t(`error.${code}`)
-    showToast(t('toast.error', { message: translated === `error.${code}` ? String(caught) : translated }))
-  }
-
-  /** Run one mutation and refresh. */
-  const mutate = async (work: () => Promise<unknown>, successText?: string, undo?: () => Promise<unknown>): Promise<void> => {
-    try {
-      await work()
-      await load(view, search)
-      window.dispatchEvent(new CustomEvent('dsh-todos-diy:changed'))
-      if (successText !== undefined) {
-        showToast(
-          successText,
-          undo === undefined
-            ? undefined
-            : () => {
-                void undo().then(() => load(view, search)).catch(reportError)
-              },
-        )
-      }
-    } catch (caught) {
-      reportError(caught)
-    }
-  }
+  const { showToast, reportError, mutate } = usePanelActions({
+    t,
+    reload: () => load(view, search),
+    setToast,
+  })
 
   const onComplete = (task: TaskView): void => {
     const previousStatus = task.status
@@ -198,6 +160,8 @@ export function TodoPanel(props: PanelProps) {
     void mutate(() => api.remove(task.id), t('toast.deleted'), () => api.restore(task.id))
   }
 
+  usePanelShortcuts({ items, openNew, searchRef, onComplete })
+
   /** First-run example cards, bound to the current zone and translator. */
   const examples = (): ReturnType<typeof buildExamples> => buildExamples(settings?.timeZone ?? 'Asia/Shanghai', t)
 
@@ -208,6 +172,38 @@ export function TodoPanel(props: PanelProps) {
       window.localStorage.setItem(FIRST_RUN_KEY, '1')
     })
   }
+
+  /** Assemble the TaskList props once, so the JSX tree stays readable. */
+  const buildTaskListProps = (): React.ComponentProps<typeof TaskList> => ({
+    view,
+    phase,
+    errorCode,
+    items,
+    today,
+    t,
+    firstRun,
+    examples: examples(),
+    onRetry: () => void load(view, search),
+    onNew: openNew,
+    onUseExample: useExample,
+    readOnly,
+    onOpen: openEdit,
+    onComplete,
+    onPin: (task: TaskView) =>
+      void mutate(() => api.pin(task.id, !task.pinned), task.pinned ? t('toast.unpinned') : t('toast.pinned')),
+    onPause: (task: TaskView) => void mutate(() => api.pause(task.id), t('toast.paused')),
+    onResume: (task: TaskView) => void mutate(() => api.resume(task.id), t('toast.resumed')),
+    onMenu: (task: TaskView, x: number, y: number) => setMenu({ x, y, task }),
+    onDuplicate: (task: TaskView) =>
+      void mutate(async () => {
+        const payload = draftToPayloadOf(draftFromTask(task, settings?.timeZone ?? 'Asia/Shanghai'))
+        delete payload['id']
+        await api.create({ ...payload, title: `${task.title} 副本` })
+      }),
+    onDelete,
+    onRemindNow: (task: TaskView) => void mutate(() => api.snooze(task.id, 1)),
+    onRestoreArchived: (task: TaskView) => void mutate(() => api.restore(task.id), t('archive.restored')),
+  })
 
   return h(
     'section',
@@ -226,12 +222,21 @@ export function TodoPanel(props: PanelProps) {
         ),
         h(
           'button',
-          { type: 'button', className: 'dtd-btn', onClick: openNew },
+          {
+            type: 'button',
+            className: 'dtd-btn',
+            onClick: openNew,
+            disabled: readOnly,
+            title: readOnly ? t('error.plugin_too_old') : undefined,
+          },
           h(PlusGlyph, {}),
           t('panel.new'),
         ),
       ),
     ),
+    readOnly
+      ? h('div', { className: 'dtd-error', role: 'alert', style: { margin: '12px 32px 0' } }, t('error.plugin_too_old'))
+      : null,
     h(
       'div',
       { className: 'dtd-tabs', role: 'tablist' },
@@ -277,34 +282,7 @@ export function TodoPanel(props: PanelProps) {
         }),
       ),
     ),
-    h(TaskList, {
-      view,
-      phase,
-      errorCode,
-      items,
-      today,
-      t,
-      firstRun,
-      examples: examples(),
-      onRetry: () => void load(view, search),
-      onNew: openNew,
-      onUseExample: useExample,
-      onOpen: openEdit,
-      onComplete,
-      onPin: (task: TaskView) =>
-        void mutate(() => api.pin(task.id, !task.pinned), task.pinned ? t('toast.unpinned') : t('toast.pinned')),
-      onPause: (task: TaskView) => void mutate(() => api.pause(task.id), t('toast.paused')),
-      onResume: (task: TaskView) => void mutate(() => api.resume(task.id), t('toast.resumed')),
-      onMenu: (task: TaskView, x: number, y: number) => setMenu({ x, y, task }),
-      onDuplicate: (task: TaskView) =>
-        void mutate(async () => {
-          const payload = draftToPayloadOf(draftFromTask(task, settings?.timeZone ?? 'Asia/Shanghai'))
-          delete payload['id']
-          await api.create({ ...payload, title: `${task.title} 副本` })
-        }),
-      onDelete,
-      onRemindNow: (task: TaskView) => void mutate(() => api.snooze(task.id, 1)),
-    }),
+    h(TaskList, buildTaskListProps()),
     editor === null
       ? null
       : h(TaskEditor, {
@@ -327,11 +305,44 @@ export function TodoPanel(props: PanelProps) {
           onClose: () => setMenu(null),
           items: [
             { label: t('task.edit'), onSelect: () => openEdit(menu.task) },
-            { label: t('task.copy'), onSelect: () => undefined },
-            { label: t('task.remindNow'), onSelect: () => undefined },
-            { label: t('task.history'), onSelect: () => undefined },
-            { label: t('task.delete'), danger: true, onSelect: () => onDelete(menu.task) },
+            {
+              // F4.9: duplicate copies the rule/window and notification settings
+              // but starts with a clean state block and a new id.
+              label: t('task.copy'),
+              onSelect: () =>
+                void mutate(async () => {
+                  const payload = draftToPayloadOf(draftFromTask(menu.task, settings?.timeZone ?? 'Asia/Shanghai'))
+                  delete payload['id']
+                  await api.create({ ...payload, title: `${menu.task.title} 副本` })
+                }),
+            },
+            {
+              // UX-13: a one-shot "remind me now" to verify a rule quickly.
+              label: t('task.remindNow'),
+              onSelect: () => void mutate(() => api.snooze(menu.task.id, 1)),
+            },
+            {
+              // F4.19/F8.14: history is the delivery log filtered to this task.
+              label: t('task.history'),
+              onSelect: () => setHistory(menu.task),
+            },
+            { label: t('task.delete'), danger: true, onSelect: () => setConfirmDelete(menu.task) },
           ],
+        }),
+    history === null ? null : h(TaskHistoryModal, { task: history, t, onClose: () => setHistory(null) }),
+    confirmDelete === null
+      ? null
+      : h(ConfirmDeleteModal, {
+          title: t('confirm.deleteTitle'),
+          body: t('confirm.deleteBody'),
+          okLabel: t('confirm.ok'),
+          cancelLabel: t('confirm.cancel'),
+          onCancel: () => setConfirmDelete(null),
+          onConfirm: () => {
+            const target = confirmDelete
+            setConfirmDelete(null)
+            if (target !== null) onDelete(target)
+          },
         }),
     settingsOpen
       ? h(SettingsModal, {
@@ -379,6 +390,3 @@ export function TodoPanel(props: PanelProps) {
 function draftToPayloadOf(draft: TaskDraft): Record<string, unknown> {
   return draftToPayload(draft)
 }
-
-
-export { dayDiff }

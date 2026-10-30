@@ -227,7 +227,7 @@ export function Modal(props: {
       document.removeEventListener('keydown', onKeyDown, true)
       previous?.focus?.()
     }
-  }, [props])
+  }, [props.onClose, props.title])
 
   return h(
     'div',
@@ -285,7 +285,8 @@ export function ContextMenu(props: {
       document.removeEventListener('pointerdown', onPointerDown, true)
       document.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [props])
+    // Identity-stable dependencies only; `props` is new on every parent render.
+  }, [props.onClose, props.x, props.y])
 
   const width = 176
   const height = props.items.length * 34 + 10

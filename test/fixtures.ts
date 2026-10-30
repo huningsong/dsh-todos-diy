@@ -58,6 +58,10 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
       lastOccurrenceKey: null,
       firedStart: false,
       firedEnd: false,
+      firedStartAdvance: false,
+      firedEndAdvance: false,
+      missedStart: false,
+      missedEnd: false,
       missedAt: null,
       missedCount: 0,
       snoozeUntil: null,
@@ -77,7 +81,7 @@ export function makeOnceTask(
   endAt: string,
   overrides: Partial<Task> = {},
 ): Task {
-  const once: OnceWindow = { startAt, endAt }
+  const once: OnceWindow = { startAt, endAt, timeZone: overrides.rule?.timeZone ?? 'Asia/Shanghai' }
   return makeTask({ kind: 'once', once, ...overrides })
 }
 

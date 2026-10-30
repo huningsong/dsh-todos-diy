@@ -197,8 +197,12 @@ export const api = {
   updateSettings(patch: Partial<SettingsPayload>): Promise<SettingsPayload> {
     return request<SettingsPayload>('/settings/update', { method: 'POST', body: JSON.stringify(patch) })
   },
-  /** Poll pending reminder cards. */
-  due(): Promise<{ items: ReminderCardPayload[]; serverTime: string }> {
+  /** Poll pending reminder cards; `dndSummary` merges reminders held by DND. */
+  due(): Promise<{
+    items: ReminderCardPayload[]
+    dndSummary?: { count: number; occurrences: string[]; titles: string[] }
+    serverTime: string
+  }> {
     return request('/due')
   },
   /** Acknowledge one reminder. */
@@ -236,7 +240,8 @@ export const api = {
   health(): Promise<{
     scheduler: { running: boolean; lastError: string | null }
     storage: { state: string; healthy: boolean; lastRecovery: unknown }
-    capabilities: { systemNotification: boolean; agentTools: number }
+    capabilities: { systemNotification: boolean | null; agentTools: number }
+    readOnly: boolean
   }> {
     return request('/health')
   },

@@ -44,6 +44,8 @@ export interface HealthState {
   recordDndHeld(count: number): void
   /** Record the browser's Notification permission as reported by the client. */
   setSystemNotificationCapability(granted: boolean): void
+  /** Mark this process as read-only because the file is newer than the plugin. */
+  markReadOnly(): void
   /** Build the `value` object of `GET /health`. */
   snapshot(holidays: HolidayTable): HealthSnapshot
 }
@@ -84,6 +86,8 @@ export interface HealthSnapshot {
   archive: { lastRunAt: string | null; lastArchived: { quarter: string; count: number }[] }
   /** Reminders held by DND since startup (surfaced for diagnostics). */
   dndHeld: number
+  /** True when the on-disk file belongs to a newer plugin (F6.8). */
+  readOnly: boolean
 }
 
 /**
@@ -119,6 +123,7 @@ export function createHealthState(
     toolCount: 0,
     dndHeld: 0,
     systemNotification: null as boolean | null,
+    readOnlyFlag: false,
   }
 
   return {
@@ -170,6 +175,9 @@ export function createHealthState(
     setSystemNotificationCapability(granted) {
       state.systemNotification = granted
     },
+    markReadOnly() {
+      state.readOnlyFlag = true
+    },
     snapshot(holidays) {
       return {
         version,
@@ -205,6 +213,7 @@ export function createHealthState(
         taskCount: state.taskCount,
         archive: { lastRunAt: state.archiveLastRunAt, lastArchived: state.archiveLastArchived },
         dndHeld: state.dndHeld,
+        readOnly: state.readOnlyFlag,
       }
     },
   }

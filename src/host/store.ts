@@ -70,6 +70,8 @@ export interface Store {
   readonly stateName: StorageState
   /** Last recovery event, if any. */
   readonly lastRecovery: RecoveryRecord | null
+  /** True when the on-disk file is newer than this build (writes are refused). */
+  readonly readOnly: boolean
   /** Load (or create) the document synchronously. Safe to call once at startup. */
   load(): PersistedState
   /**
@@ -106,6 +108,8 @@ export function createStore(options: StoreOptions): Store {
 
   let state = emptyState(clock(), defaultSettings())
   let stateName: StorageState = 'ready'
+  /** Set when the on-disk file is newer than this build; disables every write. */
+  let readOnly = false
   let lastRecovery: RecoveryRecord | null = null
   let isDirty = false
 
@@ -119,6 +123,10 @@ export function createStore(options: StoreOptions): Store {
    * @returns True on success; false when the write failed (memory keeps the new value).
    */
   function writeAtomic(): boolean {
+    if (readOnly) {
+      logger.warn?.('todos-diy: refusing to write — the on-disk file is newer than this plugin')
+      return false
+    }
     const tmp = `${paths.stateFile}.tmp`
     try {
       ensureDir()
@@ -185,6 +193,9 @@ export function createStore(options: StoreOptions): Store {
     get lastRecovery() {
       return lastRecovery
     },
+    get readOnly() {
+      return readOnly
+    },
     get dirty() {
       return isDirty
     },
@@ -223,9 +234,23 @@ export function createStore(options: StoreOptions): Store {
         return state
       }
 
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        stateName = 'corrupt'
+        const backup = quarantine('corrupt')
+        state = emptyState(clock(), defaultSettings())
+        recordRecovery('corrupt', 'root is not an object', backup)
+        logger.warn?.('todos-diy: tasks.json root is not an object, backed up and rebuilt')
+        isDirty = true
+        writeAtomic()
+        return state
+      }
       const raw = parsed as Record<string, unknown>
       const version = raw['schemaVersion']
       if (typeof version === 'number' && version > SCHEMA_VERSION) {
+        // Data-loss guard (F6.8 / §8.3): a newer file must never be replaced.
+        // The store stays read-only for the rest of the process so no create,
+        // tick or archive can write a v1 document over it.
+        readOnly = true
         // Never touch a newer file: this build is too old to understand it.
         stateName = 'unsupported-version'
         const kept = emptyState(clock(), defaultSettings())
@@ -283,6 +308,10 @@ export function createStore(options: StoreOptions): Store {
       return state
     },
     set(next) {
+      if (readOnly) {
+        logger.warn?.('todos-diy: ignoring a write to a read-only store')
+        return
+      }
       state = next
       state.meta.updatedAt = clock().toISOString()
       isDirty = true

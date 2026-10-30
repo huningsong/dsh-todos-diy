@@ -61,6 +61,7 @@ describe('coerceState — accepted documents', () => {
     assert.deepEqual(parsed.state?.tasks[0]?.once, {
       startAt: '2026-11-05T06:00:00.000Z',
       endAt: '2026-11-05T10:00:00.000Z',
+      timeZone: 'Asia/Shanghai',
     })
   })
 })

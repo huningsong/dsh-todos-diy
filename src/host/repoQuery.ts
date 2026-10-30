@@ -58,6 +58,12 @@ export function queryTasks(allTasks: readonly Task[], query: ListQuery, today: s
   if (query.status !== undefined) pool = pool.filter((task) => task.status === query.status)
   if (query.kind !== undefined) pool = pool.filter((task) => task.kind === query.kind)
 
+  // Counts and the priority summary are computed over the *unfiltered* pool:
+  // a search narrows the rows, never the tab badges (F4.10 / F8.11).
+  const countSource = selectView(pool, view, today)
+  const counts = countSource.counts
+  const prioritySummary = countSource.prioritySummary
+
   const needle = (query.query ?? '').trim().toLowerCase()
   if (needle !== '') {
     pool = pool.filter(
@@ -87,5 +93,5 @@ export function queryTasks(allTasks: readonly Task[], query: ListQuery, today: s
   }
   const page = items.slice(0, limit)
   const nextCursor = items.length > limit && page.length === limit ? encodeCursor(page[page.length - 1] as Task) : null
-  return { items: page, nextCursor, counts: viewResult.counts, prioritySummary: viewResult.prioritySummary }
+  return { items: page, nextCursor, counts, prioritySummary }
 }

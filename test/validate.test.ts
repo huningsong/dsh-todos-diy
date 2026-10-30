@@ -207,6 +207,7 @@ describe('validateOnce (D-03)', () => {
     assert.deepEqual(validateOnce({ startAt: '2026-11-05T14:00:00+08:00', endAt: '2026-11-05T18:00:00+08:00' }, 'Asia/Shanghai'), {
       startAt: '2026-11-05T06:00:00.000Z',
       endAt: '2026-11-05T10:00:00.000Z',
+      timeZone: 'Asia/Shanghai',
     })
   })
 
@@ -214,6 +215,7 @@ describe('validateOnce (D-03)', () => {
     assert.deepEqual(validateOnce({ startAt: '2026-11-05T14:00:00', endAt: '2026-11-05T18:00:00' }, 'Asia/Shanghai'), {
       startAt: '2026-11-05T06:00:00.000Z',
       endAt: '2026-11-05T10:00:00.000Z',
+      timeZone: 'Asia/Shanghai',
     })
   })
 

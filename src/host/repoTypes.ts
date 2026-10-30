@@ -70,6 +70,8 @@ export interface TickChange {
   firedKey?: string
   firedAt?: string
   phase?: 'start' | 'end' | 'advance' | null
+  /** The one-off node this change belongs to (`null`/absent for recurring). */
+  node?: 'start' | 'end' | null
   /** Set when the occurrence was recorded as missed. */
   missedKey?: string
   missedAt?: string

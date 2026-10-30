@@ -15,6 +15,7 @@ export type ErrorCode =
   | 'no_occurrence'
   | 'conflict'
   | 'read_only'
+  | 'storage_read_only'
   | 'schema_mismatch'
   | 'storage_error'
   | 'forbidden'

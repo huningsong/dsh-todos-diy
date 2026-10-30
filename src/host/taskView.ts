@@ -15,6 +15,12 @@ import type { Priority, Task } from './rules/types.js'
 
 /** The public projection of one task. */
 export interface TaskView extends Omit<Task, 'state'> {
+  /**
+   * The rule with its preset-specific fields expanded (`time`, `weekdays`,
+   * `monthDays`), so a TaskView can be fed straight back into
+   * `POST /tasks/create` for a lossless round-trip (F1.1).
+   */
+  rule: (Task['rule'] & { time?: string; weekdays?: number[]; monthDays?: number[] }) | null
   /** Derived priority; `paused` for a paused task (D-20/D-22). */
   priority: Priority
   /** Read-only aggregate: a one-off task is done when both nodes fired. */
@@ -37,6 +43,8 @@ export interface TaskView extends Omit<Task, 'state'> {
 export interface ViewOptions {
   /** Today's local date in the task's zone. */
   today: string
+  /** Resolve today per task when tasks span zones (§8.1). */
+  todayFor?: (task: Task) => string
   /** Current instant, used for the offset label and `nextAt`. */
   now: Date
   /** Holiday table for `workdays` next-occurrence maths. */
@@ -51,18 +59,26 @@ export interface ViewOptions {
  */
 export function toTaskView(task: Task, options: ViewOptions): TaskView {
   const timeZone = taskTimeZone(task)
-  const priority = priorityOf(task, options.today)
+  const today = options.todayFor === undefined ? options.today : options.todayFor(task)
+  const priority = priorityOf(task, today)
   const next = task.status === 'active' ? nextFireAt(task, options.now, options.holidays) : null
-  const overdueDays = daysOverdue(task, options.today)
+  const overdueDays = daysOverdue(task, today)
   return {
     ...task,
+    rule: task.rule === null ? null : expandRule(task.rule),
     priority,
-    fired: task.kind === 'once' ? task.state.firedStart && task.state.firedEnd : false,
+    // A one-off task counts as fired once both nodes are settled — either
+    // delivered on time, delivered as an advance reminder, or recorded missed.
+    fired:
+      task.kind === 'once'
+        ? (task.state.firedStart || task.state.firedStartAdvance || task.state.missedStart) &&
+          (task.state.firedEnd || task.state.firedEndAdvance || task.state.missedEnd)
+        : false,
     timeZone,
     utcOffset: formatUtcOffset(options.now.getTime(), timeZone),
     nextAt: next === null ? null : next.toISOString(),
     overdueDays,
-    overdue: isOverdue(task, options.today),
+    overdue: isOverdue(task, today),
     state: task.state,
   }
 }
@@ -75,7 +91,7 @@ export function toTaskView(task: Task, options: ViewOptions): TaskView {
  * @returns IANA zone identifier.
  */
 export function taskTimeZone(task: Task, fallback = 'Asia/Shanghai'): string {
-  return task.rule?.timeZone ?? fallback
+  return task.rule?.timeZone ?? task.once?.timeZone ?? fallback
 }
 
 /**
@@ -86,4 +102,36 @@ export function taskTimeZone(task: Task, fallback = 'Asia/Shanghai'): string {
  */
 export function toTaskViews(tasks: readonly Task[], options: ViewOptions): TaskView[] {
   return tasks.map((task) => toTaskView(task, options))
+}
+
+/**
+ * Expand a stored canonical rule back into the preset-specific fields the
+ * editor and the create API expect (F1.1 round-trip).
+ * @param rule - Stored rule.
+ * @returns Rule plus `time` / `weekdays` / `monthDays` as applicable.
+ */
+export function expandRule(
+  rule: NonNullable<Task['rule']>,
+): NonNullable<TaskView['rule']> {
+  const fields = rule.cron.split(/\s+/)
+  const minute = Number(fields[0] ?? '0')
+  const hour = Number(fields[1] ?? '0')
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  const expanded: NonNullable<TaskView['rule']> = { ...rule }
+  if (rule.preset === 'custom') return expanded
+  expanded.time = `${pad(Number.isFinite(hour) ? hour : 0)}:${pad(Number.isFinite(minute) ? minute : 0)}`
+  if (rule.preset === 'weekly') {
+    expanded.weekdays = (fields[4] ?? '1')
+      .split(',')
+      .map((token) => Number(token))
+      .filter((value) => Number.isInteger(value) && value >= 0 && value <= 7)
+      .map((value) => (value === 0 ? 7 : value))
+  }
+  if (rule.preset === 'monthly') {
+    expanded.monthDays = (fields[2] ?? '1')
+      .split(',')
+      .map((token) => Number(token))
+      .filter((value) => Number.isInteger(value) && value >= 1 && value <= 31)
+  }
+  return expanded
 }

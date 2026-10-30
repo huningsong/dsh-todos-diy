@@ -51,6 +51,8 @@ export interface Store {
     readonly stateName: StorageState;
     /** Last recovery event, if any. */
     readonly lastRecovery: RecoveryRecord | null;
+    /** True when the on-disk file is newer than this build (writes are refused). */
+    readonly readOnly: boolean;
     /** Load (or create) the document synchronously. Safe to call once at startup. */
     load(): PersistedState;
     /**

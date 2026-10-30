@@ -43,6 +43,8 @@ export interface HealthState {
     recordDndHeld(count: number): void;
     /** Record the browser's Notification permission as reported by the client. */
     setSystemNotificationCapability(granted: boolean): void;
+    /** Mark this process as read-only because the file is newer than the plugin. */
+    markReadOnly(): void;
     /** Build the `value` object of `GET /health`. */
     snapshot(holidays: HolidayTable): HealthSnapshot;
 }
@@ -94,6 +96,8 @@ export interface HealthSnapshot {
     };
     /** Reminders held by DND since startup (surfaced for diagnostics). */
     dndHeld: number;
+    /** True when the on-disk file belongs to a newer plugin (F6.8). */
+    readOnly: boolean;
 }
 /**
  * Create a health holder.

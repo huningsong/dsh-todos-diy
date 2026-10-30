@@ -412,20 +412,26 @@ describe('repo — applyTick', () => {
     assert.ok(fs.writeCount - baseline <= 1)
   })
 
-  it('increments missedCount without touching lastFiredAt', async () => {
+  it('increments missedCount and advances the missed watermark', async () => {
     const { repo } = harness()
     const task = await repo.create(recurringInput() as never)
-    await repo.applyTick([{ taskId: task.id, missedKey: `${task.id}@2026-10-29T01:00:00.000Z`, missedAt: NOW.toISOString() }], NOW)
+    await repo.applyTick(
+      [{ taskId: task.id, missedKey: `${task.id}@2026-10-29T01:00:00.000Z`, missedAt: '2026-10-29T01:00:00.000Z' }],
+      NOW,
+    )
     const after = repo.get(task.id)
     assert.equal(after?.state.missedCount, 1)
-    assert.equal(after?.state.lastFiredAt, null)
+    // A missed occurrence also records the de-duplication marker, otherwise the
+    // next tick would count the same occurrence again (F6.4).
+    assert.equal(after?.state.missedAt, '2026-10-29T01:00:00.000Z')
+    assert.equal(after?.state.lastOccurrenceKey, `${task.id}@2026-10-29T01:00:00.000Z`)
   })
 
   it('marks firedStart only for a start phase', async () => {
     const { repo } = harness()
     const task = await repo.create(onceInput() as never)
     await repo.applyTick(
-      [{ taskId: task.id, firedKey: `${task.id}@2026-11-05T06:00:00.000Z#start`, phase: 'start' }],
+      [{ taskId: task.id, firedKey: `${task.id}@2026-11-05T06:00:00.000Z#start`, phase: 'start', node: 'start' }],
       NOW,
     )
     const after = repo.get(task.id)

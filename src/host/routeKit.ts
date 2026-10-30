@@ -19,6 +19,7 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   no_occurrence: 409,
   conflict: 409,
   read_only: 409,
+  storage_read_only: 409,
   schema_mismatch: 400,
   storage_error: 500,
   forbidden: 403,

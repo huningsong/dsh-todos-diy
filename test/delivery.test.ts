@@ -139,11 +139,11 @@ describe('pendingDeliveries (F5.1 / F8.3)', () => {
     assert.equal(pending.length, 0)
   })
 
-  it('drops rows older than the 90-minute window', () => {
+  it('keeps an old unacknowledged row (UX-01: the overlay never self-dismisses)', () => {
     const key = 'tr_a@2026-10-30T01:00:00.000Z'
-    // NOW is 09:00 +08:00 = 01:00Z; a row from 23:00Z the previous day is 2 h old.
+    // A row from the previous day stays pending until the user acts on it.
     const pending = pendingDeliveries([record(key, '2026-10-29T23:00:00.000Z')], [task], NOW)
-    assert.equal(pending.length, 0)
+    assert.equal(pending.length, 1)
   })
 
   it('ignores non-overlay and non-ok rows', () => {

@@ -1,10 +1,6 @@
 /**
- * The task editor (F8.5).
- *
- * One modal covers both kinds: the type segment switches between the recurring
- * rule fields and the one-off window. Saving validates locally first (so the
- * user sees a field-level message without a round trip), then posts and maps any
- * server error code back onto the form.
+ * The task editor (F8.5): one modal for both kinds. Saving validates locally
+ * first, then posts and maps any server error code back onto the form.
  */
 
 import * as React from 'react'
@@ -15,6 +11,7 @@ const h = React.createElement
 import { api, ApiError } from './api'
 import { Modal } from './ui'
 import { BasicFields, OnceFields, RuleFields } from './editor-fields'
+import { requestNotificationPermission } from './notify-permission'
 
 /** Draft state the form edits; converted to an API payload on save. */
 export interface TaskDraft {
@@ -249,6 +246,9 @@ export function TaskEditor(props: TaskEditorProps) {
     }
     setSaving(true)
     try {
+      // F9.3 / UX-12: only ask for the notification permission when the user
+      // actually chooses the system channel, never on mount.
+      if (draft.channels.includes('system')) await requestNotificationPermission()
       const payload = draftToPayload(draft)
       const saved =
         props.editingId === null

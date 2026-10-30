@@ -33,7 +33,7 @@ export function validateOnce(value: unknown, timeZone: string): OnceWindow {
       field: 'once.endAt',
     })
   }
-  return { startAt: start.toISOString(), endAt: end.toISOString() }
+  return { startAt: start.toISOString(), endAt: end.toISOString(), timeZone }
 }
 
 /**

@@ -11,6 +11,7 @@ import { route, sendJson } from './http.js'
 import { ok, readObjectBody } from './routeKit.js'
 import { backupBeforeImport, buildExport, mergeTasks, parseImport, settingsExport } from './transfer.js'
 import { defaultSettings } from './state.js'
+import { assertStoreWritable } from './repoGuard.js'
 
 /** Prefix all plugin routes live under. */
 const PREFIX = '/api/dsh-todos-diy'

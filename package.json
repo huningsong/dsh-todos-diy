@@ -1,7 +1,7 @@
 {
   "name": "dsh-todos-diy",
   "version": "0.1.0",
-  "description": "DSH 工作待办提醒插件：循环规则、单次起止双节点、三视图与提醒浮层 · Work todo reminders for DeepSeek Harness",
+  "description": "DSH 工作待办提醒插件：循环规则、单次起止双节点、四阶段页签与提醒浮层 · Work todo reminders for DeepSeek Harness",
   "type": "module",
   "main": "./lib/index.js",
   "exports": {
@@ -28,15 +28,14 @@
     "lib",
     "locale",
     "cordis.patch.yml",
-    "icon.svg",
     "README.md",
     "LICENSE",
     "assets"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.client.json",
-    "test": "tsc -p tsconfig.test.json && node --test \".test-build/test/*.test.js\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p config/tsconfig.client.json",
+    "test": "tsc -p config/tsconfig.test.json && node --test \".test-build/test/*.test.js\"",
     "verify": "npm run typecheck && npm test && node scripts/verify-pack.mjs",
     "clean": "rm -rf lib .test-build"
   },
