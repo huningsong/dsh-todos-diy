@@ -84,7 +84,7 @@ export function PanelHeader(props: PanelHeaderProps) {
             onClick: () => props.onSelect(key),
           },
           t(`tab.${key}`),
-          h('span', { className: 'dtd-count', 'aria-hidden': 'true' }, String(counts[key])),
+          h('span', { className: 'dtd-count', 'aria-hidden': 'true' }, String(counts[key] ?? 0)),
         ),
       ),
     ),
@@ -103,7 +103,7 @@ export function PanelHeader(props: PanelHeaderProps) {
             onClick: () => props.onSelect(key),
           },
           t(`filter.${key}`),
-          h('span', { className: 'dtd-count', 'aria-hidden': 'true' }, String(counts[key])),
+          h('span', { className: 'dtd-count', 'aria-hidden': 'true' }, String(counts[key] ?? 0)),
         ),
       ),
       h(
