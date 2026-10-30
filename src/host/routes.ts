@@ -80,7 +80,15 @@ export interface RouteDefinition {
 const PREFIX = '/api/dsh-todos-diy'
 
 /** The six selectable views (F4.10 / F4.21). */
-const VIEW_NAMES: readonly TaskViewName[] = ['notStarted', 'inProgress', 'overdue', 'done', 'recurring', 'paused']
+const VIEW_NAMES: readonly TaskViewName[] = [
+  'all',
+  'notStarted',
+  'inProgress',
+  'overdue',
+  'done',
+  'recurring',
+  'paused',
+]
 
 
 /**

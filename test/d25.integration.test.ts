@@ -453,3 +453,52 @@ describe('AC-15 / AC-28: capability reporting and session independence', () => {
     assert.equal(JSON.stringify(deliveries.json()).includes('sessionId'), false)
   })
 })
+
+describe('0.2.1 HTTP surface', () => {
+  it('accepts view=all but still defaults to inProgress', async () => {
+    const { routes, repo } = routesFor(NOW)
+    await repo.create({ title: 'rec', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
+    await repo.create({ title: 'once', kind: 'once', once: { startAt: '2026-11-06T09:00:00+08:00', endAt: '2026-11-06T18:00:00+08:00' } })
+    const all = await callRoute(routes, '/snapshot', { url: '/snapshot?view=all' })
+    assert.equal(all.statusCode, 200)
+    assert.equal(all.json<{ value: { items: unknown[] } }>().value.items.length, 2)
+    const fallback = await callRoute(routes, '/snapshot')
+    assert.equal(fallback.json<{ value: { items: unknown[] } }>().value.items.length, 0)
+  })
+
+  it('replays an idempotent create and reports replayed=true', async () => {
+    const { routes } = routesFor(NOW)
+    const body = { title: 'idem', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' }, idempotencyKey: 'route-idem-key-01234' }
+    const first = await callRoute(routes, '/tasks/create', { method: 'POST', body })
+    assert.equal(first.statusCode, 201)
+    assert.equal(first.json<{ value: { replayed: boolean } }>().value.replayed, false)
+    const second = await callRoute(routes, '/tasks/create', { method: 'POST', body })
+    assert.equal(second.statusCode, 200)
+    assert.equal(second.json<{ value: { replayed: boolean } }>().value.replayed, true)
+    const conflict = await callRoute(routes, '/tasks/create', {
+      method: 'POST',
+      body: { ...body, title: 'other' },
+    })
+    assert.equal(conflict.statusCode, 409)
+    assert.equal(conflict.json<{ error: { code: string } }>().error.code, 'conflict')
+  })
+
+  it('rejects a malformed idempotencyKey with invalid_argument', async () => {
+    const { routes } = routesFor(NOW)
+    const res = await callRoute(routes, '/tasks/create', {
+      method: 'POST',
+      body: { title: 'x', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' }, idempotencyKey: 'short' },
+    })
+    assert.equal(res.statusCode, 400)
+    assert.equal(res.json<{ error: { code: string } }>().error.code, 'invalid_argument')
+  })
+
+  it('supports skipNext on /tasks/complete', async () => {
+    const { routes, repo } = routesFor(NOW)
+    const task = await repo.create({ title: 'skip', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
+    const res = await callRoute(routes, '/tasks/complete', { method: 'POST', body: { id: task.id, skipNext: true } })
+    assert.equal(res.statusCode, 200)
+    assert.ok(String(res.json<{ value: { completedOccurrenceKey: string } }>().value.completedOccurrenceKey).includes('@'))
+    assert.equal(repo.get(task.id)?.status, 'active')
+  })
+})
