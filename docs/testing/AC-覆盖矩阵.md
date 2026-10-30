@@ -32,7 +32,7 @@
 | AC-25 | 导出/导入 | `test/transfer.test.ts` | 自动 |
 | AC-26 | 跨站 403 | `test/routes.test.ts`、`test/http.test.ts` | 自动 |
 | AC-27 | 60 秒内投递 | `test/resolve-tick.test.ts` | 自动 |
-| AC-28 | 无会话消息/无 sessionId | `test/types.test.ts`、`test/delivery.test.ts` | 自动 |
+| AC-28 | 无会话消息/无 sessionId | `test/d25.model.test.ts`、`test/delivery.test.ts` | 自动 |
 | AC-29 | 四页签 + 两筛选 | `test/d25.model.test.ts`、`test/priority.test.ts` | 自动 |
 | AC-30 | 进行中完成计数 | `test/d25.model.test.ts`、`test/d25.integration.test.ts` | 自动 |
 | AC-31 | 优先级随时间变化 | `test/priority.test.ts`、`test/d25.model.test.ts` | 自动 |

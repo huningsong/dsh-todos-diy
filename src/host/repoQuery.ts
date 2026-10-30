@@ -102,7 +102,11 @@ export function queryTasks(allTasks: readonly Task[], query: ListQuery, ctx: Que
     recurring: visible.filter((task) => task.kind === 'recurring').length,
   }
 
-  let pool = visible
+  // F4.6 / F7.1: an explicit `status`/`kind` filter is a *flat* query — it must
+  // not be intersected with the default stage view, otherwise
+  // `status=paused` would always come back empty.
+  const flat = query.status !== undefined || query.kind !== undefined
+  let pool = includeArchived ? allTasks : visible
   if (query.status !== undefined) pool = pool.filter((task) => task.status === query.status)
   if (query.kind !== undefined) pool = pool.filter((task) => task.kind === query.kind)
 
@@ -114,8 +118,8 @@ export function queryTasks(allTasks: readonly Task[], query: ListQuery, ctx: Que
   }
 
   const viewResult = selectView(pool, view, ctx.now, derive)
-  let items = viewResult.items
-  if (includeArchived) {
+  let items = flat ? sortTasksForView(pool, ctx.now, derive) : viewResult.items
+  if (includeArchived && !flat) {
     const archived = allTasks.filter((task) => task.status === 'archived')
     if (archived.length > 0) items = [...items, ...sortTasksForView(archived, ctx.now, derive)]
   }

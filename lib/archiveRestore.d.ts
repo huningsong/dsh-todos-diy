@@ -3,13 +3,13 @@
  *
  * An archived task no longer lives in `tasks.json`, so the normal repository
  * restore path cannot see it. This module moves the task back:
- *   1. read the quarter file;
- *   2. remove the entry and rewrite that quarter file atomically;
- *   3. update `index.json` (count / drop the file when empty);
- *   4. append the task to the live document with `status=active`.
+ *   1. append the (migrated) task to the live document and **persist it**;
+ *   2. only then remove the entry from the quarter file;
+ *   3. finally refresh `index.json`.
  *
- * Ordering matters: the main document is written **last**, so a crash leaves the
- * task in the archive only (recoverable) rather than in neither file.
+ * That order is deliberate: a crash before step 2 leaves the task in both
+ * places, which `reconcileArchive` collapses on the next start. The reverse
+ * order would leave it in neither file — an unrecoverable loss.
  */
 import type { ArchiveFs } from './archive.js';
 import type { StoragePaths } from './paths.js';
@@ -38,15 +38,14 @@ export declare function findArchivedTask(id: string, paths: StoragePaths, fs: Ar
 /**
  * Restore one archived task into the live document.
  *
- * The caller is responsible for persisting `state` after this returns (the
- * repository's write queue owns the physical write). `state` is mutated in
- * place only after every file operation succeeded, so a failed restore leaves
- * the archive untouched.
+ * `persist` is called **before** the archive is touched, so a crash can only
+ * create a duplicate (reconciled at startup), never a hole.
  * @param state - Live document (mutated on success).
  * @param id - Task id to restore.
  * @param paths - Storage paths.
  * @param fs - Filesystem seam.
  * @param now - Restore instant.
+ * @param persist - Write the live document to disk synchronously.
  * @returns The restored task, its source quarter, or a reason.
  */
-export declare function restoreArchivedTask(state: PersistedState, id: string, paths: StoragePaths, fs: ArchiveFs, now: Date): ArchiveRestoreResult;
+export declare function restoreArchivedTask(state: PersistedState, id: string, paths: StoragePaths, fs: ArchiveFs, now: Date, persist?: (state: PersistedState) => void): ArchiveRestoreResult;

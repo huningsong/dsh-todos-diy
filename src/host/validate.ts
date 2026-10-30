@@ -142,7 +142,13 @@ export function validateDateList(value: unknown, field: string): string[] {
  */
 export function validateNotify(
   value: unknown,
-  defaults: { channels: Channel[]; template: string; endReminder?: boolean },
+  defaults: {
+    channels: Channel[]
+    template: string
+    endReminder?: boolean
+    advanceMinutes?: number
+    sound?: boolean
+  },
 ): { channels: Channel[]; template: string; advanceMinutes: number; sound: boolean; endReminder: boolean } {
   const raw = value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {}
 
@@ -181,7 +187,7 @@ export function validateNotify(
     template = raw['template']
   }
 
-  let advanceMinutes = 0
+  let advanceMinutes = defaults.advanceMinutes ?? 0
   if (raw['advanceMinutes'] !== undefined) {
     const parsed = Number(raw['advanceMinutes'])
     if (!Number.isInteger(parsed) || parsed < 0 || parsed > LIMITS.advanceMinutesMax) {
@@ -194,7 +200,7 @@ export function validateNotify(
     advanceMinutes = parsed
   }
 
-  const sound = raw['sound'] === true
+  const sound = raw['sound'] === undefined ? (defaults.sound ?? false) : raw['sound'] === true
   let endReminder = defaults.endReminder !== false
   if (raw['endReminder'] !== undefined) {
     if (typeof raw['endReminder'] !== 'boolean') {

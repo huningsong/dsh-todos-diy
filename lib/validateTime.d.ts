@@ -26,6 +26,12 @@ export declare function validateOnce(value: unknown, timeZone: string, createdAt
 }): OnceWindow;
 /**
  * Parse an ISO instant, interpreting an offset-less value in the task zone.
+ *
+ * Offset-less values go through `localToInstant`, the same DST-aware resolver
+ * the recurrence engine uses: a wall time that does not exist (spring-forward
+ * gap) is rejected instead of being silently shifted an hour; an ambiguous
+ * autumn hour resolves to the earlier instant. A plain `new Date(text)` would
+ * get both cases wrong because the runtime would read the text in the host zone.
  * @param text - ISO 8601 string.
  * @param timeZone - Task zone.
  * @param field - Field name for errors.

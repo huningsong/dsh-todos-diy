@@ -13,8 +13,6 @@ export const zh = {
   'panel.refresh': '刷新',
   'panel.settings': '设置',
 
-  'tab.todo': '待办',
-
   'rule.hint': '优先级规则条',
 
   'group.pinned': '置顶',
@@ -86,8 +84,6 @@ export const zh = {
   'form.nameHint': '1–200 字符；提醒卡片与列表都使用该名称',
   'form.description': '说明',
   'form.descriptionPlaceholder': '这条待办要做什么？',
-  'form.dueDate': '截止日期',
-  'form.dueDateHint': '（已移除，改用结束时间）',
   'form.rule': '重复规则',
   'form.preset.workdays': '每个工作日',
   'form.preset.weekly': '每周',

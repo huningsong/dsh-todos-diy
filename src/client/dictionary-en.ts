@@ -13,8 +13,6 @@ export const en = {
   'panel.refresh': 'Refresh',
   'panel.settings': 'Settings',
 
-  'tab.todo': 'To do',
-
   'rule.hint': 'Priority rules',
 
   'group.pinned': 'Pinned',
@@ -86,8 +84,6 @@ export const en = {
   'form.nameHint': '1–200 characters; used on the card and in the list',
   'form.description': 'Notes',
   'form.descriptionPlaceholder': 'What needs doing?',
-  'form.dueDate': 'Deadline',
-  'form.dueDateHint': '(removed; use the end time)',
   'form.rule': 'Repeat rule',
   'form.preset.workdays': 'Every workday',
   'form.preset.weekly': 'Weekly',

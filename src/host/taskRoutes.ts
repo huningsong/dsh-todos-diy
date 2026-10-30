@@ -224,13 +224,17 @@ export function taskRoutes(
             ctx.store.paths,
             ctx.archiveFs ?? nodeArchiveFs,
             ctx.now(),
+            (next) => {
+              // Persist the live document *before* the archive is touched: a
+              // crash can then only duplicate the task, never lose it (F4.19).
+              ctx.store.set(next)
+              ctx.store.flush()
+            },
           )
           if (!result.restored) {
             sendJson(res, 404, { error: { code: 'not_found', message: `task ${JSON.stringify(id)} was not found` } })
             return
           }
-          ctx.store.set(ctx.store.state)
-          ctx.store.flush()
           ok(res, toTaskView(result.task, optionsFor(ctx)))
           return
         }

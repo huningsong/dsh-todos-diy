@@ -20,7 +20,7 @@ import { join } from 'node:path'
 import type { Task } from './rules/types.js'
 import { SCHEMA_VERSION } from './state.js'
 import type { PersistedState } from './state.js'
-import { migrateDocumentV2, migrateTaskV2 } from './migrationV2.js'
+import { migrateDocumentV2, migrateIndexV2, migrateTaskV2 } from './migrationV2.js'
 import type { StoragePaths } from './paths.js'
 
 /** One entry of `archive/index.json`. */
@@ -150,7 +150,18 @@ export function readArchiveIndex(
     // F6.8: the index shares `SCHEMA_VERSION` with the main file; a v1 index is
     // upgraded in memory (entries untouched) and rewritten on the next archive.
     const version = typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1
-    return { schemaVersion: SCHEMA_VERSION, quarters: parsed.quarters, ...(version < SCHEMA_VERSION ? { migratedFrom: version } : {}) } as ArchiveIndex
+    if (version < SCHEMA_VERSION) {
+      // F6.8 / F9.5: the index uses the same migration function as the other
+      // files and is upgraded on disk so it never stays at an old version.
+      const migrated = migrateIndexV2(parsed as unknown as Record<string, unknown>)
+      try {
+        writeJsonAtomic(fs, paths.archiveIndex, migrated)
+      } catch (error) {
+        logger?.warn?.(`todos-diy: could not persist migrated archive index: ${String(error)}`)
+      }
+      return { schemaVersion: SCHEMA_VERSION, quarters: parsed.quarters }
+    }
+    return { schemaVersion: SCHEMA_VERSION, quarters: parsed.quarters }
   } catch (error) {
     logger?.warn?.(`todos-diy: archive index unreadable, rebuilding: ${String(error)}`)
     return rebuildIndex(paths, fs, logger)

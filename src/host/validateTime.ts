@@ -7,6 +7,7 @@
 
 import { ValidationError } from './validationError.js'
 import type { OnceWindow } from './rules/types.js'
+import { localToInstant } from './rules/timezone.js'
 
 /**
  * Validate a one-off window for the D-25 model.
@@ -83,6 +84,12 @@ function normalizeEndText(text: string): string {
 
 /**
  * Parse an ISO instant, interpreting an offset-less value in the task zone.
+ *
+ * Offset-less values go through `localToInstant`, the same DST-aware resolver
+ * the recurrence engine uses: a wall time that does not exist (spring-forward
+ * gap) is rejected instead of being silently shifted an hour; an ambiguous
+ * autumn hour resolves to the earlier instant. A plain `new Date(text)` would
+ * get both cases wrong because the runtime would read the text in the host zone.
  * @param text - ISO 8601 string.
  * @param timeZone - Task zone.
  * @param field - Field name for errors.
@@ -92,56 +99,40 @@ export function parseInstant(text: string, timeZone: string, field: string): Dat
   const trimmed = text.trim()
   // A date-only value has no wall-clock time, so it cannot express a reminder
   // node; require at least `YYYY-MM-DDTHH:mm`.
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(trimmed)) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?$/.exec(trimmed)
+  const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed)
+  if (hasOffset) {
+    const parsed = new Date(trimmed)
+    if (Number.isNaN(parsed.getTime())) {
+      throw new ValidationError('invalid_argument', `${field} is not a valid ISO 8601 instant`, { field })
+    }
+    return parsed
+  }
+  if (match === null) {
     throw new ValidationError('invalid_argument', `${field} must include a time (YYYY-MM-DDTHH:mm...)`, { field })
   }
-  const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed)
-  const candidate = hasOffset ? trimmed : `${trimmed}${offsetSuffix(trimmed, timeZone)}`
-  const parsed = new Date(candidate)
-  if (Number.isNaN(parsed.getTime())) {
-    throw new ValidationError('invalid_argument', `${field} is not a valid ISO 8601 instant`, { field })
+  const [, year, month, day, hour, minute, second, fraction] = match
+  const local = {
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+    hour: Number(hour),
+    minute: Number(minute),
   }
-  return parsed
-}
-
-/**
- * Offset suffix (`+08:00`) for an offset-less local date-time in a zone.
- * @param local - `YYYY-MM-DDTHH:mm[:ss]` text.
- * @param timeZone - Task zone.
- * @returns Offset suffix, or `Z` when the zone data is unavailable.
- */
-function offsetSuffix(local: string, timeZone: string): string {
-  // A date-only `endAt` normalizes to `...T23:59:59.999`, so the fraction must
-  // be accepted here too (it does not affect the offset).
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/.exec(local)
-  if (match === null) return 'Z'
-  const [, year, month, day, hour, minute, second] = match
-  const guess = Date.UTC(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-    Number(second ?? '0'),
-  )
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).formatToParts(new Date(guess))
-  const pick = (type: string): number => Number(parts.find((part) => part.type === type)?.value ?? '0')
-  const asLocal = Date.UTC(pick('year'), pick('month') - 1, pick('day'), pick('hour') % 24, pick('minute'), pick('second'))
-  const offsetMinutes = Math.round((asLocal - guess) / 60_000)
-  const sign = offsetMinutes < 0 ? '-' : '+'
-  const absolute = Math.abs(offsetMinutes)
-  const hh = String(Math.floor(absolute / 60)).padStart(2, '0')
-  const mm = String(absolute % 60).padStart(2, '0')
-  return `${sign}${hh}:${mm}`
+  if (local.hour > 23 || local.minute > 59 || Number(second ?? '0') > 59) {
+    throw new ValidationError('invalid_argument', `${field} has an out-of-range time`, { field })
+  }
+  const base = localToInstant(local, timeZone)
+  if (base === undefined) {
+    throw new ValidationError(
+      'invalid_argument',
+      `${field} ${JSON.stringify(trimmed)} does not exist in ${timeZone} (DST gap or invalid date)`,
+      { field },
+    )
+  }
+  const seconds = Number(second ?? '0')
+  const millis = fraction === undefined ? 0 : Math.floor(Number(`0.${fraction}`) * 1000)
+  return new Date(base + seconds * 1000 + millis)
 }
 
 /**

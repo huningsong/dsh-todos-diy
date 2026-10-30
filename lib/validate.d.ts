@@ -64,6 +64,8 @@ export declare function validateNotify(value: unknown, defaults: {
     channels: Channel[];
     template: string;
     endReminder?: boolean;
+    advanceMinutes?: number;
+    sound?: boolean;
 }): {
     channels: Channel[];
     template: string;
