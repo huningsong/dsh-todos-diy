@@ -57,7 +57,6 @@ export interface HealthSnapshot {
         running: boolean;
         lastTickAt: string | null;
         nextWakeAt: string | null;
-        lastPriorityRefreshAt: string | null;
         skippedTicks: number;
         lastErrorAt: string | null;
         lastError: string | null;

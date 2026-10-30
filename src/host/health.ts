@@ -59,7 +59,6 @@ export interface HealthSnapshot {
     running: boolean
     lastTickAt: string | null
     nextWakeAt: string | null
-    lastPriorityRefreshAt: string | null
     skippedTicks: number
     lastErrorAt: string | null
     lastError: string | null
@@ -107,11 +106,9 @@ export function createHealthState(
     running: false,
     lastTickAt: null as string | null,
     nextWakeAt: null as string | null,
-    lastPriorityRefreshAt: null as string | null,
     skippedTicks: 0,
     lastErrorAt: null as string | null,
     lastError: null as string | null,
-    priorityDate: null as string | null,
     taskCount: 0,
     holidayYears: [] as number[],
     holidaySource: 'unknown',
@@ -132,13 +129,10 @@ export function createHealthState(
       state.lastTickAt = now.toISOString()
       state.nextWakeAt = plan.nextWakeAt === null ? null : plan.nextWakeAt.toISOString()
       state.taskCount = taskCount
-      // Priority is derived on read; the timestamp only proves the daily
-      // refresh ran (§7.6 step 4). The refresh window opens at 00:05 local.
-      const dateKey = todayLocalDate ?? localDateKeyOf(now, config.timeZone)
-      if (state.priorityDate !== dateKey) {
-        state.priorityDate = dateKey
-        state.lastPriorityRefreshAt = now.toISOString()
-      }
+      // D-25: priority is derived on every read, so there is no daily refresh
+      // timestamp any more (F4.13 / AC-32). `todayLocalDate` is kept for the
+      // task-count diagnostics only.
+      void todayLocalDate
     },
     recordSkippedTick() {
       state.skippedTicks += 1
@@ -187,7 +181,6 @@ export function createHealthState(
           running: state.running,
           lastTickAt: state.lastTickAt,
           nextWakeAt: state.nextWakeAt,
-          lastPriorityRefreshAt: state.lastPriorityRefreshAt,
           skippedTicks: state.skippedTicks,
           lastErrorAt: state.lastErrorAt,
           lastError: state.lastError,

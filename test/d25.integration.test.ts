@@ -342,3 +342,13 @@ async function expectToolError(work: () => Promise<unknown>, code: string): Prom
     return true
   })
 }
+
+describe('D-25: /health no longer exposes a daily priority refresh (AC-32)', () => {
+  it('has no lastPriorityRefreshAt field', async () => {
+    const { routes } = routesFor(NOW)
+    const res = await callRoute(routes, '/health')
+    const value = res.json<{ value: { scheduler: Record<string, unknown> } }>().value
+    assert.equal(Object.hasOwn(value.scheduler, 'lastPriorityRefreshAt'), false)
+    assert.ok(value.scheduler['lastTickAt'] === null || typeof value.scheduler['lastTickAt'] === 'string')
+  })
+})
