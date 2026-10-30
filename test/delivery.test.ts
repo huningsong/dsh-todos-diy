@@ -75,7 +75,7 @@ describe('buildReminderCard', () => {
     const task = makeTask({
       id: 'tr_b',
       title: 'X',
-      notify: { channels: ['overlay'], template: '{title}｜{time}', advanceMinutes: 0, sound: false },
+      notify: { channels: ['overlay'], template: '{title}｜{time}', advanceMinutes: 0, sound: false, endReminder: true },
     })
     const card = buildReminderCard(task, occurrenceOf('tr_b', '2026-11-05T06:00:00Z'))
     assert.equal(card.text.split('\n').length, 1)
@@ -91,7 +91,7 @@ describe('buildReminderCard', () => {
 
 describe('deliveryRecordsFor', () => {
   it('always writes one overlay record', () => {
-    const task = makeTask({ id: 'tr_a', notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 0, sound: false } })
+    const task = makeTask({ id: 'tr_a', notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 0, sound: false, endReminder: true } })
     const records = deliveryRecordsFor(task, occurrenceOf('tr_a', '2026-10-30T01:00:00Z'), NOW)
     assert.equal(records.length, 1)
     assert.equal(records[0]?.channel, 'overlay')
@@ -101,7 +101,7 @@ describe('deliveryRecordsFor', () => {
   it('adds a skipped placeholder for the system channel', () => {
     const task = makeTask({
       id: 'tr_a',
-      notify: { channels: ['overlay', 'system'], template: '{title}', advanceMinutes: 0, sound: false },
+      notify: { channels: ['overlay', 'system'], template: '{title}', advanceMinutes: 0, sound: false, endReminder: true },
     })
     const records = deliveryRecordsFor(task, occurrenceOf('tr_a', '2026-10-30T01:00:00Z'), NOW)
     assert.equal(records.length, 2)

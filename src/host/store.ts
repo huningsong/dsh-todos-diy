@@ -266,6 +266,7 @@ export function createStore(options: StoreOptions): Store {
       }
 
       let document = raw
+      let migratedInPlace = false
       if (typeof version === 'number' && version < SCHEMA_VERSION) {
         logger.info?.(`todos-diy: migrate from ${String(version)} to ${String(SCHEMA_VERSION)}`)
         const migrated = migrateState(raw)
@@ -287,6 +288,7 @@ export function createStore(options: StoreOptions): Store {
           return state
         }
         document = migrated.state
+        migratedInPlace = true
       }
 
       const result = coerceState(document)
@@ -304,6 +306,12 @@ export function createStore(options: StoreOptions): Store {
       for (const warning of result.warnings) logger.warn?.(`todos-diy: ${warning}`)
       state = result.state
       if (result.warnings.length > 0) isDirty = true
+      if (migratedInPlace) {
+        // F6.8 / F9.5: persist the upgraded document right away so the on-disk
+        // file is at the current schema even if nothing else changes this run.
+        isDirty = true
+        writeAtomic()
+      }
       logger.info?.(`todos-diy: ready (${String(state.tasks.length)} task(s))`)
       return state
     },

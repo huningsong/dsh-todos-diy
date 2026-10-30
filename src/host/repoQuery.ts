@@ -1,13 +1,26 @@
 /**
  * Read-side helpers for the repository: list filtering, cursor pagination and
- * today-per-zone resolution. Kept pure and separate from the mutation code so
- * each file stays inside the NF5 budget.
+ * the derived counters the panel needs (F4.21).
+ *
+ * Kept pure and separate from the mutation code so each file stays inside the
+ * NF5 budget.
  */
 
-import { localDateKey } from './rules/timezone.js'
+import { stageOf } from './rules/priority.js'
+import type { DeriveOptions } from './rules/priority.js'
 import { selectView, sortTasksForView } from './rules/priority.js'
 import type { Task } from './rules/types.js'
 import type { ListQuery, ListResult } from './repoTypes.js'
+
+/** Everything the read path needs from the caller (clock + calendar). */
+export interface QueryContext {
+  /** The single `now` every derived value is computed against. */
+  now: Date
+  /** Resolver for a recurring task's next fire instant. */
+  nextAtFor: (task: Task) => Date | null
+  /** Main-file done + archived quarters, de-duplicated (F4.21). */
+  totalDone: number
+}
 
 /** Encode a list cursor (`createdAt|id`) as opaque base64url. */
 export function encodeCursor(task: Task): string {
@@ -31,38 +44,65 @@ export function decodeCursor(cursor: string): { createdAt: string; id: string } 
 }
 
 /**
- * Today's local date in the configured zone.
- * @param now - Current instant.
- * @param timeZone - Zone identifier.
- * @returns `YYYY-MM-DD`.
+ * The next instant at which any visible task changes stage (F4.13).
+ *
+ * Considers every non-archived active/paused task and ignores the current view
+ * and search: the panel must refresh even when the boundary belongs to a row
+ * that is not on screen. Only instants **strictly after** `now` qualify.
+ * @param tasks - Every task in the store.
+ * @param options - `now` plus the recurring `nextAtFor` resolver.
+ * @returns ISO instant, or null when nothing is scheduled.
  */
-export function todayKey(now: Date, timeZone: string): string {
-  return localDateKey(now.getTime(), timeZone)
+export function computeNextTransition(tasks: readonly Task[], options: { now: Date; nextAtFor: (task: Task) => Date | null }): string | null {
+  const nowMs = options.now.getTime()
+  let earliest: number | null = null
+  const consider = (value: number | null): void => {
+    if (value === null || Number.isNaN(value) || value <= nowMs) return
+    if (earliest === null || value < earliest) earliest = value
+  }
+  for (const task of tasks) {
+    if (task.status === 'archived') continue
+    if (task.kind === 'once' && task.once !== null) {
+      consider(Date.parse(task.once.startAt))
+      consider(Date.parse(task.once.endAt))
+    }
+    if (task.status === 'active' && task.kind === 'recurring') {
+      const next = options.nextAtFor(task)
+      consider(next === null ? null : next.getTime())
+    }
+  }
+  return earliest === null ? null : new Date(earliest).toISOString()
 }
 
 /**
  * Apply one list query to the in-memory task set.
  *
- * Views come from `selectView` so the three tab badges always agree with the
- * rows. Text/status/kind filters narrow the view's items without changing the
- * badges — a search must not make the "已完成 4" badge read 0.
+ * Counts come from `computeCounts`, so the six badges always describe the whole
+ * dataset — a search must never make the "进行中 2" badge read 0 (F4.21).
  * @param allTasks - Every task in the store.
  * @param query - Query parameters.
- * @param today - Today's local date.
- * @returns Page, cursor, counts and priority summary.
+ * @param ctx - Clock, next-at resolver and the archived done total.
+ * @returns Page, cursor, counts, priority summary and the refresh boundary.
  */
-export function queryTasks(allTasks: readonly Task[], query: ListQuery, today: string): ListResult {
-  const view = query.view ?? 'todo'
+export function queryTasks(allTasks: readonly Task[], query: ListQuery, ctx: QueryContext): ListResult {
+  const view = query.view ?? 'inProgress'
+  const derive: DeriveOptions = { nextAtFor: ctx.nextAtFor }
   const includeArchived = query.includeArchived === true
-  let pool = allTasks.filter((task) => includeArchived || task.status !== 'archived')
-  if (query.status !== undefined) pool = pool.filter((task) => task.status === query.status)
-  if (query.kind !== undefined) pool = pool.filter((task) => task.kind === query.kind)
+  const visible = allTasks.filter((task) => task.status !== 'archived')
 
   // Counts and the priority summary are computed over the *unfiltered* pool:
-  // a search narrows the rows, never the tab badges (F4.10 / F8.11).
-  const countSource = selectView(pool, view, today)
+  // a search narrows the rows, never the tab badges.
+  const countSource = selectView(visible, view, ctx.now, derive)
   const counts = countSource.counts
   const prioritySummary = countSource.prioritySummary
+  const byKind = {
+    once: visible.filter((task) => task.kind === 'once').length,
+    recurring: visible.filter((task) => task.kind === 'recurring').length,
+  }
+
+  let pool = visible
+  if (query.status !== undefined) pool = pool.filter((task) => task.status === query.status)
+  if (query.kind !== undefined) pool = pool.filter((task) => task.kind === query.kind)
 
   const needle = (query.query ?? '').trim().toLowerCase()
   if (needle !== '') {
@@ -71,18 +111,15 @@ export function queryTasks(allTasks: readonly Task[], query: ListQuery, today: s
     )
   }
 
-  const viewResult = selectView(pool, view, today)
+  const viewResult = selectView(pool, view, ctx.now, derive)
   let items = viewResult.items
-  // `includeArchived` widens the pool, but `selectView` drops archived rows
-  // because no view shows them. Append them explicitly so a debug/export caller
-  // can actually see what it asked for.
   if (includeArchived) {
-    const archived = pool.filter((task) => task.status === 'archived')
-    if (archived.length > 0) items = [...items, ...sortTasksForView(archived, today)]
+    const archived = allTasks.filter((task) => task.status === 'archived')
+    if (archived.length > 0) items = [...items, ...sortTasksForView(archived, ctx.now, derive)]
   }
   // A filtered view re-sorts by the same ordering so the page stays predictable.
   if (query.status !== undefined || query.kind !== undefined || needle !== '') {
-    items = sortTasksForView(items, today)
+    items = sortTasksForView(items, ctx.now, derive)
   }
 
   const limit = Math.min(200, Math.max(1, Math.trunc(query.limit ?? 50)))
@@ -93,5 +130,26 @@ export function queryTasks(allTasks: readonly Task[], query: ListQuery, today: s
   }
   const page = items.slice(0, limit)
   const nextCursor = items.length > limit && page.length === limit ? encodeCursor(page[page.length - 1] as Task) : null
-  return { items: page, nextCursor, counts, prioritySummary }
+
+  return {
+    items: page,
+    nextCursor,
+    counts,
+    prioritySummary,
+    byKind,
+    totalDone: ctx.totalDone + counts.done,
+    serverTime: ctx.now.toISOString(),
+    nextTransitionAt: computeNextTransition(allTasks, { now: ctx.now, nextAtFor: ctx.nextAtFor }),
+  }
+}
+
+/**
+ * Stage of one task, re-exported so routes do not need to import the rules
+ * module directly for the common case.
+ * @param task - Task to inspect.
+ * @param now - Current instant.
+ * @returns Derived stage.
+ */
+export function stageFor(task: Task, now: Date): ReturnType<typeof stageOf> {
+  return stageOf(task, now)
 }

@@ -35,12 +35,21 @@ export interface RecurrenceRule {
     /** What to do when the selected day does not exist in a month (D-05). */
     monthlyOverflow: MonthlyOverflow;
 }
-/** One-off task window (D-03: both nodes always remind). */
+/**
+ * One-off task window (D-25: `endAt` is the single deadline).
+ *
+ * `startAt` is always present in storage: when the user leaves it empty the
+ * service fills it with the task's `createdAt` and records
+ * `startAtSource="created"`. That flag is what suppresses the `#start`
+ * reminder later — a resolved timestamp alone cannot tell the two cases apart.
+ */
 export interface OnceWindow {
-    /** ISO 8601 with offset, normalized to UTC on write. */
+    /** ISO 8601, normalized to UTC on write. */
     startAt: string;
-    /** ISO 8601 with offset; strictly later than `startAt`. */
+    /** ISO 8601; the only deadline for a one-off task; strictly later than `startAt`. */
     endAt: string;
+    /** `explicit` when the user supplied `startAt`, `created` when it was defaulted. */
+    startAtSource: 'explicit' | 'created';
     /**
      * The task's own IANA zone (F2.6). A one-off task has no `rule`, so without
      * this field every list row would show the global default offset instead of
@@ -52,9 +61,14 @@ export interface OnceWindow {
 export interface NotifySettings {
     channels: Channel[];
     template: string;
-    /** 0–1440 minutes; replaces the on-time occurrence (UX-06). */
+    /** 0–1440 minutes; replaces the on-time `#end` occurrence (F5.7). */
     advanceMinutes: number;
     sound: boolean;
+    /**
+     * When false (meeting-style tasks) only the `#start` node is scheduled.
+     * Only meaningful for one-off tasks and requires an explicit `startAt`.
+     */
+    endReminder: boolean;
 }
 /** Mutable per-task firing state (F1.3). */
 export interface TaskState {
@@ -87,7 +101,6 @@ export interface Task {
     description: string;
     kind: TaskKind;
     status: TaskStatus;
-    dueDate: string | null;
     pinned: boolean;
     doneAt: string | null;
     archivedQuarter: string | null;
@@ -122,21 +135,32 @@ export interface TickPlan {
 }
 /** Derived priority key (D-20). */
 export type PriorityKey = 'high' | 'mid' | 'low' | 'none' | 'paused';
-/** Derived priority value; `daysLeft` is null when there is no due date. */
+/** Derived priority value (D-20 / D-25). */
 export interface Priority {
     key: PriorityKey;
-    daysLeft: number | null;
+    /** Whole minutes until the deadline (floored); negative once overdue. */
+    remainingMinutes: number | null;
 }
-/** Three list views (F4.10). */
-export type TaskViewName = 'todo' | 'done' | 'overdue';
+/**
+ * Read-only task stage (D-25). Derived from `status` + `kind` + `now`, never
+ * persisted.
+ */
+export type TaskStage = 'notStarted' | 'inProgress' | 'overdue' | 'done' | 'paused' | 'recurring' | 'archived';
+/** The six selectable views (F4.10 / F4.21). */
+export type TaskViewName = 'notStarted' | 'inProgress' | 'overdue' | 'done' | 'recurring' | 'paused';
+/** Mutually exclusive counts for the six views (F4.21). */
+export interface Counts {
+    notStarted: number;
+    inProgress: number;
+    overdue: number;
+    done: number;
+    paused: number;
+    recurring: number;
+}
 /** Result of `selectView`, including the badges every view needs. */
 export interface ViewResult {
     items: Task[];
-    counts: {
-        todo: number;
-        done: number;
-        overdue: number;
-    };
+    counts: Counts;
     prioritySummary: {
         high: number;
         mid: number;

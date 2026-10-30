@@ -8,6 +8,7 @@
 
 import * as React from 'react'
 
+import type { ViewName } from './api'
 import type { TaskView } from '../../src/host/taskView'
 import { groupItems, type GroupKey } from './grouping'
 import type { TaskDraft } from './task-editor'
@@ -19,7 +20,7 @@ const h = React.createElement
 
 /** Everything the list needs. */
 export interface TaskListProps {
-  view: 'todo' | 'done' | 'overdue'
+  view: ViewName
   phase: 'loading' | 'ready' | 'error'
   errorCode: string
   items: TaskView[]
@@ -149,7 +150,9 @@ export function TaskList(props: TaskListProps) {
     )
   }
 
-  if (view === 'todo') {
+  // The four stage views and the recurring filter all group by priority;
+  // the paused filter is one flat "已暂停" group.
+  if (view !== 'paused') {
     return h(
       'div',
       { className: 'dtd-body' },

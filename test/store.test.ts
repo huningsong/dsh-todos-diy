@@ -179,7 +179,6 @@ describe('store — reload fidelity (AC-18)', () => {
       id: 'tr_0123456789ABCDEFGHJKMNPQRS',
       title: '季度材料',
       description: '含考勤汇总',
-      dueDate: '2026-11-03',
       pinned: true,
       state: {
         lastFiredAt: '2026-10-30T01:00:00.000Z',

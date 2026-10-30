@@ -6,11 +6,11 @@
  * the same repository methods as the HTTP routes, which is what makes F7.11
  * ("不允许绕过状态机") true by construction.
  *
- * F7.10: a call is refused when it has no `exec.agent` (nothing to report back
- * to) or when the caller is a delegated sub-agent. The DSH tool pipeline turns a
- * throw into an `isError` tool result, so a refusal **throws** a `ToolFailure`
- * whose message is the JSON `{code:'forbidden', ...}` envelope — the model still
- * sees a structured, machine-readable code.
+ * F7.10 (v1.3): tools are **not** bound to an Agent session. A main-session
+ * turn, a delegated sub-agent and a programmatic host call all work; nothing is
+ * ever posted back into a conversation (D-02). `assertToolCaller` therefore
+ * accepts every caller and exists only as the single place a future policy
+ * would live.
  */
 import { createToolDefinitions, type ToolDeps } from './toolDefs.js';
 /** Minimal shape of a tool definition the registry accepts. */
@@ -67,11 +67,14 @@ export declare class ToolFailure extends Error {
  */
 export declare function delegationDepthOf(exec: ToolExec): number;
 /**
- * Enforce F7.10 before any tool body runs.
- * @param exec - Tool execution context.
- * @throws ToolFailure `forbidden` when the caller may not manage reminders.
+ * Caller policy for F7.10 (v1.3): every caller is allowed.
+ *
+ * Reminders are global data, not session data (D-02), so there is nothing to
+ * scope by agent, depth or session. Kept as a function so every tool body has a
+ * single, uniform hook.
+ * @param _exec - Tool execution context (unused).
  */
-export declare function assertToolCaller(exec: ToolExec): void;
+export declare function assertToolCaller(_exec: ToolExec): void;
 /**
  * Register all nine tools through one disposer.
  * @param toolCtx - Context carrying `tools.register`.

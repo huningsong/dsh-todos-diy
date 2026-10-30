@@ -265,6 +265,19 @@ export function OnceFields({ draft, update, t }: FieldProps): React.ReactNode {
       ),
     ),
     h('span', { className: 'dtd-hint', key: 'hint' }, t('form.onceHint')),
+    h(
+      'label',
+      { className: 'dtd-check-row', key: 'endReminder' },
+      h('input', {
+        type: 'checkbox',
+        checked: draft.endReminder,
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) => update('endReminder', event.target.checked),
+      }),
+      t('form.endReminder'),
+    ),
+    draft.startAt === '' && draft.endReminder === false
+      ? h('span', { className: 'dtd-error', key: 'endReminderHint', role: 'alert' }, t('form.endReminderNeedsStart'))
+      : null,
   ]
 }
 
@@ -328,31 +341,14 @@ export function BasicFields({ draft, update, t }: FieldProps): React.ReactNode {
     ),
     h(
       'div',
-      { className: 'dtd-row2' },
-      h(
-        'div',
-        { className: 'dtd-field' },
-        h('span', { className: 'dtd-label' }, t('form.dueDate')),
-        h('input', {
-          type: 'date',
-          className: 'dtd-input',
-          value: draft.dueDate,
-          'aria-label': t('form.dueDate'),
-          onChange: (event: React.ChangeEvent<HTMLInputElement>) => update('dueDate', event.target.value),
-        }),
-        h('span', { className: 'dtd-hint' }, t('form.dueDateHint')),
-      ),
-      h(
-        'div',
-        { className: 'dtd-field' },
-        h('span', { className: 'dtd-label' }, t('form.timeZone')),
-        h('input', {
-          className: 'dtd-input',
-          value: draft.timeZone,
-          'aria-label': t('form.timeZone'),
-          onChange: (event: React.ChangeEvent<HTMLInputElement>) => update('timeZone', event.target.value),
-        }),
-      ),
-    )
+      { className: 'dtd-field', key: 'tz' },
+      h('span', { className: 'dtd-label' }, t('form.timeZone')),
+      h('input', {
+        className: 'dtd-input',
+        value: draft.timeZone,
+        'aria-label': t('form.timeZone'),
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) => update('timeZone', event.target.value),
+      }),
+    ),
   ]
 }

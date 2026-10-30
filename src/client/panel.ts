@@ -7,7 +7,7 @@
 import * as React from 'react'
 
 import type { TaskView } from '../../src/host/taskView'
-import { api, ApiError, type SettingsPayload } from './api'
+import { api, ApiError, type CountsPayload, type SettingsPayload, type ViewName } from './api'
 import { TaskEditor, draftFromTask, draftToPayload, emptyDraft, type TaskDraft } from './task-editor'
 import { TaskRow } from './task-row'
 import { SettingsModal } from './settings-modal'
@@ -15,6 +15,7 @@ import { TaskHistoryModal } from './task-history'
 import { usePanelActions, type ToastState } from './panel-actions'
 import { ConfirmDeleteModal } from './confirm-delete'
 import { usePanelShortcuts } from './panel-shortcuts'
+import { PanelHeader, STAGE_VIEWS, FILTER_VIEWS } from './panel-header'
 import { buildExamples } from './examples'
 import { TaskList } from './task-list'
 import {
@@ -28,7 +29,7 @@ import {
 
 const h = React.createElement
 
-type ViewName = 'todo' | 'done' | 'overdue'
+
 
 /** Props injected by the slot system. */
 export interface PanelProps {
@@ -44,11 +45,13 @@ export function TodoPanel(props: PanelProps) {
   const { t } = props
   const [view, setView] = React.useState<ViewName>(() => {
     const stored = window.localStorage.getItem(TAB_KEY)
-    return stored === 'done' || stored === 'overdue' ? stored : 'todo'
+    return [...STAGE_VIEWS, ...FILTER_VIEWS].includes(stored as ViewName) ? (stored as ViewName) : 'inProgress'
   })
   const [search, setSearch] = React.useState('')
   const [items, setItems] = React.useState<TaskView[]>([])
-  const [counts, setCounts] = React.useState({ todo: 0, done: 0, overdue: 0 })
+  const [counts, setCounts] = React.useState<CountsPayload>({ notStarted: 0, inProgress: 0, overdue: 0, done: 0, paused: 0, recurring: 0 })
+  const [totals, setTotals] = React.useState({ once: 0, recurring: 0, done: 0 })
+  const [nextTransitionAt, setNextTransitionAt] = React.useState<string | null>(null)
   const [settings, setSettings] = React.useState<SettingsPayload | null>(null)
   const [phase, setPhase] = React.useState<'loading' | 'ready' | 'error'>('loading')
   const [errorCode, setErrorCode] = React.useState<string>('internal_error')
@@ -72,6 +75,8 @@ export function TodoPanel(props: PanelProps) {
         const snapshot = await api.snapshot(target, query)
         setItems(snapshot.items)
         setCounts(snapshot.counts)
+        setTotals({ once: snapshot.byKind.once, recurring: snapshot.byKind.recurring, done: snapshot.totalDone })
+        setNextTransitionAt(snapshot.nextTransitionAt)
         setSettings(snapshot.settings)
         setPhase('ready')
       } catch (caught) {
@@ -113,9 +118,23 @@ export function TodoPanel(props: PanelProps) {
   React.useEffect(() => {
     if (phase !== 'ready') return
     const seen = window.localStorage.getItem(FIRST_RUN_KEY)
-    const total = counts.todo + counts.done + counts.overdue
+    const total = counts.notStarted + counts.inProgress + counts.overdue + counts.done + counts.recurring + counts.paused
     setFirstRun(seen === null && total === 0)
   }, [phase, counts])
+
+  // F4.13: refresh exactly at the next stage boundary, with a 60 s fallback.
+  // One timer only: whichever comes first wins, then the snapshot hands us the
+  // following boundary.
+  React.useEffect(() => {
+    const delay = nextTransitionAt === null
+      ? 60_000
+      : Math.min(60_000, Math.max(1_000, Date.parse(nextTransitionAt) + 1_000 - Date.now()))
+    const timer = window.setTimeout(() => {
+      void load(view, search)
+    }, delay)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextTransitionAt, view, search])
 
   // Global refresh signal from the overlay (an ack changes the lists).
   React.useEffect(() => {
@@ -201,70 +220,23 @@ export function TodoPanel(props: PanelProps) {
         await api.create({ ...payload, title: `${task.title} 副本` })
       }),
     onDelete,
-    onRemindNow: (task: TaskView) => void mutate(() => api.snooze(task.id, 1)),
+    onRemindNow: (task: TaskView) => void mutate(() => api.remind(task.id), t('toast.reminded')),
     onRestoreArchived: (task: TaskView) => void mutate(() => api.restore(task.id), t('archive.restored')),
   })
 
   return h(
     'section',
     { className: 'dtd-page', 'aria-label': t('panel.title'), 'data-testid': 'todos-diy-panel' },
-    h(
-      'header',
-      { className: 'dtd-head' },
-      h('div', null, h('h1', null, t('panel.title')), h('p', null, t('panel.subtitle'))),
-      h(
-        'div',
-        { className: 'dtd-actions' },
-        h(
-          'button',
-          { type: 'button', className: 'dtd-btn ghost', 'aria-label': t('panel.settings'), onClick: () => setSettingsOpen(true) },
-          t('panel.settings'),
-        ),
-        h(
-          'button',
-          {
-            type: 'button',
-            className: 'dtd-btn',
-            onClick: openNew,
-            disabled: readOnly,
-            title: readOnly ? t('error.plugin_too_old') : undefined,
-          },
-          h(PlusGlyph, {}),
-          t('panel.new'),
-        ),
-      ),
-    ),
-    readOnly
-      ? h('div', { className: 'dtd-error', role: 'alert', style: { margin: '12px 32px 0' } }, t('error.plugin_too_old'))
-      : null,
-    h(
-      'div',
-      { className: 'dtd-tabs', role: 'tablist' },
-      (['todo', 'done', 'overdue'] as const).map((key) =>
-        h(
-          'button',
-          {
-            key,
-            type: 'button',
-            role: 'tab',
-            className: 'dtd-tab',
-            'aria-selected': view === key ? 'true' : 'false',
-            onClick: () => setView(key),
-          },
-          t(`tab.${key}`),
-          h('span', { className: 'dtd-count', 'aria-hidden': 'true' }, String(counts[key])),
-        ),
-      ),
-    ),
-    h(
-      'div',
-      { className: 'dtd-rules', 'aria-label': t('rule.hint') },
-      h('span', null, h('i', { className: 'dtd-dot high' }), t('rule.high')),
-      h('span', null, h('i', { className: 'dtd-dot mid' }), t('rule.mid')),
-      h('span', null, h('i', { className: 'dtd-dot low' }), t('rule.low')),
-      h('span', null, h('i', { className: 'dtd-dot none' }), t('rule.none')),
-      h('span', { className: 'refresh' }, t('rule.refresh')),
-    ),
+    h(PanelHeader, {
+      t,
+      view,
+      counts,
+      totals,
+      readOnly,
+      onSettings: () => setSettingsOpen(true),
+      onNew: openNew,
+      onSelect: setView,
+    }),
     h(
       'div',
       { className: 'dtd-toolbar' },

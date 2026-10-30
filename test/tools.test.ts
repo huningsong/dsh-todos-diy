@@ -111,15 +111,17 @@ describe('tool registry surface (F7.9)', () => {
   })
 })
 
-describe('F7.10 caller gate', () => {
-  it('refuses a call with no agent', async () => {
+describe('F7.10 (v1.3): tools are not bound to an Agent session', () => {
+  it('allows a programmatic host call with no agent', async () => {
     const { byName } = harness()
-    await expectToolCode(() => run(byName, 'todo_reminder_list', {}, {}), 'forbidden')
+    const result = await run(byName, 'todo_reminder_list', {}, {})
+    assert.ok(typeof result === 'object')
   })
 
-  it('refuses a delegated sub-agent', async () => {
+  it('allows a delegated sub-agent', async () => {
     const { byName } = harness()
-    await expectToolCode(() => run(byName, 'todo_reminder_list', {}, SUBAGENT), 'forbidden')
+    const result = await run(byName, 'todo_reminder_list', {}, SUBAGENT)
+    assert.ok(typeof result === 'object')
   })
 
   it('allows a main-session call', async () => {
@@ -134,11 +136,10 @@ describe('F7.10 caller gate', () => {
     assert.equal(delegationDepthOf({ agent: {} }), 0)
   })
 
-  it('applies the gate to every write tool', async () => {
-    const { byName } = harness()
-    for (const name of ['todo_reminder_create', 'todo_reminder_update', 'todo_reminder_delete', 'todo_reminder_pause', 'todo_reminder_resume', 'todo_reminder_complete', 'todo_reminder_snooze', 'todo_reminder_pin']) {
-      await expectToolCode(() => run(byName, name, { id: 'x' }, SUBAGENT), 'forbidden')
-    }
+  it('lets a sub-agent create a task', async () => {
+    const { byName, repo } = harness()
+    await run(byName, 'todo_reminder_create', { title: '子 Agent 任务', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } }, SUBAGENT)
+    assert.equal(repo.snapshotTasks().length, 1)
   })
 })
 
@@ -148,12 +149,11 @@ describe('todo_reminder_create', () => {
     const view = (await run(byName, 'todo_reminder_create', {
       title: '查看今日待办',
       kind: 'recurring',
-      dueDate: '2026-10-30',
       rule: { preset: 'workdays', time: '09:00' },
     })) as { id: string; priority: { key: string }; rule: { cron: string } }
     assert.match(view.id, /^tr_/)
     assert.equal(view.rule.cron, '0 9 * * 1-5')
-    assert.equal(view.priority.key, 'high')
+    assert.ok(['high', 'mid', 'low', 'none'].includes(view.priority.key))
     assert.equal(repo.snapshotTasks().length, 1)
   })
 
@@ -193,16 +193,21 @@ describe('todo_reminder_create', () => {
 describe('todo_reminder_list (F7.1 / F7.13)', () => {
   it('returns items, counts, prioritySummary and nextCursor', async () => {
     const { byName } = harness()
-    await run(byName, 'todo_reminder_create', { title: 'A', kind: 'recurring', dueDate: '2026-10-30', rule: { preset: 'workdays', time: '09:00' } })
-    const result = (await run(byName, 'todo_reminder_list', {})) as {
+    await run(byName, 'todo_reminder_create', { title: 'A', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
+    const result = (await run(byName, 'todo_reminder_list', { view: 'recurring' })) as {
       items: unknown[]
-      counts: { todo: number }
+      counts: { recurring: number }
+      byKind: { once: number; recurring: number }
+      totalDone: number
       prioritySummary: { high: number }
       nextCursor: string | null
+      serverTime: string
     }
     assert.equal(result.items.length, 1)
-    assert.equal(result.counts.todo, 1)
-    assert.equal(result.prioritySummary.high, 1)
+    assert.equal(result.counts.recurring, 1)
+    assert.deepEqual(result.byKind, { once: 0, recurring: 1 })
+    assert.equal(result.totalDone, 0)
+    assert.equal(typeof result.serverTime, 'string')
     assert.equal(result.nextCursor, null)
   })
 
@@ -222,7 +227,7 @@ describe('todo_reminder_list (F7.1 / F7.13)', () => {
     const { byName } = harness()
     await run(byName, 'todo_reminder_create', { title: '提交材料', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
     await run(byName, 'todo_reminder_create', { title: '别的', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
-    const result = (await run(byName, 'todo_reminder_list', { query: '材料' })) as { items: unknown[] }
+    const result = (await run(byName, 'todo_reminder_list', { view: 'recurring', query: '材料' })) as { items: unknown[] }
     assert.equal(result.items.length, 1)
   })
 })

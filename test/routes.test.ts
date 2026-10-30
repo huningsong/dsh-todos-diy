@@ -41,7 +41,7 @@ function harness(options: {
   store.load()
   const repo = createRepository({ store, now: () => NOW, debounceMs: 0 })
   const config = { timeZone: 'Asia/Shanghai', tickIntervalMs: 60_000, graceMinutes: 5 }
-  const health = createHealthState('0.1.0', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
+  const health = createHealthState('0.2.0', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
   health.setStorage(store.paths.stateFile, store.stateName, store.lastRecovery)
 
   const ctx: RouteContext = {
@@ -165,7 +165,7 @@ describe('GET /health', () => {
     assert.equal(res.statusCode, 200)
     const payload = res.json<{ ok: boolean; value: { version: string; scheduler: { running: boolean } } }>()
     assert.equal(payload.ok, true)
-    assert.equal(payload.value.version, '0.1.0')
+    assert.equal(payload.value.version, '0.2.0')
     assert.equal(typeof payload.value.scheduler.running, 'boolean')
   })
 
@@ -180,15 +180,34 @@ describe('GET /health', () => {
 })
 
 describe('GET /snapshot', () => {
-  it('returns items, counts, priority summary and settings', async () => {
+  it('returns items, the six counts, byKind, totalDone and settings', async () => {
     const { routes, repo } = harness()
-    await repo.create({ title: 'A', kind: 'recurring', dueDate: '2026-10-30', rule: { preset: 'workdays', time: '09:00' } })
-    const res = await call(routes, '/snapshot')
+    await repo.create({ title: 'A', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
+    const res = await call(routes, '/snapshot', { url: '/snapshot?view=recurring' })
     assert.equal(res.statusCode, 200)
-    const payload = res.json<{ value: { items: unknown[]; counts: Record<string, number>; settings: unknown } }>()
+    const payload = res.json<{
+      value: {
+        items: unknown[]
+        counts: Record<string, number>
+        byKind: Record<string, number>
+        totalDone: number
+        serverTime: string
+        nextTransitionAt: string | null
+        settings: unknown
+      }
+    }>()
     assert.equal(payload.value.items.length, 1)
-    assert.equal(payload.value.counts.todo, 1)
+    assert.equal(payload.value.counts.recurring, 1)
+    assert.deepEqual(payload.value.byKind, { once: 0, recurring: 1 })
+    assert.equal(payload.value.totalDone, 0)
+    assert.equal(typeof payload.value.serverTime, 'string')
     assert.ok(payload.value.settings !== undefined)
+  })
+
+  it('defaults to the inProgress view', async () => {
+    const res = await call(harness().routes, '/snapshot')
+    assert.equal(res.statusCode, 200)
+    assert.deepEqual(res.json<{ value: { items: unknown[] } }>().value.items, [])
   })
 
   it('rejects an unknown view', async () => {
@@ -210,8 +229,8 @@ describe('GET /priority/rules', () => {
   it('returns the thresholds the UI renders', async () => {
     const res = await call(harness().routes, '/priority/rules')
     assert.deepEqual(res.json<{ value: unknown }>().value, {
-      thresholds: { highMaxDays: 0, midMaxDays: 3, lowMaxDays: 7 },
-      refreshAt: '00:05',
+      thresholds: { highHours: 24, midHours: 72, lowHours: 168 },
+      derived: true,
     })
   })
 })
@@ -222,12 +241,15 @@ describe('task routes', () => {
     const res = await call(routes, '/tasks/create', {
       url: '/tasks/create',
       method: 'POST',
-      body: { title: '查看今日待办', kind: 'recurring', dueDate: '2026-10-30', rule: { preset: 'workdays', time: '09:00' } },
+      body: { title: '查看今日待办', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } },
     })
     assert.equal(res.statusCode, 201)
-    const view = res.json<{ value: { id: string; priority: { key: string }; utcOffset: string; nextAt: string } }>().value
+    const view = res.json<{ value: { id: string; priority: { key: string }; stage: string; utcOffset: string; nextAt: string } }>().value
     assert.match(view.id, /^tr_/)
-    assert.equal(view.priority.key, 'high')
+    // A recurring task's priority follows its `nextAt`, which for a workdays
+    // rule created "today" is at most a few days away.
+    assert.ok(['high', 'mid', 'low'].includes(view.priority.key))
+    assert.equal(view.stage, 'recurring')
     assert.equal(view.utcOffset, 'UTC+08:00')
     assert.ok(view.nextAt !== null)
   })

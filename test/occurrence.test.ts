@@ -245,26 +245,46 @@ describe('dueOccurrences', () => {
   })
 })
 
-describe('applyAdvance (F5.7)', () => {
+describe('applyAdvance (F5.7: only the one-off #end node takes a lead time)', () => {
   it('keeps the on-time occurrence when advanceMinutes is 0', () => {
-    const task = makeTask()
+    const task = makeOnceTask('2026-11-05T14:00:00+08:00', '2026-11-05T18:00:00+08:00')
+    const occurrence = applyAdvance(task, at('2026-11-05T10:00:00Z'), 'end')
+    assert.equal(occurrence.phase, 'end')
+    assert.equal(occurrence.at.toISOString(), '2026-11-05T10:00:00.000Z')
+  })
+
+  it('shifts the #end node ten minutes earlier and replaces the on-time reminder', () => {
+    const task = makeOnceTask('2026-11-05T14:00:00+08:00', '2026-11-05T18:00:00+08:00', {
+      notify: { ...makeTask().notify, advanceMinutes: 10 },
+    })
+    const occurrence = applyAdvance(task, at('2026-11-05T10:00:00Z'), 'end')
+    assert.equal(occurrence.phase, 'advance')
+    assert.equal(occurrence.at.toISOString(), '2026-11-05T09:50:00.000Z')
+    assert.equal(occurrence.key, 'tr_test@2026-11-05T09:50:00.000Z#advance')
+  })
+
+  it('does not shift the #start node (F5.7)', () => {
+    const task = makeOnceTask('2026-11-05T14:00:00+08:00', '2026-11-05T18:00:00+08:00', {
+      notify: { ...makeTask().notify, advanceMinutes: 10 },
+    })
+    const occurrence = applyAdvance(task, at('2026-11-05T06:00:00Z'), 'start')
+    assert.equal(occurrence.phase, 'start')
+    assert.equal(occurrence.at.toISOString(), '2026-11-05T06:00:00.000Z')
+  })
+
+  it('does not shift a recurring occurrence', () => {
+    const task = makeTask({ notify: { ...makeTask().notify, advanceMinutes: 10 } })
     const occurrence = applyAdvance(task, at('2026-10-30T01:00:00Z'), null)
     assert.equal(occurrence.phase, null)
     assert.equal(occurrence.at.toISOString(), '2026-10-30T01:00:00.000Z')
   })
 
-  it('shifts ten minutes earlier and replaces the on-time reminder', () => {
-    const task = makeTask({ notify: { ...makeTask().notify, advanceMinutes: 10 } })
-    const occurrence = applyAdvance(task, at('2026-10-30T01:00:00Z'), null)
-    assert.equal(occurrence.phase, 'advance')
-    assert.equal(occurrence.at.toISOString(), '2026-10-30T00:50:00.000Z')
-    assert.equal(occurrence.key, 'tr_test@2026-10-30T00:50:00.000Z#advance')
-  })
-
   it('crosses midnight when the advance is large', () => {
-    const task = makeTask({ notify: { ...makeTask().notify, advanceMinutes: 10 } })
-    const occurrence = applyAdvance(task, at('2026-10-30T00:05:00+08:00'), null)
-    assert.equal(localOf(occurrence.at), '2026-10-29T23:55')
+    const task = makeOnceTask('2026-11-05T00:05:00+08:00', '2026-11-06T00:05:00+08:00', {
+      notify: { ...makeTask().notify, advanceMinutes: 10 },
+    })
+    const occurrence = applyAdvance(task, at('2026-11-05T16:05:00Z'), 'end')
+    assert.equal(localOf(occurrence.at), '2026-11-05T23:55')
   })
 })
 

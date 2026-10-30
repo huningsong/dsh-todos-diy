@@ -18,7 +18,6 @@ export interface TaskDraft {
   kind: 'recurring' | 'once'
   title: string
   description: string
-  dueDate: string
   preset: 'workdays' | 'weekly' | 'monthly' | 'custom'
   time: string
   timeZone: string
@@ -34,6 +33,8 @@ export interface TaskDraft {
   channels: ('overlay' | 'system')[]
   advanceMinutes: number
   sound: boolean
+  /** `false` = meeting-style task: remind at the start only (F3.3). */
+  endReminder: boolean
   template: string
 }
 
@@ -43,7 +44,6 @@ export function emptyDraft(timeZone: string): TaskDraft {
     kind: 'recurring',
     title: '',
     description: '',
-    dueDate: '',
     preset: 'workdays',
     time: '09:00',
     timeZone,
@@ -59,6 +59,7 @@ export function emptyDraft(timeZone: string): TaskDraft {
     channels: ['overlay'],
     advanceMinutes: 0,
     sound: false,
+    endReminder: true,
     template: '{title}｜{time}\n{note}',
   }
 }
@@ -77,10 +78,10 @@ export function draftFromTask(task: TaskView, fallbackZone: string): TaskDraft {
     kind: task.kind,
     title: task.title,
     description: task.description,
-    dueDate: task.dueDate ?? '',
     channels: task.notify.channels,
     advanceMinutes: task.notify.advanceMinutes,
     sound: task.notify.sound,
+    endReminder: task.notify.endReminder,
     template: task.notify.template,
   }
   if (rule !== null) {
@@ -147,13 +148,9 @@ export function draftToPayload(draft: TaskDraft): Record<string, unknown> {
     template: draft.template,
     advanceMinutes: draft.advanceMinutes,
     sound: draft.sound,
+    endReminder: draft.endReminder,
   }
-  const base = {
-    title: draft.title,
-    description: draft.description,
-    dueDate: draft.dueDate === '' ? null : draft.dueDate,
-    notify,
-  }
+  const base = { title: draft.title, description: draft.description, notify }
   if (draft.kind === 'once') {
     return {
       ...base,

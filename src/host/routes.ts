@@ -13,7 +13,7 @@ import type { Repository } from './repo.js'
 import type { Store } from './store.js'
 import type { HolidayTable } from './rules/holidays.js'
 import type { DeliveryRecord, Settings } from './state.js'
-import type { Task } from './rules/types.js'
+import type { Task, TaskViewName } from './rules/types.js'
 import { archiveCompleted, readArchiveIndex, readQuarter, nodeArchiveFs, type ArchiveFs } from './archive.js'
 import { route, sendJson, type LoggerLike } from './http.js'
 import { ok, queryFlag, queryInt, queryValue, readObjectBody } from './routeKit.js'
@@ -35,6 +35,7 @@ import {
 } from './delivery.js'
 import { occurrenceKey as makeOccurrenceKey } from './rules/occurrence.js'
 import { transferRoutes } from './transferRoutes.js'
+import { archiveRoutes } from './archiveRoutes.js'
 import { isWithinDnd } from './dnd.js'
 
 /** Shared state every route needs. */
@@ -78,6 +79,9 @@ export interface RouteDefinition {
 /** Prefix all plugin routes live under. */
 const PREFIX = '/api/dsh-todos-diy'
 
+/** The six selectable views (F4.10 / F4.21). */
+const VIEW_NAMES: readonly TaskViewName[] = ['notStarted', 'inProgress', 'overdue', 'done', 'recurring', 'paused']
+
 
 /**
  * Derive the occurrence phase from its key suffix.
@@ -118,32 +122,31 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
       kind: 'exact',
       path: `${PREFIX}/snapshot`,
       handler: route(options, 'GET', async (_req, res, url) => {
-        const viewParam = queryValue(url, 'view') ?? 'todo'
-        if (viewParam !== 'todo' && viewParam !== 'done' && viewParam !== 'overdue') {
-          sendJson(res, 400, { error: { code: 'invalid_argument', message: 'view must be todo, done or overdue' } })
+        const viewParam = queryValue(url, 'view') ?? 'inProgress'
+        if (!VIEW_NAMES.includes(viewParam as TaskViewName)) {
+          sendJson(res, 400, {
+            error: { code: 'invalid_argument', message: `view must be one of ${VIEW_NAMES.join(', ')}` },
+          })
           return
         }
-        const today = ctx.today()
         const result = ctx.repo.list({
-          view: viewParam,
+          view: viewParam as TaskViewName,
           status: queryValue(url, 'status') as never,
           kind: queryValue(url, 'kind') as never,
           query: queryValue(url, 'q'),
           limit: queryInt(url, 'limit'),
           cursor: queryValue(url, 'cursor'),
           includeArchived: queryFlag(url, 'includeArchived'),
-          today,
         })
         ok(res, {
-          items: toTaskViews(result.items, {
-            today,
-            now: ctx.now(),
-            holidays: ctx.holidays,
-            todayFor: (task) => localDayKeyForTask(task, ctx),
-          }),
+          items: toTaskViews(result.items, { now: ctx.now(), holidays: ctx.holidays }),
           nextCursor: result.nextCursor,
           counts: result.counts,
+          byKind: result.byKind,
+          totalDone: result.totalDone,
           prioritySummary: result.prioritySummary,
+          serverTime: result.serverTime,
+          nextTransitionAt: result.nextTransitionAt,
           settings: ctx.repo.settings(),
         })
       }),
@@ -152,67 +155,13 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
       kind: 'exact',
       path: `${PREFIX}/priority/rules`,
       handler: route(options, 'GET', async (_req, res) => {
-        ok(res, { thresholds: { highMaxDays: 0, midMaxDays: 3, lowMaxDays: 7 }, refreshAt: '00:05' })
-      }),
-    },
-    {
-      kind: 'exact',
-      path: `${PREFIX}/archive/index`,
-      handler: route(options, 'GET', async (_req, res) => {
-        ok(res, readArchiveIndex(ctx.store.paths, ctx.archiveFs ?? nodeArchiveFs, ctx.logger))
-      }),
-    },
-    {
-      kind: 'exact',
-      path: `${PREFIX}/archive`,
-      handler: route(options, 'GET', async (_req, res, url) => {
-        const quarter = queryValue(url, 'quarter')
-        if (quarter === undefined) {
-          sendJson(res, 400, { error: { code: 'invalid_argument', message: 'quarter is required' } })
-          return
-        }
-        const found = readQuarter(quarter, ctx.store.paths, ctx.archiveFs ?? nodeArchiveFs)
-        if (found === null) {
-          sendJson(res, 404, { error: { code: 'not_found', message: `quarter ${quarter} has no archive` } })
-          return
-        }
-        const today = ctx.today()
-        const limit = Math.min(200, Math.max(1, queryInt(url, 'limit') ?? 50))
-        const offset = Math.max(0, queryInt(url, 'cursor') === undefined ? 0 : Number(queryValue(url, 'cursor')))
-        const page = found.tasks.slice(offset, offset + limit)
         ok(res, {
-          items: toTaskViews(page, {
-            today,
-            now: ctx.now(),
-            holidays: ctx.holidays,
-            todayFor: (task) => localDayKeyForTask(task, ctx),
-          }),
-          nextCursor: offset + limit < found.tasks.length ? String(offset + limit) : null,
-          quarter,
+          thresholds: { highHours: 24, midHours: 72, lowHours: 168 },
+          derived: true,
         })
       }),
     },
-    {
-      kind: 'exact',
-      path: `${PREFIX}/archive/run`,
-      handler: route(options, 'POST', async (req, res) => {
-        const body = await readObjectBody(req)
-        const quarter = typeof body['quarter'] === 'string' ? body['quarter'] : undefined
-        const result = archiveCompleted(ctx.store.state, {
-          paths: ctx.store.paths,
-          fs: ctx.archiveFs ?? nodeArchiveFs,
-          now: ctx.now(),
-          timeZone: ctx.config.timeZone,
-          logger: ctx.logger,
-          ...(quarter === undefined ? {} : { keepQuarter: quarter }),
-        })
-        if (result.archived.length > 0) {
-          ctx.store.set(ctx.store.state)
-          ctx.store.flush()
-        }
-        ok(res, result)
-      }),
-    },
+    ...archiveRoutes(ctx, options),
     ...taskRoutes(ctx, taskOptions),
     {
       kind: 'exact',
@@ -260,6 +209,28 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
         }
         ctx.setSystemNotification?.(granted)
         ok(res, { systemNotification: granted })
+      }),
+    },
+    {
+      kind: 'exact',
+      path: `${PREFIX}/deliveries`,
+      handler: route(options, 'GET', async (_req, res, url) => {
+        // F8.14 「查看历史」: delivery/receipt history, newest first, optionally
+        // narrowed to one task. Pagination is an opaque offset, like /archive.
+        const taskId = queryValue(url, 'taskId')
+        if (taskId !== undefined && ctx.repo.get(taskId) === null) {
+          sendJson(res, 404, { error: { code: 'not_found', message: `task ${JSON.stringify(taskId)} was not found` } })
+          return
+        }
+        const limit = Math.min(200, Math.max(1, queryInt(url, 'limit') ?? 50))
+        const offset = Math.max(0, queryInt(url, 'cursor') === undefined ? 0 : Number(queryValue(url, 'cursor')))
+        const all = [...ctx.repo.deliveries()].reverse()
+        const scoped = taskId === undefined ? all : all.filter((record) => record.occurrenceKey.startsWith(`${taskId}@`))
+        ok(res, {
+          items: scoped.slice(offset, offset + limit),
+          nextCursor: offset + limit < scoped.length ? String(offset + limit) : null,
+          total: scoped.length,
+        })
       }),
     },
     {

@@ -13,7 +13,6 @@ import {
   LIMITS,
   validateDateList,
   validateDescription,
-  validateDueDate,
   validateNotify,
   validateRule,
   validateTimeZone,
@@ -70,32 +69,6 @@ describe('validateDescription', () => {
 
   it('rejects more than 2000 characters', () => {
     expectCode(() => validateDescription('x'.repeat(2001)), 'invalid_argument', 'description')
-  })
-})
-
-describe('validateDueDate', () => {
-  it('accepts a real date', () => {
-    assert.equal(validateDueDate('2026-11-03'), '2026-11-03')
-  })
-
-  it('treats null/undefined/empty as "no deadline"', () => {
-    assert.equal(validateDueDate(undefined), null)
-    assert.equal(validateDueDate(null), null)
-    assert.equal(validateDueDate(''), null)
-  })
-
-  it('rejects a non-date shape', () => {
-    expectCode(() => validateDueDate('2026-1-1'), 'invalid_argument', 'dueDate')
-    expectCode(() => validateDueDate('03/11/2026'), 'invalid_argument', 'dueDate')
-  })
-
-  it('rejects dates that do not exist', () => {
-    expectCode(() => validateDueDate('2026-02-30'), 'invalid_argument', 'dueDate')
-    expectCode(() => validateDueDate('2026-13-01'), 'invalid_argument', 'dueDate')
-  })
-
-  it('rejects a non-string', () => {
-    expectCode(() => validateDueDate(20261103), 'invalid_argument', 'dueDate')
   })
 })
 
@@ -156,7 +129,13 @@ describe('validateNotify', () => {
       template: '{title}',
       advanceMinutes: 0,
       sound: false,
+      endReminder: true,
     })
+  })
+
+  it('accepts endReminder=false and rejects a non-boolean', () => {
+    assert.equal(validateNotify({ endReminder: false }, defaults).endReminder, false)
+    expectCode(() => validateNotify({ endReminder: 'no' }, defaults), 'invalid_argument', 'notify.endReminder')
   })
 
   it('accepts overlay+system', () => {
@@ -202,11 +181,12 @@ describe('validateNotify', () => {
   })
 })
 
-describe('validateOnce (D-03)', () => {
+describe('validateOnce (D-25)', () => {
   it('accepts a window with explicit offsets', () => {
     assert.deepEqual(validateOnce({ startAt: '2026-11-05T14:00:00+08:00', endAt: '2026-11-05T18:00:00+08:00' }, 'Asia/Shanghai'), {
       startAt: '2026-11-05T06:00:00.000Z',
       endAt: '2026-11-05T10:00:00.000Z',
+      startAtSource: 'explicit',
       timeZone: 'Asia/Shanghai',
     })
   })
@@ -215,12 +195,29 @@ describe('validateOnce (D-03)', () => {
     assert.deepEqual(validateOnce({ startAt: '2026-11-05T14:00:00', endAt: '2026-11-05T18:00:00' }, 'Asia/Shanghai'), {
       startAt: '2026-11-05T06:00:00.000Z',
       endAt: '2026-11-05T10:00:00.000Z',
+      startAtSource: 'explicit',
       timeZone: 'Asia/Shanghai',
     })
   })
 
-  it('requires startAt', () => {
-    expectCode(() => validateOnce({ endAt: '2026-11-05T18:00:00+08:00' }, 'Asia/Shanghai'), 'invalid_argument', 'once.startAt')
+  it('defaults startAt to createdAt when omitted (F3.1)', () => {
+    const created = new Date('2026-11-05T02:00:00Z')
+    const window = validateOnce({ endAt: '2026-11-05T18:00:00+08:00' }, 'Asia/Shanghai', created)
+    assert.equal(window.startAt, created.toISOString())
+    assert.equal(window.startAtSource, 'created')
+  })
+
+  it('expands a date-only endAt to the last millisecond of that day (F3.2)', () => {
+    const window = validateOnce({ startAt: '2026-11-05T09:00:00+08:00', endAt: '2026-11-07' }, 'Asia/Shanghai')
+    assert.equal(window.endAt, '2026-11-07T15:59:59.999Z')
+  })
+
+  it('rejects endReminder=false without an explicit startAt (F3.3)', () => {
+    expectCode(
+      () => validateOnce({ endAt: '2026-11-05T18:00:00+08:00' }, 'Asia/Shanghai', new Date(), false),
+      'invalid_argument',
+      'notify.endReminder',
+    )
   })
 
   it('requires endAt (both nodes remind)', () => {

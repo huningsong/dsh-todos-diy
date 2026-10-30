@@ -33,6 +33,7 @@ export function makeNotify(overrides: Partial<NotifySettings> = {}): NotifySetti
     template: '{title}｜{time}\n{note}',
     advanceMinutes: 0,
     sound: false,
+    endReminder: true,
     ...overrides,
   }
 }
@@ -46,7 +47,6 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     description: overrides.description ?? '',
     kind,
     status: (overrides.status ?? 'active') as TaskStatus,
-    dueDate: overrides.dueDate ?? null,
     pinned: overrides.pinned ?? false,
     doneAt: overrides.doneAt ?? null,
     archivedQuarter: overrides.archivedQuarter ?? null,
@@ -75,14 +75,47 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
   return base
 }
 
-/** Build a one-off task with a start/end window. */
+/**
+ * Build a one-off task with an explicit start/end window.
+ * @param startAt - Start instant (ISO).
+ * @param endAt - End instant (ISO); the only deadline (D-25).
+ * @param overrides - Extra task fields.
+ * @returns A valid one-off task.
+ */
 export function makeOnceTask(
   startAt: string,
   endAt: string,
   overrides: Partial<Task> = {},
 ): Task {
-  const once: OnceWindow = { startAt, endAt, timeZone: overrides.rule?.timeZone ?? 'Asia/Shanghai' }
-  return makeTask({ kind: 'once', once, ...overrides })
+  const once: OnceWindow = {
+    startAt,
+    endAt,
+    startAtSource: 'explicit',
+    timeZone: overrides.rule?.timeZone ?? 'Asia/Shanghai',
+  }
+  const task = makeTask({ ...overrides, kind: 'once', once })
+  // A task created from its creation instant has no start reminder (D-25).
+  if (once.startAtSource === 'created') task.state.firedStart = true
+  return task
+}
+
+/**
+ * Build a one-off task whose `startAt` defaults to its creation instant.
+ * @param createdAt - Creation instant (ISO).
+ * @param endAt - End instant (ISO).
+ * @param overrides - Extra task fields.
+ * @returns A valid one-off task with `startAtSource="created"`.
+ */
+export function makeCreatedTask(createdAt: string, endAt: string, overrides: Partial<Task> = {}): Task {
+  const once: OnceWindow = {
+    startAt: createdAt,
+    endAt,
+    startAtSource: 'created',
+    timeZone: 'Asia/Shanghai',
+  }
+  const task = makeTask({ ...overrides, kind: 'once', once, createdAt })
+  task.state.firedStart = true
+  return task
 }
 
 /** Convert an ISO string to a `Date`, failing loudly on a typo. */

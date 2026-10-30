@@ -39,7 +39,7 @@ describe('emptyState', () => {
 
 describe('coerceState — accepted documents', () => {
   it('round-trips a full task without losing a field', () => {
-    const task = makeTask({ id: 'tr_0123456789ABCDEFGHJKMNPQRS', dueDate: '2026-11-03' })
+    const task = makeTask({ id: 'tr_0123456789ABCDEFGHJKMNPQRS' })
     const state = emptyState(new Date('2026-10-30T00:00:00Z'))
     state.tasks.push(task)
     const parsed = coerceState(JSON.parse(JSON.stringify(state)))
@@ -61,6 +61,7 @@ describe('coerceState — accepted documents', () => {
     assert.deepEqual(parsed.state?.tasks[0]?.once, {
       startAt: '2026-11-05T06:00:00.000Z',
       endAt: '2026-11-05T10:00:00.000Z',
+      startAtSource: 'explicit',
       timeZone: 'Asia/Shanghai',
     })
   })
@@ -121,7 +122,7 @@ describe('coerceTask — field rules', () => {
   })
 
   it('drops an invalid dueDate instead of failing the task', () => {
-    assert.equal(coerceTask({ ...base, dueDate: '2026-02-30' })?.dueDate, null)
+    assert.equal(coerceTask({ ...base, dueDate: '2026-02-30' })?.once, null)
   })
 
   it('normalizes skipDates: de-duplicated and sorted', () => {
@@ -164,19 +165,20 @@ describe('coerceSettings', () => {
 })
 
 describe('migrations', () => {
-  it('ships with a v1 schema and no migrations yet', () => {
-    assert.equal(SCHEMA_VERSION, 1)
-    assert.equal(MIGRATIONS.length, 0)
+  it('ships with schema v2 and the v1→v2 migration registered', () => {
+    assert.equal(SCHEMA_VERSION, 2)
+    assert.equal(MIGRATIONS.length, 1)
+    assert.equal(MIGRATIONS[0]?.from, 1)
   })
 
   it('is a no-op when the document is already current', () => {
-    const result = migrateState({ schemaVersion: 1, tasks: [] })
+    const result = migrateState({ schemaVersion: 2, tasks: [] })
     assert.equal(result.ok, true)
     if (result.ok) assert.deepEqual(result.applied, [])
   })
 
   it('refuses to migrate a newer document downwards', () => {
-    const result = migrateState({ schemaVersion: 2 })
+    const result = migrateState({ schemaVersion: 3 })
     assert.equal(result.ok, false)
     if (!result.ok) assert.match(result.message, /newer/)
   })
@@ -236,7 +238,8 @@ describe('migrations', () => {
   it('knows its own version range', () => {
     assert.equal(isKnownVersion(1), true)
     assert.equal(isKnownVersion(0), false)
-    assert.equal(isKnownVersion(2), false)
+    assert.equal(isKnownVersion(2), true)
+    assert.equal(isKnownVersion(3), false)
     assert.equal(isKnownVersion(1.5), false)
   })
 })

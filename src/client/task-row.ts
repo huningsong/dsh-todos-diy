@@ -68,30 +68,34 @@ export function ruleSummary(task: TaskView, t: (key: string, params?: Record<str
 }
 
 /**
- * Due-date text + whether it reads as overdue.
+ * Deadline text for the row (D-25: the only deadline is `once.endAt`).
+ *
+ * One-off tasks show the remaining time until `endAt`; recurring tasks show
+ * their next trigger instead (handled separately).
  * @param task - Task view.
- * @param today - Today's local date in the task zone.
  * @param t - Translator.
- * @returns Label and tone.
+ * @returns Label and whether it should read as overdue.
  */
-function dueText(
+function deadlineText(
   task: TaskView,
-  today: string,
   t: (key: string, params?: Record<string, string | number>) => string,
 ): { text: string; overdue: boolean } {
-  if (task.dueDate === null) return { text: t('task.noDue'), overdue: false }
-  const diff = dayDiff(task.dueDate, today)
-  if (diff < 0) return { text: t('task.overdue', { n: -diff }), overdue: true }
-  if (diff === 0) return { text: t('task.today'), overdue: false }
-  if (diff === 1) return { text: t('task.tomorrow'), overdue: false }
-  if (diff <= 7) return { text: t('task.daysLater', { n: diff }), overdue: false }
-  return { text: t('task.dueOn', { date: task.dueDate }), overdue: false }
+  if (task.kind !== 'once' || task.once === null) return { text: t('task.noDeadline'), overdue: false }
+  if (task.overdueDays !== null && task.overdueDays > 0) {
+    return { text: t('task.overdue', { n: task.overdueDays }), overdue: true }
+  }
+  if (task.stage === 'overdue') return { text: t('task.overdue', { n: 0 }), overdue: true }
+  const remaining = task.priority.remainingMinutes
+  if (remaining === null) return { text: formatInZone(task.once.endAt, task.timeZone), overdue: false }
+  if (remaining <= 60) return { text: t('task.dueInMinutes', { n: Math.max(1, remaining) }), overdue: false }
+  if (remaining <= 24 * 60) return { text: t('task.dueInHours', { n: Math.floor(remaining / 60) }), overdue: false }
+  return { text: formatInZone(task.once.endAt, task.timeZone), overdue: false }
 }
 
 /** Render one task row. */
 export function TaskRow(props: TaskRowProps) {
   const { task, t } = props
-  const due = dueText(task, props.today, t)
+  const due = deadlineText(task, t)
   const isPaused = task.status === 'paused'
   const nextText =
     task.nextAt === null

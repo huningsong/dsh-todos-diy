@@ -14,9 +14,10 @@ import type { Store } from './store.js'
 import type { Task } from './rules/types.js'
 import { sweepExpiredArchives } from './retention.js'
 import { assertStoreWritable } from './repoGuard.js'
+import { applyTickChange } from './repoTick.js'
 import { localDateKey } from './rules/timezone.js'
 import { createDebouncedFlush, createWriteQueue, type WriteQueue } from './writeQueue.js'
-import { queryTasks, todayKey } from './repoQuery.js'
+import { computeNextTransition, queryTasks } from './repoQuery.js'
 import { buildTask, patchTask } from './repoBuild.js'
 import type {
   ListQuery,
@@ -27,6 +28,8 @@ import type {
   UpdateTaskPatch,
 } from './repoTypes.js'
 import { ValidationError } from './validate.js'
+import { nextFireAt } from './rules/occurrence.js'
+import type { HolidayTable } from './rules/holidays.js'
 
 export type {
   CompleteResult,
@@ -47,6 +50,13 @@ export type {
 export function createRepository(options: RepositoryOptions): Repository {
   const store: Store = options.store
   const clock = options.now ?? (() => new Date())
+  const holidays: HolidayTable | undefined = options.holidays
+  const archiveDone = options.archiveDone ?? (() => 0)
+
+  /** Resolver for a recurring task's next fire instant (D-25 priority/sort). */
+  const nextAtResolver = (now: Date) => (task: Task): Date | null =>
+    task.status === 'active' && task.kind === 'recurring' ? nextFireAt(task, now, holidays) : null
+
   const queue: WriteQueue = createWriteQueue()
   let writeCount = 0
   const flusher = createDebouncedFlush(() => {
@@ -110,8 +120,15 @@ export function createRepository(options: RepositoryOptions): Repository {
       return store.state.tasks.find((task) => task.id === id) ?? null
     },
     list(query: ListQuery): ListResult {
-      const today = query.today ?? todayKey(clock(), store.state.settings.timeZone)
-      return queryTasks(store.state.tasks, query, today)
+      const now = clock()
+      const nextAtFor = nextAtResolver(now)
+      // `queryTasks` adds the main-file `done` count itself, so only the
+      // archived quarters belong in this seed (F4.21: no double counting).
+      return queryTasks(store.state.tasks, query, {
+        now,
+        nextAtFor,
+        totalDone: archiveDone(),
+      })
     },
     async create(input) {
       return queue.run(() => {
@@ -156,7 +173,15 @@ export function createRepository(options: RepositoryOptions): Repository {
         if (!canTransition(task.status, 'active')) {
           throw new ValidationError('invalid_state', describeTransition(task.status, 'active'))
         }
-        replaceTask({ ...task, status: 'active', revision: task.revision + 1, updatedAt: clock().toISOString() })
+        const revived: Task = {
+          ...task,
+          status: 'active',
+          doneAt: null,
+          pinned: false,
+          revision: task.revision + 1,
+          updatedAt: clock().toISOString(),
+        }
+        replaceTask(revived)
         return { id, status: 'active' as const, changed: true }
       })
     },
@@ -320,55 +345,7 @@ export function createRepository(options: RepositoryOptions): Repository {
           const index = indexOf(change.taskId)
           if (index === -1) continue
           const task = store.state.tasks[index] as Task
-          const state = { ...task.state }
-          if (change.firedKey !== undefined) {
-            state.lastOccurrenceKey = change.firedKey
-            state.lastFiredAt = change.firedAt ?? stamp
-            // `node` is the semantic one-off node; `phase` is `advance` when a
-            // lead-time reminder fired, which must NOT count as the natural node
-            // (F3.4) but does have to be recorded so it never repeats (F5.7).
-            if (change.node === 'start') {
-              if (change.phase === 'advance') state.firedStartAdvance = true
-              else state.firedStart = true
-            }
-            if (change.node === 'end') {
-              if (change.phase === 'advance') state.firedEndAdvance = true
-              else state.firedEnd = true
-            }
-          }
-          if (change.missedKey !== undefined) {
-            // Keep the newest watermark: rows arrive ascending, and a stale one
-            // must never move the watermark backwards.
-            const next = change.missedAt ?? stamp
-            if (state.missedAt === null || next > state.missedAt) state.missedAt = next
-            state.missedCount += 1
-            // A missed occurrence must also advance the de-duplication marker:
-            // otherwise `dueOccurrences` keeps returning it and the next tick
-            // marks it missed again (F6.4: the record is durable, not per-tick).
-            // Only the newest row may move the marker, and only forward.
-            const isNewest = state.missedAt === next
-            if (isNewest && (state.lastOccurrenceKey === null || change.missedKey > state.lastOccurrenceKey)) {
-              state.lastOccurrenceKey = change.missedKey
-              state.lastFiredAt = next
-            }
-            // Per-node missed markers keep a one-off node from being counted
-            // twice (the global key comparison cannot express two nodes).
-            if (change.node === 'start') state.missedStart = true
-            if (change.node === 'end') state.missedEnd = true
-          }
-          const updated: Task = { ...task, state }
-          // F3.6: a one-off task whose start and end have both fired is done.
-          // The transition happens here, in the same write as the claim, so the
-          // list never shows an "active" task with nothing left to do.
-          const bothNodesSettled =
-            (state.firedStart || state.firedStartAdvance || state.missedStart) &&
-            (state.firedEnd || state.firedEndAdvance || state.missedEnd)
-          if (updated.kind === 'once' && updated.status === 'active' && bothNodesSettled) {
-            updated.status = 'done'
-            updated.doneAt = stamp
-            updated.pinned = false
-          }
-          store.state.tasks[index] = updated
+          store.state.tasks[index] = applyTickChange(task, change, stamp)
         }
         store.state.meta.lastTickAt = stamp
         touch()

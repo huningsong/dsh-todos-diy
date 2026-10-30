@@ -173,7 +173,7 @@ describe('archiveCompleted', () => {
   it('leaves active/paused tasks alone even if they are old', () => {
     const fs = setup()
     const state = stateWith([
-      makeTask({ id: 'tr_active', status: 'active', dueDate: '2020-01-01' }),
+      makeTask({ id: 'tr_active', status: 'active', createdAt: '2020-01-01T00:00:00.000Z' }),
       makeTask({ id: 'tr_paused', status: 'paused' }),
     ])
     const result = archiveCompleted(state, {

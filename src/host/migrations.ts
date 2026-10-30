@@ -8,6 +8,7 @@
  */
 
 import { SCHEMA_VERSION, type PersistedState } from './state.js'
+import { migrateDocumentV2, migrateIndexV2 } from './migrationV2.js'
 
 /** One upgrade step: from `from` to `from + 1`. */
 export interface Migration {
@@ -25,11 +26,16 @@ export interface Migration {
 /**
  * Registered migrations, ascending.
  *
- * v1 is the first shipped schema, so the chain is empty today. Adding v2 means
- * appending `{ from: 1, ... }` here and bumping `SCHEMA_VERSION`; nothing else
- * in the storage layer changes.
+ * v1 → v2 is the D-25 model change: drop `dueDate`, add `startAtSource` and
+ * `endReminder`, and fill in the extended `TaskState`.
  */
-export const MIGRATIONS: readonly Migration[] = []
+export const MIGRATIONS: readonly Migration[] = [
+  {
+    from: 1,
+    describe: 'v1→v2: D-25 task time and status model',
+    run: (raw) => migrateDocumentV2(raw),
+  },
+]
 
 /** Result of running the chain. */
 export type MigrateResult =

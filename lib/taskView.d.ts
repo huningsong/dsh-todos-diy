@@ -1,13 +1,14 @@
 /**
- * `TaskView` projection (§7.4 / F4.10–F4.14).
+ * `TaskView` projection (§7.4 / F1.1 / F4.10–F4.14 / F4.21).
  *
  * The API and the agent tools return this shape, never the raw stored task. It
- * adds the read-only derived fields (`priority`, `fired`, `nextAt`, `timeZone`,
- * `utcOffset`, `overdueDays`) and drops nothing the UI needs. Deriving on read
- * is what makes priority "只读、不落盘" true by construction.
+ * adds the read-only derived fields (`stage`, `priority`, `fired`, `nextAt`,
+ * `timeZone`, `utcOffset`, `overdueDays`, `overdue`) and drops nothing the UI
+ * needs. Deriving on read is what makes stage/priority "只读、不落盘" true by
+ * construction (D-25).
  */
 import type { HolidayTable } from './rules/holidays.js';
-import type { Priority, Task } from './rules/types.js';
+import type { Priority, Task, TaskStage } from './rules/types.js';
 /** The public projection of one task. */
 export interface TaskView extends Omit<Task, 'state'> {
     /**
@@ -20,9 +21,11 @@ export interface TaskView extends Omit<Task, 'state'> {
         weekdays?: number[];
         monthDays?: number[];
     }) | null;
+    /** Read-only derived stage (D-25). */
+    stage: TaskStage;
     /** Derived priority; `paused` for a paused task (D-20/D-22). */
     priority: Priority;
-    /** Read-only aggregate: a one-off task is done when both nodes fired. */
+    /** Read-only aggregate: `firedStart && firedEnd` (F3.4). */
     fired: boolean;
     /** IANA zone the task is evaluated in. */
     timeZone: string;
@@ -39,11 +42,7 @@ export interface TaskView extends Omit<Task, 'state'> {
 }
 /** Options for {@link toTaskView}. */
 export interface ViewOptions {
-    /** Today's local date in the task's zone. */
-    today: string;
-    /** Resolve today per task when tasks span zones (§8.1). */
-    todayFor?: (task: Task) => string;
-    /** Current instant, used for the offset label and `nextAt`. */
+    /** Current instant, used for stage/priority/offset and `nextAt`. */
     now: Date;
     /** Holiday table for `workdays` next-occurrence maths. */
     holidays?: HolidayTable;
@@ -51,13 +50,13 @@ export interface ViewOptions {
 /**
  * Project one task.
  * @param task - Stored task.
- * @param options - Today, now and the holiday table.
+ * @param options - Now and the holiday table.
  * @returns The public view.
  */
 export declare function toTaskView(task: Task, options: ViewOptions): TaskView;
 /**
- * The zone a task is evaluated in: the rule's zone for a recurring task, else
- * the global default.
+ * The zone a task is evaluated in: the rule's zone for a recurring task, the
+ * window's zone for a one-off task, else the global default.
  * @param task - Stored task.
  * @param fallback - Global default zone.
  * @returns IANA zone identifier.

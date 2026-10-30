@@ -98,11 +98,26 @@ export function dateMatchesRule(
 }
 
 /**
+ * Whether a task's advance lead time applies to one node.
+ *
+ * F5.7 (v1): only the `#end` node of a **one-off** task honours
+ * `advanceMinutes`. A recurring task's occurrence is already time-boxed by
+ * `rule.time`; giving it a lead would silently move the whole schedule, so the
+ * recurring path deliberately ignores the field.
+ * @param task - Owning task.
+ * @param node - Node being scheduled.
+ * @returns True when the advance shift must be applied.
+ */
+function advanceApplies(task: Task, node: 'start' | 'end' | null): boolean {
+  return task.kind === 'once' && node === 'end' && task.notify.advanceMinutes > 0
+}
+
+/**
  * Apply `notify.advanceMinutes` to one natural occurrence.
  *
- * The advance reminder *replaces* the on-time reminder (UX-06), so the
- * returned occurrence carries `phase: 'advance'` and a key built from the
- * shifted instant.
+ * The advance reminder *replaces* the on-time reminder (F5.7), so the returned
+ * occurrence carries `phase: 'advance'` and a key built from the shifted
+ * instant. Nodes that do not take a lead time keep their natural instant.
  * @param task - Owning task.
  * @param naturalAt - The on-time instant.
  * @param node - Which one-off node the natural instant belongs to (`null` for recurring).
@@ -113,8 +128,7 @@ export function applyAdvance(
   naturalAt: Date,
   node: 'start' | 'end' | null,
 ): Occurrence {
-  const advance = Math.max(0, Math.min(1440, Math.trunc(task.notify.advanceMinutes)))
-  if (advance === 0) {
+  if (!advanceApplies(task, node)) {
     return {
       taskId: task.id,
       at: naturalAt,
@@ -124,6 +138,7 @@ export function applyAdvance(
       node,
     }
   }
+  const advance = Math.max(0, Math.min(1440, Math.trunc(task.notify.advanceMinutes)))
   const shifted = new Date(naturalAt.getTime() - advance * 60_000)
   return {
     taskId: task.id,
@@ -136,10 +151,27 @@ export function applyAdvance(
 }
 
 /**
- * One-off occurrences: the start node and the end node, each shifted by the
- * task's advance setting. Missing/fired nodes are filtered by the caller.
+ * The nodes a one-off task actually schedules (F3.3 / D-03 / D-25).
+ *
+ * - `startAtSource="created"` → only `#end` (a task that already started has
+ *   nothing to announce);
+ * - explicit `startAt` → `#start` plus `#end`, unless `notify.endReminder` is
+ *   false (meeting-style tasks), in which case only `#start`.
  * @param task - One-off task.
- * @returns Start occurrence first, then end (never null for a valid task).
+ * @returns Scheduled nodes, in display order.
+ */
+export function scheduledNodes(task: Task): ('start' | 'end')[] {
+  const window = task.once
+  if (window === null) return []
+  if (window.startAtSource === 'created') return ['end']
+  return task.notify.endReminder === false ? ['start'] : ['start', 'end']
+}
+
+/**
+ * One-off occurrences, already advance-shifted where applicable.
+ * Missing/fired nodes are filtered by the caller.
+ * @param task - One-off task.
+ * @returns Scheduled occurrences (never null for a valid task).
  */
 export function onceOccurrences(task: Task): Occurrence[] {
   const window = task.once
@@ -147,7 +179,8 @@ export function onceOccurrences(task: Task): Occurrence[] {
   const start = new Date(window.startAt)
   const end = new Date(window.endAt)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
-  return [applyAdvance(task, start, 'start'), applyAdvance(task, end, 'end')]
+  const nodes = scheduledNodes(task)
+  return nodes.map((node) => applyAdvance(task, node === 'start' ? start : end, node))
 }
 
 /**
@@ -177,8 +210,11 @@ export function dueOccurrences(
     const result: Occurrence[] = []
     const nowMs = now.getTime()
     for (const occurrence of onceOccurrences(task)) {
-      if (occurrence.node === 'start' && task.state.firedStart) continue
-      if (occurrence.node === 'end' && task.state.firedEnd) continue
+      // A node is settled once it was delivered on time, delivered as an
+      // advance reminder, or recorded missed (F3.4 / F5.7 / F6.4).
+      if (occurrence.node === 'start' && (task.state.firedStart || task.state.firedStartAdvance || task.state.missedStart)) continue
+      if (occurrence.node === 'end' && (task.state.firedEnd || task.state.firedEndAdvance || task.state.missedEnd)) continue
+      if (task.state.lastOccurrenceKey === occurrence.key) continue
       if (occurrence.at.getTime() <= nowMs) result.push(occurrence)
     }
     return result
@@ -188,7 +224,7 @@ export function dueOccurrences(
   // fired `lastFiredAt` records the shifted (advance) instant: the 09:00
   // occurrence whose reminder fired at 08:50 has a natural time 10 minutes
   // later, so a floor of 08:50 would still include it and re-fire.
-  const advanceMs = Math.max(0, Math.min(1440, Math.trunc(task.notify.advanceMinutes))) * 60_000
+  const advanceMs = 0 // recurring tasks never take an advance lead (F5.7 v1)
   const anchor = lastFiredAt ?? new Date(task.createdAt)
   if (Number.isNaN(anchor.getTime())) return []
   // Everything is compared in *natural* time. `lastFiredAt` stores the shifted

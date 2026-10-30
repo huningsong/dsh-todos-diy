@@ -14,6 +14,24 @@ export { ValidationError, type ErrorCode } from './validationError.js'
 export { validateOnce, parseInstant } from './validateTime.js'
 export { validateSettingsPatch } from './validateSettings.js'
 
+/**
+ * Reject fields removed from the v2 task model (F4.11).
+ *
+ * An unknown property is ignored by TypeScript at compile time only; an HTTP or
+ * tool caller can still send it, so the boundary has to say no explicitly.
+ * @param body - Raw request/tool input.
+ * @throws ValidationError when `dueDate` is present.
+ */
+export function rejectLegacyFields(body: Record<string, unknown>): void {
+  if (Object.hasOwn(body, 'dueDate') && body['dueDate'] !== undefined) {
+    throw new ValidationError(
+      'invalid_argument',
+      'dueDate was removed in schema v2; use once.endAt (one-off) or rule.time (recurring)',
+      { field: 'dueDate' },
+    )
+  }
+}
+
 /** Limits from §7.4. */
 export const LIMITS = {
   titleMin: 1,
@@ -61,25 +79,6 @@ export function validateDescription(value: unknown): string {
       `description must be at most ${String(LIMITS.descriptionMax)} characters`,
       { field: 'description' },
     )
-  }
-  return value
-}
-
-/**
- * Validate a `dueDate` (`YYYY-MM-DD` or null).
- * @param value - Candidate.
- * @returns Normalized date key, or null for "no deadline".
- */
-export function validateDueDate(value: unknown): string | null {
-  if (value === undefined || value === null || value === '') return null
-  if (typeof value !== 'string') {
-    throw new ValidationError('invalid_argument', 'dueDate must be a YYYY-MM-DD string or null', { field: 'dueDate' })
-  }
-  const parsed = parseLocalDate(value)
-  if (parsed === undefined || !isValidCivilDate(parsed.year, parsed.month, parsed.day)) {
-    throw new ValidationError('invalid_argument', `dueDate ${JSON.stringify(value)} is not a real calendar date`, {
-      field: 'dueDate',
-    })
   }
   return value
 }
@@ -143,8 +142,8 @@ export function validateDateList(value: unknown, field: string): string[] {
  */
 export function validateNotify(
   value: unknown,
-  defaults: { channels: Channel[]; template: string },
-): { channels: Channel[]; template: string; advanceMinutes: number; sound: boolean } {
+  defaults: { channels: Channel[]; template: string; endReminder?: boolean },
+): { channels: Channel[]; template: string; advanceMinutes: number; sound: boolean; endReminder: boolean } {
   const raw = value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {}
 
   let channels: Channel[] = [...defaults.channels]
@@ -196,7 +195,16 @@ export function validateNotify(
   }
 
   const sound = raw['sound'] === true
-  return { channels, template, advanceMinutes, sound }
+  let endReminder = defaults.endReminder !== false
+  if (raw['endReminder'] !== undefined) {
+    if (typeof raw['endReminder'] !== 'boolean') {
+      throw new ValidationError('invalid_argument', 'notify.endReminder must be a boolean', {
+        field: 'notify.endReminder',
+      })
+    }
+    endReminder = raw['endReminder']
+  }
+  return { channels, template, advanceMinutes, sound, endReminder }
 }
 
 /**

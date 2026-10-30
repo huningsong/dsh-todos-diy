@@ -18,7 +18,9 @@ import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync, exists
 import { join } from 'node:path'
 
 import type { Task } from './rules/types.js'
+import { SCHEMA_VERSION } from './state.js'
 import type { PersistedState } from './state.js'
+import { migrateTaskV2 } from './migrationV2.js'
 import type { StoragePaths } from './paths.js'
 
 /** One entry of `archive/index.json`. */
@@ -145,7 +147,10 @@ export function readArchiveIndex(
   try {
     const parsed = JSON.parse(fs.readFile(paths.archiveIndex)) as ArchiveIndex
     if (!Array.isArray(parsed.quarters)) return rebuildIndex(paths, fs, logger)
-    return { schemaVersion: parsed.schemaVersion ?? 1, quarters: parsed.quarters }
+    // F6.8: the index shares `SCHEMA_VERSION` with the main file; a v1 index is
+    // upgraded in memory (entries untouched) and rewritten on the next archive.
+    const version = typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1
+    return { schemaVersion: SCHEMA_VERSION, quarters: parsed.quarters, ...(version < SCHEMA_VERSION ? { migratedFrom: version } : {}) } as ArchiveIndex
   } catch (error) {
     logger?.warn?.(`todos-diy: archive index unreadable, rebuilding: ${String(error)}`)
     return rebuildIndex(paths, fs, logger)
@@ -165,13 +170,13 @@ export function rebuildIndex(
   logger?: { warn?: (message: string) => void },
 ): ArchiveIndex {
   const quarters: ArchiveIndexEntry[] = []
-  if (!fs.exists(paths.archiveDir)) return { schemaVersion: 1, quarters }
+  if (!fs.exists(paths.archiveDir)) return { schemaVersion: SCHEMA_VERSION, quarters }
   let names: string[]
   try {
     names = fs.listDir(paths.archiveDir)
   } catch (error) {
     logger?.warn?.(`todos-diy: archive directory unreadable: ${String(error)}`)
-    return { schemaVersion: 1, quarters }
+    return { schemaVersion: SCHEMA_VERSION, quarters }
   }
   for (const name of names) {
     const match = /^completed-(\d{4}-Q[1-4])\.json$/.exec(name)
@@ -193,7 +198,7 @@ export function rebuildIndex(
     }
   }
   quarters.sort((left, right) => compareQuarters(left.quarter, right.quarter))
-  return { schemaVersion: 1, quarters }
+  return { schemaVersion: SCHEMA_VERSION, quarters }
 }
 
 /** Write one JSON document atomically inside the archive directory. */
@@ -263,7 +268,7 @@ export function archiveCompleted(state: PersistedState, options: ArchiveOptions)
     for (const task of existing) merged.set(task.id, task)
     for (const task of tasks) merged.set(task.id, { ...task, archivedQuarter: quarter })
     const tasksOut = [...merged.values()]
-    writeJsonAtomic(fs, filePath, { schemaVersion: 1, quarter, tasks: tasksOut })
+    writeJsonAtomic(fs, filePath, { schemaVersion: SCHEMA_VERSION, quarter, tasks: tasksOut })
     const bounds = quarterBounds(quarter)
     const entryIndex = index.quarters.findIndex((entry) => entry.quarter === quarter)
     const entry: ArchiveIndexEntry = {
@@ -288,7 +293,7 @@ export function archiveCompleted(state: PersistedState, options: ArchiveOptions)
 
   // Step 3: refresh the index.
   index.quarters.sort((left, right) => compareQuarters(left.quarter, right.quarter))
-  writeJsonAtomic(fs, paths.archiveIndex, { schemaVersion: 1, quarters: index.quarters })
+  writeJsonAtomic(fs, paths.archiveIndex, { schemaVersion: SCHEMA_VERSION, quarters: index.quarters })
   logger.info?.(`todos-diy: archived ${String(safelyArchived.size)} completed task(s)`)
   return { archived, skipped, duplicatesRemoved: 0 }
 }
@@ -347,8 +352,15 @@ export function readQuarter(
   const filePath = join(paths.archiveDir, entry.file)
   if (!fs.exists(filePath)) return null
   try {
-    const parsed = JSON.parse(fs.readFile(filePath)) as QuarterFile
-    return { tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [], entry }
+    const parsed = JSON.parse(fs.readFile(filePath)) as QuarterFile & { schemaVersion?: number }
+    const rawTasks = Array.isArray(parsed.tasks) ? parsed.tasks : []
+    // F6.8 / AC-41: a v1 quarter file goes through the same task migration as
+    // the main document. A task that cannot be migrated safely leaves the file
+    // untouched and the quarter unreadable rather than guessed at.
+    const tasks = (parsed.schemaVersion ?? 1) < SCHEMA_VERSION
+      ? rawTasks.map((task) => migrateTaskV2(task as unknown as Record<string, unknown>) as unknown as Task)
+      : rawTasks
+    return { tasks, entry }
   } catch {
     return null
   }

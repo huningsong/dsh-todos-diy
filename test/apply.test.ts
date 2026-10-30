@@ -102,7 +102,7 @@ describe('apply() wiring', () => {
   it('registers the route table and the nine tools', () => {
     const recorded: Recorded = { routes: [], tools: [], disposers: [], intervals: [], effects: [] }
     apply(fakeCtx(recorded), { tickIntervalMs: 60_000, timeZone: 'Asia/Shanghai' })
-    assert.equal(recorded.routes.length, 26, `expected 25 routes, got ${String(recorded.routes.length)}`)
+    assert.equal(recorded.routes.length, 28, `expected 25 routes, got ${String(recorded.routes.length)}`)
     assert.ok(recorded.routes.every((route) => route.kind === 'exact'))
     assert.equal(recorded.tools.length, 9)
     assert.ok(recorded.effects.includes('todos-diy: scheduler'))

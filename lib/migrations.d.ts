@@ -22,9 +22,8 @@ export interface Migration {
 /**
  * Registered migrations, ascending.
  *
- * v1 is the first shipped schema, so the chain is empty today. Adding v2 means
- * appending `{ from: 1, ... }` here and bumping `SCHEMA_VERSION`; nothing else
- * in the storage layer changes.
+ * v1 → v2 is the D-25 model change: drop `dueDate`, add `startAtSource` and
+ * `endReminder`, and fill in the extended `TaskState`.
  */
 export declare const MIGRATIONS: readonly Migration[];
 /** Result of running the chain. */

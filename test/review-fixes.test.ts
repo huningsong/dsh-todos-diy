@@ -118,30 +118,31 @@ describe('MAJOR: one-off advance must deliver once (F5.7)', () => {
   it('does not repeat the advance occurrence on a second tick', () => {
     const task = makeOnceTask('2026-11-05T14:00:00+08:00', '2026-11-05T18:00:00+08:00', {
       id: 'tr_b',
-      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false },
+      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false, endReminder: true },
     })
-    const first = resolveTick([task], new Date('2026-11-05T05:50:30Z'), { holidays, graceMinutes: 5 })
-    assert.equal(first.fire.length, 1)
-    assert.equal(first.fire[0]?.key.endsWith('#advance'), true)
-    const after = { ...task, state: { ...task.state, lastOccurrenceKey: first.fire[0]?.key ?? null } }
-    const second = resolveTick([after], new Date('2026-11-05T05:51:30Z'), { holidays, graceMinutes: 5 })
-    assert.equal(second.fire.length, 0, 'the advance must not be delivered twice')
+    // 18:00 +08:00 = 10:00Z, so the 10-minute lead fires at 09:50Z.
+    const first = resolveTick([task], new Date('2026-11-05T09:50:30Z'), { holidays, graceMinutes: 5 })
+    const advance = first.fire.filter((occurrence) => occurrence.key.endsWith('#advance'))
+    assert.equal(advance.length, 1)
+    const after = { ...task, state: { ...task.state, lastOccurrenceKey: advance[0]?.key ?? null, firedEndAdvance: true } }
+    const second = resolveTick([after], new Date('2026-11-05T09:51:30Z'), { holidays, graceMinutes: 5 })
+    assert.equal(second.fire.filter((occurrence) => occurrence.key.endsWith('#advance')).length, 0, 'the advance must not be delivered twice')
   })
 
   it('does not mark the delivered advance as missed later', () => {
     const task = makeOnceTask('2026-11-05T14:00:00+08:00', '2026-11-05T18:00:00+08:00', {
       id: 'tr_c',
-      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false },
+      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false, endReminder: true },
     })
-    const key = 'tr_c@2026-11-05T05:50:00.000Z#advance'
-    const after = { ...task, state: { ...task.state, lastOccurrenceKey: key } }
-    const later = resolveTick([after], new Date('2026-11-05T05:56:00Z'), { holidays, graceMinutes: 5 })
+    const key = 'tr_c@2026-11-05T09:50:00.000Z#advance'
+    const after = { ...task, state: { ...task.state, lastOccurrenceKey: key, firedEndAdvance: true } }
+    const later = resolveTick([after], new Date('2026-11-05T09:56:00Z'), { holidays, graceMinutes: 5 })
     assert.equal(later.markMissed.some((occurrence) => occurrence.key === key), false)
   })
 })
 
-describe('MAJOR: a finished one-off task becomes done (F3.6)', () => {
-  it('transitions to done once both nodes fired', async () => {
+describe('D-25: reaching endAt never auto-completes a one-off task (F3.6)', () => {
+  it('stays active and becomes overdue once both nodes fired', async () => {
     const { repo } = harness()
     const task = await repo.create({
       title: 'x',
@@ -153,12 +154,25 @@ describe('MAJOR: a finished one-off task becomes done (F3.6)', () => {
         { taskId: task.id, firedKey: `${task.id}@2026-10-30T02:00:00.000Z#start`, phase: 'start', node: 'start' },
         { taskId: task.id, firedKey: `${task.id}@2026-10-30T04:00:00.000Z#end`, phase: 'end', node: 'end' },
       ],
-      NOW,
+      new Date('2026-10-30T05:00:00Z'),
     )
     const after = repo.get(task.id)
-    assert.equal(after?.status, 'done')
-    assert.ok(after?.doneAt !== null)
-    assert.equal(after?.pinned, false)
+    assert.equal(after?.status, 'active', 'done must be an explicit user action (D-25)')
+    assert.equal(after?.doneAt, null)
+    assert.equal(after?.state.firedStart, true)
+    assert.equal(after?.state.firedEnd, true)
+  })
+
+  it('is reported as overdue in the derived stage', async () => {
+    const { repo } = harness()
+    const task = await repo.create({
+      title: 'x',
+      kind: 'once',
+      once: { startAt: '2026-10-30T02:00:00Z', endAt: '2026-10-30T04:00:00Z' },
+    })
+    const view = toTaskView(repo.get(task.id) as never, { now: new Date('2026-10-30T05:00:00Z') })
+    assert.equal(view.stage, 'overdue')
+    assert.equal(view.status, 'active')
   })
 })
 
@@ -166,11 +180,10 @@ describe('MAJOR: TaskView round-trips through create (F1.1)', () => {
   it('preserves the preset time for workdays', async () => {
     const { repo } = harness()
     const task = await repo.create({ title: 'x', kind: 'recurring', rule: { preset: 'workdays', time: '14:00' } })
-    const view = toTaskView(task, { today: '2026-10-30', now: NOW })
+    const view = toTaskView(task, { now: NOW })
     const rebuilt = await repo.create({
       title: view.title,
       kind: 'recurring',
-      dueDate: view.dueDate,
       rule: view.rule,
       notify: view.notify,
     })
@@ -184,7 +197,7 @@ describe('MAJOR: TaskView round-trips through create (F1.1)', () => {
       { preset: 'monthly' as const, monthDays: [1, 30], time: '09:00' },
     ]) {
       const task = await repo.create({ title: 'x', kind: 'recurring', rule })
-      const view = toTaskView(task, { today: '2026-10-30', now: NOW })
+      const view = toTaskView(task, { now: NOW })
       const rebuilt = await repo.create({ title: view.title, kind: 'recurring', rule: view.rule, notify: view.notify })
       assert.equal(rebuilt.rule?.cron, task.rule?.cron)
     }
@@ -200,14 +213,14 @@ describe('MAJOR: one-off tasks keep their own time zone (F2.6)', () => {
       timeZone: 'America/New_York',
       once: { startAt: '2026-11-05T14:00:00', endAt: '2026-11-05T18:00:00' },
     })
-    const view = toTaskView(task, { today: '2026-10-30', now: NOW })
+    const view = toTaskView(task, { now: NOW })
     assert.equal(view.timeZone, 'America/New_York')
     assert.equal(view.utcOffset, 'UTC-04:00')
   })
 })
 
-describe('MAJOR: resume must not resurrect a done task (F1.2)', () => {
-  it('rejects done -> active', async () => {
+describe('F1.2: done -> active undo clears doneAt (D-25)', () => {
+  it('revives a completed task and clears the completion markers', async () => {
     const { repo } = harness()
     const task = await repo.create({
       title: 'x',
@@ -215,22 +228,24 @@ describe('MAJOR: resume must not resurrect a done task (F1.2)', () => {
       once: { startAt: '2026-10-30T02:00:00Z', endAt: '2026-10-30T04:00:00Z' },
     })
     await repo.complete(task.id)
-    await assert.rejects(repo.resume(task.id), (error: { code?: string }) => {
-      assert.equal(error.code, 'invalid_state')
-      return true
-    })
+    assert.equal(repo.get(task.id)?.status, 'done')
+    const revived = await repo.resume(task.id)
+    assert.equal(revived.status, 'active')
+    const after = repo.get(task.id)
+    assert.equal(after?.doneAt, null)
+    assert.equal(after?.pinned, false)
   })
 })
 
 describe('MINOR: search must not shrink the tab badges (F4.10)', () => {
   it('keeps counts over the unfiltered pool', async () => {
     const { repo } = harness()
-    await repo.create({ title: '材料 A', kind: 'recurring', dueDate: '2026-10-30', rule: { preset: 'workdays', time: '09:00' } })
-    await repo.create({ title: '别的任务', kind: 'recurring', dueDate: '2026-10-30', rule: { preset: 'workdays', time: '09:00' } })
-    const all = repo.list({ today: '2026-10-30' })
-    const searched = repo.list({ query: '材料', today: '2026-10-30' })
-    assert.equal(all.counts.todo, 2)
-    assert.equal(searched.counts.todo, 2, 'the badge must ignore the search box')
+    await repo.create({ title: '材料 A', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
+    await repo.create({ title: '别的任务', kind: 'recurring', rule: { preset: 'workdays', time: '09:00' } })
+    const all = repo.list({ view: 'recurring' })
+    const searched = repo.list({ view: 'recurring', query: '材料' })
+    assert.equal(all.counts.recurring, 2)
+    assert.equal(searched.counts.recurring, 2, 'the badge must ignore the search box')
     assert.equal(searched.items.length, 1)
   })
 })
@@ -283,7 +298,7 @@ describe('MAJOR: once + advance full lifecycle', () => {
       kind: 'once',
       timeZone: 'Asia/Shanghai',
       once: { startAt: '2026-11-05T14:00:00+08:00', endAt: '2026-11-05T18:00:00+08:00' },
-      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false },
+      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false, endReminder: true },
     })
     let fires = 0
     let missed = 0
@@ -298,12 +313,15 @@ describe('MAJOR: once + advance full lifecycle', () => {
       const changes = planToChanges(plan)
       if (changes.length > 0) await repo.applyTick(changes, now)
     }
-    assert.equal(fires, 2, 'the start and end advance reminders, each exactly once')
+    assert.equal(fires, 2, 'the start reminder and the end advance, each exactly once')
     assert.equal(missed, 0, 'nothing may be marked missed for an advance-only task')
     const after = repo.get(task.id)
-    assert.equal(after?.status, 'done')
-    assert.ok(after?.doneAt !== null)
+    // D-25: reaching endAt never completes the task; an explicit complete does.
+    assert.equal(after?.status, 'active')
+    assert.equal(after?.doneAt, null)
     assert.equal(after?.state.missedCount, 0)
+    const completed = await repo.complete(task.id)
+    assert.equal(completed.task.status, 'done')
   })
 })
 
@@ -391,7 +409,9 @@ describe('MAJOR: both one-off nodes missed must converge (F6.4)', () => {
     assert.equal(missed, 2, 'each of the two missed nodes is recorded exactly once')
     const after = repo.get(task.id)
     assert.equal(after?.state.missedCount, 2)
-    assert.equal(after?.status, 'done')
+    // D-25: a missed window does not complete the task either.
+    assert.equal(after?.status, 'active')
+    assert.equal((await repo.complete(task.id)).task.status, 'done')
   })
 })
 
@@ -440,7 +460,8 @@ describe('DEFECT: the production tick mapping must carry `node`', () => {
     const after = repo.get(task.id)
     assert.equal(after?.state.missedStart, true)
     assert.equal(after?.state.missedEnd, true)
-    assert.equal(after?.status, 'done')
+    assert.equal(after?.status, 'active')
+    assert.equal((await repo.complete(task.id)).task.status, 'done')
   })
 })
 
@@ -452,7 +473,7 @@ describe('MINOR: TaskView.fired reflects advance/missed settlement', () => {
       kind: 'once',
       timeZone: 'Asia/Shanghai',
       once: { startAt: '2026-11-05T14:00:00+08:00', endAt: '2026-11-05T18:00:00+08:00' },
-      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false },
+      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false, endReminder: true },
     })
     // Simulate both advance reminders having been delivered.
     const state = repo.get(task.id)?.state
@@ -462,7 +483,7 @@ describe('MINOR: TaskView.fired reflects advance/missed settlement', () => {
       status: 'done' as const,
       state: { ...state, firedStartAdvance: true, firedEndAdvance: true },
     }
-    const view = toTaskView(seeded, { today: '2026-11-05', now: NOW })
+    const view = toTaskView(seeded, { now: NOW })
     assert.equal(view.fired, true)
   })
 })

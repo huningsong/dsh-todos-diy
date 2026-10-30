@@ -11,7 +11,7 @@
  */
 import type { Task } from './rules/types.js';
 /** Current on-disk schema version. Bump together with a migration. */
-export declare const SCHEMA_VERSION = 1;
+export declare const SCHEMA_VERSION = 2;
 /** One record of the delivery log (F5.5 / D-16). */
 export interface DeliveryRecord {
     occurrenceKey: string;

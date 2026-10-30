@@ -8,6 +8,15 @@ import type { Channel, RecurrenceRule } from './rules/types.js';
 export { ValidationError, type ErrorCode } from './validationError.js';
 export { validateOnce, parseInstant } from './validateTime.js';
 export { validateSettingsPatch } from './validateSettings.js';
+/**
+ * Reject fields removed from the v2 task model (F4.11).
+ *
+ * An unknown property is ignored by TypeScript at compile time only; an HTTP or
+ * tool caller can still send it, so the boundary has to say no explicitly.
+ * @param body - Raw request/tool input.
+ * @throws ValidationError when `dueDate` is present.
+ */
+export declare function rejectLegacyFields(body: Record<string, unknown>): void;
 /** Limits from §7.4. */
 export declare const LIMITS: {
     readonly titleMin: 1;
@@ -32,12 +41,6 @@ export declare function validateTitle(value: unknown): string;
  */
 export declare function validateDescription(value: unknown): string;
 /**
- * Validate a `dueDate` (`YYYY-MM-DD` or null).
- * @param value - Candidate.
- * @returns Normalized date key, or null for "no deadline".
- */
-export declare function validateDueDate(value: unknown): string | null;
-/**
  * Validate an IANA time zone.
  * @param value - Candidate.
  * @returns The zone identifier.
@@ -60,11 +63,13 @@ export declare function validateDateList(value: unknown, field: string): string[
 export declare function validateNotify(value: unknown, defaults: {
     channels: Channel[];
     template: string;
+    endReminder?: boolean;
 }): {
     channels: Channel[];
     template: string;
     advanceMinutes: number;
     sound: boolean;
+    endReminder: boolean;
 };
 /**
  * Build a canonical rule from a preset plus its preset-specific fields.

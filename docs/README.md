@@ -25,7 +25,7 @@
 |---|---|---|---|---|---|
 | **R1** | 2026-10-30 | `requirements/需求-v1.md` v1；D-01…D-24；`decisions/UX-决策记录.md` | `reviews/round1/评审-独立意见.md` | v0.1.0 旧模型（`dueDate`、三视图）；历史基线 552 tests / 144 suites | 已发布基线 |
 | **R2** | 2026-10-30 | D-25 时间/状态模型：`requirements/优化-任务时间与状态模型.md`、`requirements/评估-任务时间与状态逻辑.md` | `reviews/round2/评审-本轮需求.md` + `评审-本轮需求-负责人意见.md`；8 个 P0、20 个 P1 | 当前工作树 572 tests / 161 suites 通过；D-25 尚未进入 `src/` | 需求已评审，待开发 |
-| **R3**（计划） | 待定 | 按 `requirements/需求-v1.md` v1.3 实现 D-25；NLP 留 v1.1 | 不新增评审轮次，按 v1.3 开工门 | 按 `testing/测试记录.md` 与 `planning/版本计划.md` 执行 | 待开发 |
+| **R3** | 2026-10-30 | 按 `requirements/需求-v1.md` v1.3 实现 D-25；NLP 留 v1.1 | 不新增评审轮次，按 v1.3 开工门 | v0.2.0：**635 tests / 185 suites / 0 fail**；三份 tsc 0 错误；verify-pack OK | **已实现（0.2.0）** |
 
 ## 关键入口
 
@@ -33,6 +33,7 @@
 - 决策记录：[decisions/待讨论-缺口清单.md](decisions/待讨论-缺口清单.md)
 - 本轮评审：[reviews/round2/评审-本轮需求.md](reviews/round2/评审-本轮需求.md)
 - 版本计划：[planning/版本计划.md](planning/版本计划.md)
+- 研发交接：[planning/研发交接-0.2.0.md](planning/研发交接-0.2.0.md)
 - 测试记录：[testing/测试记录.md](testing/测试记录.md)
 - 开发提示词：[guides/开发会话提示词.md](guides/开发会话提示词.md)
 - 工程配置：[development/工程配置与脚本.md](development/工程配置与脚本.md)

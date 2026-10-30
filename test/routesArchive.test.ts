@@ -35,7 +35,7 @@ function harness(now: () => Date) {
   store.load()
   const repo = createRepository({ store, now, debounceMs: 0 })
   const config = { timeZone: 'Asia/Shanghai', tickIntervalMs: 60_000, graceMinutes: 5 }
-  const health = createHealthState('0.1.0', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
+  const health = createHealthState('0.2.0', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
   const ctx: RouteContext = {
     repo,
     store,

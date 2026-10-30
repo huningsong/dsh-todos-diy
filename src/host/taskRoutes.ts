@@ -10,12 +10,14 @@ import type { ServerResponse } from 'node:http'
 
 import type { Task } from './rules/types.js'
 import { route, sendJson } from './http.js'
+import { rejectLegacyFields } from './validate.js'
 import { nodeArchiveFs } from './archive.js'
 import { ok, queryValue, readObjectBody } from './routeKit.js'
-import { toTaskView, toTaskViews } from './taskView.js'
+import { toTaskView } from './taskView.js'
 import type { RouteContext, RouteDefinition } from './routes.js'
-import { localDateKey } from './rules/timezone.js'
 import { restoreArchivedTask } from './archiveRestore.js'
+import { deliveryRecordsFor } from './delivery.js'
+import type { Occurrence } from './rules/types.js'
 
 /** Prefix all plugin routes live under. */
 const PREFIX = '/api/dsh-todos-diy'
@@ -23,12 +25,10 @@ const PREFIX = '/api/dsh-todos-diy'
 /**
  * Projection options for one task's own time zone.
  * @param ctx - Route context.
- * @param task - Task whose zone defines "today".
  * @returns Projection options.
  */
-function optionsFor(ctx: RouteContext, task?: Task): { today: string; now: Date; holidays: typeof ctx.holidays } {
-  const zone = task?.rule?.timeZone ?? ctx.config.timeZone
-  return { today: localDateKey(ctx.now().getTime(), zone), now: ctx.now(), holidays: ctx.holidays }
+function optionsFor(ctx: RouteContext): { now: Date; holidays: typeof ctx.holidays } {
+  return { now: ctx.now(), holidays: ctx.holidays }
 }
 
 /**
@@ -67,7 +67,7 @@ export function taskRoutes(
           sendJson(res, 404, { error: { code: 'not_found', message: 'task not found' } })
           return
         }
-        ok(res, toTaskView(task, optionsFor(ctx, task)))
+        ok(res, toTaskView(task, optionsFor(ctx)))
       }),
     },
     {
@@ -75,18 +75,18 @@ export function taskRoutes(
       path: `${PREFIX}/tasks/create`,
       handler: route(options, 'POST', async (req, res) => {
         const body = await readObjectBody(req)
+        rejectLegacyFields(body)
         const task = await ctx.repo.create({
           title: body['title'] as string,
           description: body['description'] as string | undefined,
           kind: body['kind'] as never,
-          dueDate: body['dueDate'] as string | null | undefined,
           rule: body['rule'],
           once: body['once'],
           notify: body['notify'],
           timeZone: body['timeZone'] as string | undefined,
           pinned: body['pinned'] === true,
         })
-        ok(res, toTaskView(task, optionsFor(ctx, task)), 201)
+        ok(res, toTaskView(task, optionsFor(ctx)), 201)
       }),
     },
     {
@@ -105,12 +105,13 @@ export function taskRoutes(
           return
         }
         const patch = body['patch']
+        if (patch !== null && typeof patch === 'object') rejectLegacyFields(patch as Record<string, unknown>)
         const updated = await ctx.repo.update(
           id,
           revision,
           patch !== null && typeof patch === 'object' ? (patch as never) : ({} as never),
         )
-        ok(res, toTaskView(updated, optionsFor(ctx, updated)))
+        ok(res, toTaskView(updated, optionsFor(ctx)))
       }),
     },
     {
@@ -171,6 +172,28 @@ export function taskRoutes(
     },
     {
       kind: 'exact',
+      path: `${PREFIX}/tasks/remind`,
+      handler: route(options, 'POST', async (req, res) => {
+        const body = await readObjectBody(req)
+        const id = requireId(body, res)
+        if (id === null) return
+        const task = ctx.repo.get(id)
+        if (task === null) {
+          sendJson(res, 404, { error: { code: 'not_found', message: `task ${JSON.stringify(id)} was not found` } })
+          return
+        }
+        // F8.14 / §7.8: one immediate reminder. It is a transient occurrence
+        // keyed by the send instant, so it neither advances the rule nor marks
+        // either node as fired.
+        const now = ctx.now()
+        const key = `${task.id}@${now.toISOString()}#remind`
+        const occurrence: Occurrence = { taskId: task.id, at: now, phase: null, key, kind: task.kind }
+        await ctx.repo.recordDeliveries(deliveryRecordsFor(task, occurrence, now))
+        ok(res, { id: task.id, occurrenceKey: key })
+      }),
+    },
+    {
+      kind: 'exact',
       path: `${PREFIX}/tasks/delete`,
       handler: route(options, 'POST', async (req, res) => {
         const body = await readObjectBody(req)
@@ -208,11 +231,11 @@ export function taskRoutes(
           }
           ctx.store.set(ctx.store.state)
           ctx.store.flush()
-          ok(res, toTaskView(result.task, optionsFor(ctx, result.task)))
+          ok(res, toTaskView(result.task, optionsFor(ctx)))
           return
         }
         const restored = await ctx.repo.restore(id)
-        ok(res, toTaskView(restored, optionsFor(ctx, restored)))
+        ok(res, toTaskView(restored, optionsFor(ctx)))
       }),
     },
   ]

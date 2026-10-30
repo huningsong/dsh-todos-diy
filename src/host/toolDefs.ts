@@ -18,6 +18,7 @@ import { nextFireAt } from './rules/occurrence.js'
 import { toTaskView } from './taskView.js'
 import type { Task } from './rules/types.js'
 import { ValidationError } from './validationError.js'
+import { rejectLegacyFields } from './validate.js'
 import { assertToolCaller, ToolFailure, type RawToolDefinition, type ToolExec } from './tools.js'
 
 /** Everything the definitions need to answer. */
@@ -38,14 +39,8 @@ export interface ToolDeps {
 export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
   const { repo, holidays, timeZone, now } = deps
 
-  /** Project one task with today's date in its own zone. */
-  const view = (task: Task) => {
-    const zone = task.rule?.timeZone ?? timeZone
-    return toTaskView(task, { today: localDateKey(now().getTime(), zone), now: now(), holidays })
-  }
-
-  /** Resolve "today" in the default zone. */
-  const todayOf = (): string => localDateKey(now().getTime(), timeZone)
+  /** Project one task against a single `now`. */
+  const view = (task: Task) => toTaskView(task, { now: now(), holidays })
 
   /** Render one tool result as a JSON text block. */
   const text = (value: unknown): { type: 'text'; text: string }[] => [
@@ -68,7 +63,11 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
       parameters: {
         type: 'object',
         properties: {
-          view: { type: 'string', enum: ['todo', 'done', 'overdue'], description: '视图，默认 todo' },
+          view: {
+            type: 'string',
+            enum: ['notStarted', 'inProgress', 'overdue', 'done', 'recurring', 'paused'],
+            description: '视图，默认 inProgress',
+          },
           status: { type: 'string', enum: ['active', 'paused', 'done', 'archived'] },
           kind: { type: 'string', enum: ['recurring', 'once'] },
           query: { type: 'string', description: '标题/说明模糊搜索' },
@@ -82,19 +81,22 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
         assertToolCaller(exec)
         try {
           const result = repo.list({
-            view: (args['view'] as never) ?? 'todo',
+            view: (args['view'] as never) ?? 'inProgress',
             status: args['status'] as never,
             kind: args['kind'] as never,
             query: typeof args['query'] === 'string' ? args['query'] : undefined,
             limit: typeof args['limit'] === 'number' ? args['limit'] : undefined,
             cursor: typeof args['cursor'] === 'string' ? args['cursor'] : undefined,
-            today: todayOf(),
           })
           return {
             items: result.items.map(view),
             counts: result.counts,
+            byKind: result.byKind,
+            totalDone: result.totalDone,
             prioritySummary: result.prioritySummary,
             nextCursor: result.nextCursor,
+            serverTime: result.serverTime,
+            nextTransitionAt: result.nextTransitionAt,
           }
         } catch (error) {
           return translate(error)
@@ -114,12 +116,15 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
           title: { type: 'string', minLength: 1, maxLength: 200 },
           description: { type: 'string', maxLength: 2000 },
           kind: { type: 'string', enum: ['recurring', 'once'] },
-          dueDate: { type: 'string', description: 'YYYY-MM-DD；只用于分组/超期/优先级，不产生提醒' },
           rule: {
             type: 'object',
             description: '{preset,time?,weekdays?,monthDays?,cron?,timeZone?,skipDates?,extraWorkdays?}',
           },
-          once: { type: 'object', description: '{startAt,endAt}，两者必填且 endAt 晚于 startAt' },
+          once: {
+            type: 'object',
+            description:
+              '{startAt?,endAt,timeZone?}；endAt 必填且是唯一截止时间；startAt 省略时取创建时间且不产生开始提醒',
+          },
           notify: { type: 'object' },
           timeZone: { type: 'string' },
         },
@@ -130,11 +135,11 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
       async execute(args: Record<string, unknown>, exec: ToolExec) {
         assertToolCaller(exec)
         try {
+          rejectLegacyFields(args)
           const task = await repo.create({
             title: args['title'] as string,
             description: args['description'] as string | undefined,
             kind: args['kind'] as never,
-            dueDate: args['dueDate'] as string | null | undefined,
             rule: args['rule'],
             once: args['once'],
             notify: args['notify'],
@@ -150,7 +155,7 @@ export function createToolDefinitions(deps: ToolDeps): RawToolDefinition[] {
       name: 'todo_reminder_update',
       description:
         '管理工作待办（非会话提醒）。修改任务；必须传 expectedRevision（取自 list/get），不匹配返回 conflict。' +
-        '可改 title/description/dueDate/rule/once/notify/pinned。不要用 schedule_* 内置工具管理本插件任务。',
+        '可改 title/description/rule/once/notify/pinned。不要用 schedule_* 内置工具管理本插件任务。',
       parameters: {
         type: 'object',
         properties: {

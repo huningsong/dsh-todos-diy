@@ -14,7 +14,7 @@ import { describe, it } from 'node:test'
 import { buildHolidayTable, type HolidayFile } from '../src/host/rules/holidays.js'
 import { dueOccurrences } from '../src/host/rules/occurrence.js'
 import { resolveTick } from '../src/host/rules/resolveTick.js'
-import { makeRule, makeTask } from './fixtures.js'
+import { makeOnceTask, makeRule, makeTask } from './fixtures.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const holidays = buildHolidayTable(
@@ -57,55 +57,66 @@ describe('DEFECT-1: resolveTick must honour the holiday table', () => {
   })
 })
 
-describe('DEFECT-2: an advance reminder must fire at its shifted instant', () => {
+describe('DEFECT-2: an advance reminder must fire at its shifted instant (F5.7)', () => {
+  /** A 14:00–18:00 one-off task with a 10-minute lead on the end node. */
   const advanced = (): ReturnType<typeof makeTask> =>
-    makeTask({
+    makeOnceTask('2026-11-05T14:00:00+08:00', '2026-11-05T18:00:00+08:00', {
       id: 'tr_e',
-      createdAt: '2026-10-29T00:00:00.000Z',
-      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false },
+      createdAt: '2026-11-04T00:00:00.000Z',
+      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 10, sound: false, endReminder: true },
     })
 
-  it('fires at 08:50 for a 09:00 rule, not at 09:00', () => {
-    const due = dueOccurrences(advanced(), new Date('2026-10-30T00:50:30Z'), null, holidays)
+  it('fires the end node at 17:50 instead of 18:00', () => {
+    const task = advanced()
+    task.state.firedStart = true // the 14:00 reminder already fired
+    const due = dueOccurrences(task, new Date('2026-11-05T09:50:30Z'), null, holidays)
     assert.equal(due.length, 1)
-    assert.equal(due[0]?.at.toISOString(), '2026-10-30T00:50:00.000Z')
+    assert.equal(due[0]?.at.toISOString(), '2026-11-05T09:50:00.000Z')
     assert.equal(due[0]?.phase, 'advance')
     assert.equal(due[0]?.key.endsWith('#advance'), true)
   })
 
-  it('has not fired one minute before the shifted instant', () => {
-    const due = dueOccurrences(advanced(), new Date('2026-10-30T00:49:00Z'), null, holidays)
-    assert.equal(due.some((occurrence) => occurrence.key.includes('2026-10-30T00:50:00.000Z')), false)
+  it('does not fire the end node one minute early', () => {
+    const due = dueOccurrences(advanced(), new Date('2026-11-05T09:49:00Z'), null, holidays)
+    assert.equal(due.some((occurrence) => occurrence.key.includes('2026-11-05T09:50:00.000Z')), false)
   })
 
   it('does not fire the on-time occurrence after the advance already fired', () => {
     const task = advanced()
-    const fired = dueOccurrences(task, new Date('2026-10-30T00:50:30Z'), null, holidays)
+    task.state.firedStart = true
+    const fired = dueOccurrences(task, new Date('2026-11-05T09:50:30Z'), null, holidays)
     task.state.lastFiredAt = fired[0]?.at.toISOString() ?? null
     task.state.lastOccurrenceKey = fired[0]?.key ?? null
+    task.state.firedEndAdvance = true
     const lastFired = task.state.lastFiredAt
     assert.ok(lastFired !== null)
-    const later = dueOccurrences(task, new Date('2026-10-30T01:00:30Z'), new Date(lastFired), holidays)
+    const later = dueOccurrences(task, new Date('2026-11-05T10:00:30Z'), new Date(lastFired), holidays)
     assert.equal(later.length, 0, 'the advance reminder replaces the on-time one')
   })
 
   it('resolveTick reports the shifted instant as the fire time', () => {
-    const plan = resolveTick([advanced()], new Date('2026-10-30T00:50:30Z'), { holidays, graceMinutes: 5 })
-    assert.equal(plan.fire[0]?.at.toISOString(), '2026-10-30T00:50:00.000Z')
+    const plan = resolveTick([advanced()], new Date('2026-11-05T09:50:30Z'), { holidays, graceMinutes: 5 })
+    assert.equal(plan.fire[0]?.at.toISOString(), '2026-11-05T09:50:00.000Z')
+  })
+
+  it('leaves the #start node on its natural instant', () => {
+    const plan = resolveTick([advanced()], new Date('2026-11-05T06:00:30Z'), { holidays, graceMinutes: 5 })
+    assert.equal(plan.fire[0]?.at.toISOString(), '2026-11-05T06:00:00.000Z')
+    assert.equal(plan.fire[0]?.phase, 'start')
   })
 })
 
-describe('DEFECT-3: advance + downtime must not over-count missed', () => {
-  /** A workdays task with a 10-minute advance, last fired on 10-27. */
+describe('DEFECT-3: a recurring task ignores advanceMinutes (F5.7 v1 scope)', () => {
+  /** A workdays task that mistakenly carries an advance setting. */
   const task = (lastFiredAt: string | null, advanceMinutes: number): ReturnType<typeof makeTask> =>
     makeTask({
       id: 'tr_f',
       createdAt: '2026-10-26T00:00:00.000Z',
-      notify: { channels: ['overlay'], template: '{title}', advanceMinutes, sound: false },
+      notify: { channels: ['overlay'], template: '{title}', advanceMinutes, sound: false, endReminder: true },
       state: { ...makeTask().state, lastFiredAt, lastOccurrenceKey: 'k' },
     })
 
-  it('records exactly three missed days for a three-day outage without advance', () => {
+  it('records exactly three missed days for a three-day outage', () => {
     const plan = resolveTick([task('2026-10-27T01:00:00.000Z', 0)], new Date('2026-10-30T03:00:00Z'), {
       holidays,
       graceMinutes: 5,
@@ -117,23 +128,25 @@ describe('DEFECT-3: advance + downtime must not over-count missed', () => {
     )
   })
 
-  it('records the same three days when a 10-minute advance shifts every instant', () => {
-    const plan = resolveTick([task('2026-10-27T00:50:00.000Z', 10)], new Date('2026-10-30T03:00:00Z'), {
+  it('produces the same rows even when advanceMinutes is set', () => {
+    const plan = resolveTick([task('2026-10-27T01:00:00.000Z', 10)], new Date('2026-10-30T03:00:00Z'), {
       holidays,
       graceMinutes: 5,
     })
-    assert.equal(plan.markMissed.length, 3, 'the already-fired 10-27 advance must not be counted again')
+    // Two backlog days + the newest row (missed because it is beyond grace).
+    assert.equal(plan.markMissed.length, 3)
     assert.deepEqual(
       plan.markMissed.map((occurrence) => occurrence.at.toISOString()),
-      ['2026-10-28T00:50:00.000Z', '2026-10-29T00:50:00.000Z', '2026-10-30T00:50:00.000Z'],
+      ['2026-10-28T01:00:00.000Z', '2026-10-29T01:00:00.000Z', '2026-10-30T01:00:00.000Z'],
     )
+    assert.equal(plan.fire.length, 0)
   })
 
-  it('keeps the advance phase on every missed row', () => {
-    const plan = resolveTick([task('2026-10-27T00:50:00.000Z', 10)], new Date('2026-10-30T03:00:00Z'), {
+  it('keeps the recurring occurrences on a plain phase', () => {
+    const plan = resolveTick([task('2026-10-27T01:00:00.000Z', 10)], new Date('2026-10-30T03:00:00Z'), {
       holidays,
       graceMinutes: 5,
     })
-    assert.equal(plan.markMissed.every((occurrence) => occurrence.phase === 'advance'), true)
+    assert.equal(plan.markMissed.every((occurrence) => occurrence.phase === null), true)
   })
 })

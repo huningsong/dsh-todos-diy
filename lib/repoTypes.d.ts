@@ -7,13 +7,12 @@
  */
 import type { DeliveryRecord, Settings } from './state.js';
 import type { Store } from './store.js';
-import type { Task, TaskKind, TaskStatus, TaskViewName } from './rules/types.js';
+import type { Counts, Task, TaskKind, TaskStatus, TaskViewName } from './rules/types.js';
 /** Input accepted by `Repository.create`. */
 export interface CreateTaskInput {
     title: string;
     description?: string;
     kind: TaskKind;
-    dueDate?: string | null;
     rule?: unknown;
     once?: unknown;
     notify?: unknown;
@@ -25,7 +24,6 @@ export interface CreateTaskInput {
 export interface UpdateTaskPatch {
     title?: string;
     description?: string;
-    dueDate?: string | null;
     rule?: unknown;
     once?: unknown;
     notify?: unknown;
@@ -40,24 +38,25 @@ export interface ListQuery {
     limit?: number;
     cursor?: string;
     includeArchived?: boolean;
-    /** Today's local date; defaults to the settings zone's today. */
-    today?: string;
 }
 /** Result of `Repository.list`. */
 export interface ListResult {
     items: Task[];
     nextCursor: string | null;
-    counts: {
-        todo: number;
-        done: number;
-        overdue: number;
-    };
+    counts: Counts;
     prioritySummary: {
         high: number;
         mid: number;
         low: number;
         none: number;
     };
+    byKind: {
+        once: number;
+        recurring: number;
+    };
+    totalDone: number;
+    serverTime: string;
+    nextTransitionAt: string | null;
 }
 /** Result of `Repository.complete`. */
 export interface CompleteResult {
@@ -85,6 +84,10 @@ export interface RepositoryOptions {
     now?: () => Date;
     /** Debounce window for physical writes (default 200 ms, F6.9). */
     debounceMs?: number;
+    /** Holiday table used when deriving a recurring task's `nextAt`. */
+    holidays?: import('./rules/holidays.js').HolidayTable;
+    /** Total completed tasks held in archived quarters (F4.21 `totalDone`). */
+    archiveDone?: () => number;
 }
 /** Repository surface used by routes and tools. */
 export interface Repository {

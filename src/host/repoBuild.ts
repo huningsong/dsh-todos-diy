@@ -13,7 +13,6 @@ import type { CreateTaskInput, UpdateTaskPatch } from './repoTypes.js'
 import {
   ValidationError,
   validateDescription,
-  validateDueDate,
   validateNotify,
   validateOnce,
   validateRule,
@@ -35,16 +34,19 @@ export function buildTask(input: CreateTaskInput, settings: Settings, now: Date)
   if (input.kind !== 'recurring' && input.kind !== 'once') {
     throw new ValidationError('invalid_argument', 'kind must be "recurring" or "once"', { field: 'kind' })
   }
+  // F4.11: `dueDate` must be rejected outright, not silently ignored — a client
+  // still sending it needs a clear error so the data model cannot drift back.
+  rejectLegacyDueDate(input as unknown as Record<string, unknown>)
   const title = validateTitle(input.title)
   const description = validateDescription(input.description)
-  const dueDate = validateDueDate(input.dueDate)
   const zone = validateTimeZone(input.timeZone, settings.timeZone)
   let rule: Task['rule'] = null
   let once: Task['once'] = null
   if (input.kind === 'recurring') {
     rule = validateRule(input.rule, zone)
   } else {
-    once = validateOnce(input.once, zone)
+    const endReminder = readEndReminderFlag(input.notify)
+    once = validateOnce(input.once, zone, now, endReminder)
   }
   const notify = validateNotify(input.notify, {
     channels: settings.defaultChannels,
@@ -56,7 +58,6 @@ export function buildTask(input: CreateTaskInput, settings: Settings, now: Date)
     description,
     kind: input.kind,
     status: 'active',
-    dueDate,
     pinned: input.pinned === true,
     doneAt: null,
     archivedQuarter: null,
@@ -66,7 +67,9 @@ export function buildTask(input: CreateTaskInput, settings: Settings, now: Date)
     state: {
       lastFiredAt: null,
       lastOccurrenceKey: null,
-      firedStart: false,
+      // A task that "already started" at creation has nothing to announce, so
+      // F3.4 defines its firedStart as already satisfied.
+      firedStart: once !== null && once.startAtSource === 'created',
       firedEnd: false,
       firedStartAdvance: false,
       firedEndAdvance: false,
@@ -96,10 +99,10 @@ export function buildTask(input: CreateTaskInput, settings: Settings, now: Date)
  * @returns A new task with `revision + 1`.
  */
 export function patchTask(current: Task, patch: UpdateTaskPatch, settings: Settings, now: Date): Task {
+  rejectLegacyDueDate(patch as unknown as Record<string, unknown>)
   const next: Task = { ...current }
   if (patch.title !== undefined) next.title = validateTitle(patch.title)
   if (patch.description !== undefined) next.description = validateDescription(patch.description)
-  if (patch.dueDate !== undefined) next.dueDate = validateDueDate(patch.dueDate)
   if (patch.pinned !== undefined) next.pinned = patch.pinned === true
   if (patch.rule !== undefined) {
     if (current.kind !== 'recurring') {
@@ -112,8 +115,10 @@ export function patchTask(current: Task, patch: UpdateTaskPatch, settings: Setti
     if (current.kind !== 'once') {
       throw new ValidationError('invalid_state', 'cannot set a window on a recurring task', { field: 'once' })
     }
-    next.once = validateOnce(patch.once, settings.timeZone)
-    next.state = { ...next.state, firedStart: false, firedEnd: false, lastOccurrenceKey: null }
+    const previous = current.once
+    const endReminder = readEndReminderFlag(patch.notify) ?? current.notify.endReminder
+    next.once = validateOnce(patch.once, current.once?.timeZone ?? settings.timeZone, new Date(current.createdAt), endReminder)
+    next.state = resetOnceMarkers(current, next.once, previous)
   }
   if (patch.notify !== undefined) {
     next.notify = validateNotify(patch.notify, {
@@ -124,4 +129,55 @@ export function patchTask(current: Task, patch: UpdateTaskPatch, settings: Setti
   next.revision = current.revision + 1
   next.updatedAt = now.toISOString()
   return next
+}
+
+/**
+ * Read the `endReminder` flag out of an unvalidated notify payload.
+ * @param value - Candidate notify block.
+ * @returns The flag, or undefined when absent.
+ */
+function readEndReminderFlag(value: unknown): boolean | undefined {
+  if (value === null || typeof value !== 'object') return undefined
+  const raw = value as Record<string, unknown>
+  return typeof raw['endReminder'] === 'boolean' ? raw['endReminder'] : undefined
+}
+
+/**
+ * Reset one-off firing markers after an edit (F3.8).
+ *
+ * Editing only `endAt` keeps `startAt` and `startAtSource` and re-arms the end
+ * side. Supplying a different `startAt` re-arms the start side too.
+ * @param current - Task before the edit.
+ * @param nextWindow - Validated window after the edit.
+ * @param previous - Window before the edit, or null.
+ * @returns The state block to attach.
+ */
+function resetOnceMarkers(current: Task, nextWindow: NonNullable<Task['once']>, previous: NonNullable<Task['once']> | null): Task['state'] {
+  const state = { ...current.state }
+  const startChanged = previous === null || previous.startAt !== nextWindow.startAt || previous.startAtSource !== nextWindow.startAtSource
+  if (startChanged) {
+    state.firedStart = nextWindow.startAtSource === 'created'
+    state.firedStartAdvance = false
+    state.missedStart = false
+  }
+  state.firedEnd = false
+  state.firedEndAdvance = false
+  state.missedEnd = false
+  state.lastOccurrenceKey = null
+  return state
+}
+
+/**
+ * Reject the removed `dueDate` field (D-25 / F4.11).
+ * @param value - Untrusted input object.
+ * @throws ValidationError when `dueDate` is present.
+ */
+function rejectLegacyDueDate(value: Record<string, unknown>): void {
+  if (Object.hasOwn(value, 'dueDate') && value['dueDate'] !== undefined) {
+    throw new ValidationError(
+      'invalid_argument',
+      'dueDate was removed in schema v2; use once.endAt (one-off) or rule.time (recurring)',
+      { field: 'dueDate' },
+    )
+  }
 }

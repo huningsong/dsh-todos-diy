@@ -11,10 +11,9 @@
  */
 
 import type { Task } from './rules/types.js'
-import { isValidCivilDate, parseLocalDate } from './rules/timezone.js'
 
 /** Current on-disk schema version. Bump together with a migration. */
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 /** One record of the delivery log (F5.5 / D-16). */
 export interface DeliveryRecord {
@@ -236,7 +235,6 @@ export function coerceTask(raw: unknown): Task | null {
     description: str(raw['description'], '').slice(0, 2000),
     kind,
     status,
-    dueDate: coerceDueDate(raw['dueDate']),
     pinned: raw['pinned'] === true,
     doneAt: nullableIso(raw['doneAt']),
     archivedQuarter: typeof raw['archivedQuarter'] === 'string' ? raw['archivedQuarter'] : null,
@@ -249,6 +247,7 @@ export function coerceTask(raw: unknown): Task | null {
         : '{title}｜{time}\n{note}',
       advanceMinutes,
       sound: notify['sound'] === true,
+      endReminder: notify['endReminder'] !== false,
     },
     state: {
       lastFiredAt: nullableIso(stateRaw['lastFiredAt']),
@@ -269,13 +268,6 @@ export function coerceTask(raw: unknown): Task | null {
     createdAt: nullableIso(raw['createdAt']) ?? new Date(0).toISOString(),
     updatedAt: nullableIso(raw['updatedAt']) ?? new Date(0).toISOString(),
   }
-}
-
-/** Coerce a due date: keep only real `YYYY-MM-DD` calendar dates. */
-function coerceDueDate(value: unknown): string | null {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
-  const parsed = parseLocalDate(value)
-  return parsed !== undefined && isValidCivilDate(parsed.year, parsed.month, parsed.day) ? value : null
 }
 
 /**
@@ -314,7 +306,10 @@ function coerceOnce(raw: Record<string, unknown>): Task['once'] {
   if (start === null || end === null) return null
   if (Date.parse(end) <= Date.parse(start)) return null
   const timeZone = typeof raw['timeZone'] === 'string' && raw['timeZone'].trim() !== '' ? raw['timeZone'] : 'Asia/Shanghai'
-  return { startAt: start, endAt: end, timeZone }
+  // A persisted window always carries the origin flag; a file that predates it
+  // can only have come from an explicit user entry (v1 required startAt).
+  const startAtSource = raw['startAtSource'] === 'created' ? 'created' : 'explicit'
+  return { startAt: start, endAt: end, startAtSource, timeZone }
 }
 
 /** Coerce a `YYYY-MM-DD` list: invalid entries dropped, de-duplicated, sorted. */

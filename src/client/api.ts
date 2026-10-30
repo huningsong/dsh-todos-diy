@@ -36,13 +36,42 @@ export class ApiError extends Error {
   }
 }
 
+/** The six selectable views (F4.10 / F4.21). */
+export type ViewName = 'notStarted' | 'inProgress' | 'overdue' | 'done' | 'recurring' | 'paused'
+
+/** Mutually exclusive counts for the six views. */
+export interface CountsPayload {
+  notStarted: number
+  inProgress: number
+  overdue: number
+  done: number
+  paused: number
+  recurring: number
+}
+
 /** Snapshot payload from `GET /snapshot`. */
 export interface SnapshotPayload {
   items: TaskView[]
   nextCursor: string | null
-  counts: { todo: number; done: number; overdue: number }
+  counts: CountsPayload
+  byKind: { once: number; recurring: number }
+  totalDone: number
   prioritySummary: { high: number; mid: number; low: number; none: number }
+  serverTime: string
+  nextTransitionAt: string | null
   settings: SettingsPayload
+}
+
+/** One delivery-log row from `GET /deliveries`. */
+export interface DeliveryPayload {
+  occurrenceKey: string
+  channel: 'overlay' | 'system'
+  status: 'ok' | 'failed' | 'skipped'
+  at: string
+  readAt: string | null
+  ignoredAt: string | null
+  dismissedAt: string | null
+  error: string | null
 }
 
 /** Settings payload from `GET /settings/get`. */
@@ -125,7 +154,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** Typed view of the plugin API. */
 export const api = {
   /** Read one snapshot of the given view. */
-  snapshot(view: 'todo' | 'done' | 'overdue', search: string): Promise<SnapshotPayload> {
+  snapshot(view: ViewName, search: string): Promise<SnapshotPayload> {
     const params = new URLSearchParams({ view })
     if (search.trim() !== '') params.set('q', search.trim())
     return request<SnapshotPayload>(`/snapshot?${params.toString()}`)
@@ -171,6 +200,18 @@ export const api = {
   /** Restore a soft-deleted task. */
   restore(id: string): Promise<TaskView> {
     return request<TaskView>('/tasks/restore', { method: 'POST', body: JSON.stringify({ id }) })
+  },
+  /** Send one immediate reminder without touching the rule (F8.14). */
+  remind(id: string): Promise<{ id: string; occurrenceKey: string }> {
+    return request('/tasks/remind', { method: 'POST', body: JSON.stringify({ id }) })
+  },
+  /** Read the delivery/receipt history, optionally for one task. */
+  deliveries(taskId?: string, cursor?: string): Promise<{ items: DeliveryPayload[]; nextCursor: string | null; total: number }> {
+    const params = new URLSearchParams()
+    if (taskId !== undefined) params.set('taskId', taskId)
+    if (cursor !== undefined) params.set('cursor', cursor)
+    const suffix = params.size > 0 ? `?${params.toString()}` : ''
+    return request(`/deliveries${suffix}`)
   },
   /** Preview the next five occurrences of a rule. */
   preview(rule: unknown, timeZone: string): Promise<PreviewPayload> {

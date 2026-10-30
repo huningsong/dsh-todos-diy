@@ -53,9 +53,9 @@ export declare function dateMatchesRule(spec: CronSpec, rule: RecurrenceRule, da
 /**
  * Apply `notify.advanceMinutes` to one natural occurrence.
  *
- * The advance reminder *replaces* the on-time reminder (UX-06), so the
- * returned occurrence carries `phase: 'advance'` and a key built from the
- * shifted instant.
+ * The advance reminder *replaces* the on-time reminder (F5.7), so the returned
+ * occurrence carries `phase: 'advance'` and a key built from the shifted
+ * instant. Nodes that do not take a lead time keep their natural instant.
  * @param task - Owning task.
  * @param naturalAt - The on-time instant.
  * @param node - Which one-off node the natural instant belongs to (`null` for recurring).
@@ -63,10 +63,21 @@ export declare function dateMatchesRule(spec: CronSpec, rule: RecurrenceRule, da
  */
 export declare function applyAdvance(task: Task, naturalAt: Date, node: 'start' | 'end' | null): Occurrence;
 /**
- * One-off occurrences: the start node and the end node, each shifted by the
- * task's advance setting. Missing/fired nodes are filtered by the caller.
+ * The nodes a one-off task actually schedules (F3.3 / D-03 / D-25).
+ *
+ * - `startAtSource="created"` → only `#end` (a task that already started has
+ *   nothing to announce);
+ * - explicit `startAt` → `#start` plus `#end`, unless `notify.endReminder` is
+ *   false (meeting-style tasks), in which case only `#start`.
  * @param task - One-off task.
- * @returns Start occurrence first, then end (never null for a valid task).
+ * @returns Scheduled nodes, in display order.
+ */
+export declare function scheduledNodes(task: Task): ('start' | 'end')[];
+/**
+ * One-off occurrences, already advance-shifted where applicable.
+ * Missing/fired nodes are filtered by the caller.
+ * @param task - One-off task.
+ * @returns Scheduled occurrences (never null for a valid task).
  */
 export declare function onceOccurrences(task: Task): Occurrence[];
 /**

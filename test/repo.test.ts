@@ -38,7 +38,6 @@ function recurringInput(overrides: Record<string, unknown> = {}): Record<string,
     title: '查看今日待办',
     description: '确认今天三件最重要的事',
     kind: 'recurring',
-    dueDate: '2026-10-30',
     rule: { preset: 'workdays', time: '09:00', timezone: 'Asia/Shanghai' },
     ...overrides,
   }
@@ -49,7 +48,6 @@ function onceInput(overrides: Record<string, unknown> = {}): Record<string, unkn
   return {
     title: '季度评审',
     kind: 'once',
-    dueDate: '2026-11-05',
     once: { startAt: '2026-11-05T14:00:00+08:00', endAt: '2026-11-05T18:00:00+08:00' },
     ...overrides,
   }
@@ -154,22 +152,24 @@ describe('repo — read', () => {
     assert.equal(repo.get('tr_nope'), null)
   })
 
-  it('computes counts and priority summary', async () => {
+  it('computes the six counts, byKind and totalDone', async () => {
     const { repo } = harness()
-    await repo.create(recurringInput({ dueDate: '2026-10-30' }) as never)
-    await repo.create(recurringInput({ title: '后天', dueDate: '2026-11-01' }) as never)
-    await repo.create(recurringInput({ title: '无截止', dueDate: null }) as never)
-    const result = repo.list({ today: '2026-10-30' })
-    assert.equal(result.counts.todo, 3)
-    assert.deepEqual(result.prioritySummary, { high: 1, mid: 1, low: 0, none: 1 })
+    await repo.create(recurringInput({ title: '循环一' }) as never)
+    await repo.create(recurringInput({ title: '循环二' }) as never)
+    const result = repo.list({})
+    assert.equal(result.counts.recurring, 2)
+    assert.equal(result.counts.inProgress, 0)
+    assert.deepEqual(result.byKind, { once: 0, recurring: 2 })
+    assert.equal(result.totalDone, 0)
+    assert.equal(typeof result.serverTime, 'string')
   })
 
   it('searches title and description', async () => {
     const { repo } = harness()
     await repo.create(recurringInput({ title: '提交材料', description: '' }) as never)
     await repo.create(recurringInput({ title: '别的', description: '材料归档' }) as never)
-    assert.equal(repo.list({ query: '材料', today: '2026-10-30' }).items.length, 2)
-    assert.equal(repo.list({ query: '归档', today: '2026-10-30' }).items.length, 1)
+    assert.equal(repo.list({ view: 'recurring', query: '材料' }).items.length, 2)
+    assert.equal(repo.list({ view: 'recurring', query: '归档' }).items.length, 1)
   })
 
   it('paginates with an opaque cursor', async () => {
@@ -177,10 +177,10 @@ describe('repo — read', () => {
     for (let index = 0; index < 5; index += 1) {
       await repo.create(recurringInput({ title: `任务${String(index)}` }) as never)
     }
-    const first = repo.list({ limit: 2, today: '2026-10-30' })
+    const first = repo.list({ view: 'recurring', limit: 2 })
     assert.equal(first.items.length, 2)
     assert.ok(first.nextCursor !== null)
-    const second = repo.list({ limit: 2, cursor: first.nextCursor as string, today: '2026-10-30' })
+    const second = repo.list({ view: 'recurring', limit: 2, cursor: first.nextCursor as string })
     assert.equal(second.items.length, 2)
     const ids = new Set([...first.items, ...second.items].map((task) => task.id))
     assert.equal(ids.size, 4, 'pages must not overlap')
@@ -190,8 +190,8 @@ describe('repo — read', () => {
     const { repo } = harness()
     const task = await repo.create(recurringInput() as never)
     await repo.remove(task.id)
-    assert.equal(repo.list({ today: '2026-10-30' }).items.length, 0)
-    assert.equal(repo.list({ includeArchived: true, today: '2026-10-30' }).items.length, 1)
+    assert.equal(repo.list({ view: 'recurring' }).items.length, 0)
+    assert.equal(repo.list({ view: 'recurring', includeArchived: true }).items.length, 1)
   })
 })
 
@@ -386,7 +386,7 @@ describe('repo — serialization and write amplification (F6.9)', () => {
     await repo.create(recurringInput() as never)
     await repo.flush()
     const baseline = fs.writeCount
-    repo.list({ today: '2026-10-30' })
+    repo.list({})
     repo.get('x')
     await repo.flush()
     assert.equal(fs.writeCount, baseline)

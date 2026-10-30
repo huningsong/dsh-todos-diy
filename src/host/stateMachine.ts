@@ -1,8 +1,9 @@
 /**
  * Task state machine (F1.2).
  *
- * `active` ⇄ `paused`; `active` → `done`; any status → `archived`;
- * `archived` → `active` (restore). Everything else is `invalid_state`.
+ * `active` ⇄ `paused`; `active` → `done` (one-off only); `done` → `active`
+ * (undo, F1.2); any status → `archived`; `archived` → `active` (restore).
+ * Everything else is `invalid_state`.
  * Pure: the caller supplies the task and gets a boolean.
  */
 
@@ -12,7 +13,7 @@ import type { TaskStatus } from './rules/types.js'
 const TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   active: ['paused', 'done', 'archived'],
   paused: ['active', 'archived'],
-  done: ['archived'],
+  done: ['archived', 'active'],
   archived: ['active'],
 }
 

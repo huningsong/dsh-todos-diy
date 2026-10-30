@@ -25,7 +25,7 @@ import { registerTools } from './tools.js'
 import { resolveDataDir } from './paths.js'
 import { createStore, nodeFileSystem, type Store } from './store.js'
 import { createRepository, type Repository } from './repo.js'
-import { archiveCompleted, nodeArchiveFs, rebuildIndex, reconcileArchive } from './archive.js'
+import { archiveCompleted, nodeArchiveFs, readArchiveIndex, rebuildIndex, reconcileArchive } from './archive.js'
 import { buildReminderCard, deliveryRecordsFor } from './delivery.js'
 import { isWithinDnd, shouldDropInsteadOfSummarise } from './dnd.js'
 import { planToChanges } from './tickChanges.js'
@@ -42,7 +42,7 @@ export const name = 'dsh-todos-diy'
 export const inject = ['timer']
 
 /** Plugin version reported by `/health`; kept in sync with `package.json`. */
-export const PLUGIN_VERSION = '0.1.0'
+export const PLUGIN_VERSION = '0.2.0'
 
 const LOG_PREFIX = 'todos-diy:'
 
@@ -206,7 +206,22 @@ export function apply(ctx: any, rawConfig: unknown): void {
     store.flush()
   }
 
-  const repo = createRepository({ store, now: () => new Date(), debounceMs: 200 })
+  // `totalDone` needs the archive index; keep it in a mutable counter that the
+  // archive run refreshes (F4.21).
+  let archivedDone = (() => {
+    try {
+      return readArchiveIndex(store.paths, nodeArchiveFs, logger).quarters.reduce((sum, entry) => sum + entry.count, 0)
+    } catch {
+      return 0
+    }
+  })()
+  const repo = createRepository({
+    store,
+    now: () => new Date(),
+    debounceMs: 200,
+    holidays,
+    archiveDone: () => archivedDone,
+  })
   const tick = createTick({ repo, config, holidays, health, logger })
 
   if (store.readOnly) {
@@ -259,6 +274,11 @@ export function apply(ctx: any, rawConfig: unknown): void {
           health.recordArchive(result.archived)
         }
         // F1.5: soft-deleted tasks expire after 30 days.
+        try {
+          archivedDone = readArchiveIndex(store.paths, nodeArchiveFs, logger).quarters.reduce((sum, entry) => sum + entry.count, 0)
+        } catch {
+          // A missing index simply means "no archived tasks".
+        }
         void repo.sweepArchives(new Date()).then((purged) => {
           if (purged > 0) {
             logger.info?.(`${LOG_PREFIX} purged ${String(purged)} expired archive(s)`)
