@@ -29,6 +29,7 @@ import type {
 } from './repoTypes.js'
 import { ValidationError } from './validate.js'
 import { nextFireAt } from './rules/occurrence.js'
+import { quarterOf } from './quarter.js'
 import type { HolidayTable } from './rules/holidays.js'
 
 export type {
@@ -124,10 +125,16 @@ export function createRepository(options: RepositoryOptions): Repository {
       const nextAtFor = nextAtResolver(now)
       // `queryTasks` adds the main-file `done` count itself, so only the
       // archived quarters belong in this seed (F4.21: no double counting).
+      const settings = store.state.settings
+      const currentQuarter = quarterOf(now.toISOString(), settings.timeZone)
       return queryTasks(store.state.tasks, query, {
         now,
         nextAtFor,
         totalDone: archiveDone(),
+        doneInCurrentQuarter: (task) =>
+          task.kind === 'once' && task.doneAt !== null
+            ? quarterOf(task.doneAt, task.once?.timeZone ?? settings.timeZone) === currentQuarter
+            : false,
       })
     },
     async create(input) {

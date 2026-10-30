@@ -20,6 +20,8 @@ export interface QueryContext {
   nextAtFor: (task: Task) => Date | null
   /** Main-file done + archived quarters, de-duplicated (F4.21). */
   totalDone: number
+  /** F4.21: `done` counts only completions in the current quarter. */
+  doneInCurrentQuarter?: (task: Task) => boolean
 }
 
 /** Encode a list cursor (`createdAt|id`) as opaque base64url. */
@@ -88,7 +90,7 @@ export function computeNextTransition(tasks: readonly Task[], options: { now: Da
  */
 export function queryTasks(allTasks: readonly Task[], query: ListQuery, ctx: QueryContext): ListResult {
   const view = query.view ?? 'inProgress'
-  const derive: DeriveOptions = { nextAtFor: ctx.nextAtFor }
+  const derive: DeriveOptions = { nextAtFor: ctx.nextAtFor, doneInCurrentQuarter: ctx.doneInCurrentQuarter }
   const includeArchived = query.includeArchived === true
   const visible = allTasks.filter((task) => task.status !== 'archived')
 

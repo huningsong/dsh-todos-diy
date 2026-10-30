@@ -11,6 +11,7 @@
  */
 
 import type { Task, TaskStatus } from './rules/types.js'
+import { coerceSettings, isKnownZone } from './stateSettings.js'
 import { parseCron } from './rules/cron.js'
 
 /** Current on-disk schema version. Bump together with a migration. */
@@ -340,40 +341,6 @@ function coerceDateList(value: unknown): string[] {
   return [...set].sort()
 }
 
-/**
- * Coerce the settings block.
- * @param raw - Candidate settings.
- * @returns Always-valid settings with documented defaults.
- */
-export function coerceSettings(raw: Record<string, unknown>): Settings {
-  const dndRaw = isRecord(raw['dnd']) ? raw['dnd'] : {}
-  const channelsRaw = Array.isArray(raw['defaultChannels']) ? raw['defaultChannels'] : ['overlay']
-  const channels = channelsRaw.filter(
-    (channel): channel is 'overlay' | 'system' => channel === 'overlay' || channel === 'system',
-  )
-  if (!channels.includes('overlay')) channels.unshift('overlay')
-  return {
-    timeZone: isKnownZone(str(raw['timeZone'], 'Asia/Shanghai')) ? str(raw['timeZone'], 'Asia/Shanghai') : 'Asia/Shanghai',
-    tickIntervalMs: clampInt(raw['tickIntervalMs'], 30_000, 300_000, 60_000),
-    graceMinutes: clampInt(raw['graceMinutes'], 0, 60, 5),
-    defaultChannels: [...new Set(channels)],
-    dnd: {
-      enabled: dndRaw['enabled'] === true,
-      start: typeof dndRaw['start'] === 'string' ? dndRaw['start'] : '22:00',
-      end: typeof dndRaw['end'] === 'string' ? dndRaw['end'] : '08:00',
-      weekdaysOnly: dndRaw['weekdaysOnly'] === true,
-    },
-    retentionDays: clampInt(raw['retentionDays'], 1, 3650, 90),
-  }
-}
-
-/** Clamp a candidate integer into `[min, max]`, falling back when unusable. */
-function clampInt(value: unknown, min: number, max: number, fallback: number): number {
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) return fallback
-  return Math.min(max, Math.max(min, Math.trunc(parsed)))
-}
-
 /** Coerce a delivery record; invalid entries are dropped silently. */
 function coerceDelivery(raw: unknown): DeliveryRecord | null {
   if (!isRecord(raw)) return null
@@ -410,17 +377,4 @@ function coerceRecovery(raw: unknown): RecoveryRecord | null {
     backupFile: typeof raw['backupFile'] === 'string' ? raw['backupFile'] : null,
   }
 }
-
-/**
- * Whether a string is a resolvable IANA zone.
- * @param zone - Candidate.
- * @returns True when `Intl` accepts it.
- */
-function isKnownZone(zone: string): boolean {
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: zone })
-    return true
-  } catch {
-    return false
-  }
-}
+export { coerceSettings } from './stateSettings.js'

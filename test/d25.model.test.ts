@@ -538,3 +538,53 @@ describe('Review round 4: coercion and high-version archive guards', () => {
     assert.equal(task?.pinned, false)
   })
 })
+
+describe('Review round 5: import warnings and quarter-scoped done counts', () => {
+  it('warns when an imported task carries the read-only `fired` field', () => {
+    const bundle = {
+      kind: 'dsh-todos-diy/export',
+      schemaVersion: 2,
+      exportedAt: '2026-11-01T00:00:00.000Z',
+      settings: {},
+      tasks: [{
+        id: 'tr_f',
+        title: 'x',
+        kind: 'once',
+        status: 'active',
+        fired: true,
+        once: { startAt: '2026-11-05T06:00:00.000Z', endAt: '2026-11-05T10:00:00.000Z', startAtSource: 'explicit', timeZone: 'Asia/Shanghai' },
+      }],
+      deliveries: [],
+    }
+    const parsed = parseImport(bundle)
+    assert.equal(parsed.warnings.some((warning) => warning.includes('fired')), true)
+  })
+
+  it('excludes a done task from a previous quarter from counts.done (F4.21)', async () => {
+    const { repo, store } = harness()
+    store.state.tasks.push(
+      makeTask({
+        id: 'tr_old_done',
+        kind: 'once',
+        status: 'done',
+        doneAt: '2026-08-15T02:00:00.000Z',
+        once: { startAt: '2026-08-15T01:00:00.000Z', endAt: '2026-08-15T03:00:00.000Z', startAtSource: 'explicit', timeZone: 'Asia/Shanghai' },
+      }),
+    )
+    const result = repo.list({ view: 'done' })
+    assert.equal(result.counts.done, 0, 'a Q3 completion does not belong to the Q4 done badge')
+    assert.equal(result.items.length, 0)
+  })
+
+  it('keeps a current-quarter done task in counts.done', async () => {
+    const { repo } = harness()
+    const task = await repo.create({
+      title: 'x',
+      kind: 'once',
+      once: { startAt: '2026-11-05T08:00:00+08:00', endAt: '2026-11-05T20:00:00+08:00' },
+    })
+    await repo.complete(task.id)
+    const result = repo.list({ view: 'done' })
+    assert.equal(result.counts.done, 1)
+  })
+})

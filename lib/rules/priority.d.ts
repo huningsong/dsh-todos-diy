@@ -20,6 +20,8 @@ export interface DeriveOptions {
      * free of calendar maths; when omitted, recurring tasks report no target.
      */
     nextAtFor?: (task: Task) => Date | null;
+    /** F4.21: `done` counts only completions in the current quarter. */
+    doneInCurrentQuarter?: (task: Task) => boolean;
 }
 /**
  * Derive a task's stage (D-25 / F1.2).

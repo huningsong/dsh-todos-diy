@@ -14,6 +14,7 @@
  * leaves a correct archive with a stale index, which the next run repairs.
  */
 import type { Task } from './rules/types.js';
+import { quarterOf } from './quarter.js';
 import type { PersistedState } from './state.js';
 import type { StoragePaths } from './paths.js';
 /** One entry of `archive/index.json`. */
@@ -40,13 +41,6 @@ export interface ArchiveFs {
     exists(path: string): boolean;
     listDir(path: string): string[];
 }
-/**
- * The quarter a `doneAt` instant belongs to, in the **task's** time zone.
- * @param iso - Completion instant.
- * @param timeZone - Task time zone.
- * @returns `YYYY-Qn`.
- */
-export declare function quarterOf(iso: string, timeZone: string): string;
 /**
  * The quarter that contains `now`, in a zone.
  * @param now - Current instant.
@@ -96,29 +90,6 @@ export interface ArchiveOptions {
     };
 }
 /**
- * Read `archive/index.json`.
- *
- * A missing or unreadable index is rebuilt from the file names rather than
- * aborting startup (§8.3 "归档目录被删").
- * @param paths - Storage paths.
- * @param fs - Filesystem seam.
- * @param logger - Logger for repairs.
- * @returns Parsed index (possibly empty).
- */
-export declare function readArchiveIndex(paths: StoragePaths, fs: ArchiveFs, logger?: {
-    warn?: (message: string) => void;
-}): ArchiveIndex;
-/**
- * Reconstruct the index from the quarter files present on disk.
- * @param paths - Storage paths.
- * @param fs - Filesystem seam.
- * @param logger - Logger for repairs.
- * @returns Rebuilt index.
- */
-export declare function rebuildIndex(paths: StoragePaths, fs: ArchiveFs, logger?: {
-    warn?: (message: string) => void;
-}): ArchiveIndex;
-/**
  * Move tasks that completed in a previous quarter out of the main document.
  *
  * Idempotent: running it twice archives nothing the second time. Tasks are
@@ -154,3 +125,5 @@ export declare function readQuarter(quarter: string, paths: StoragePaths, fs: Ar
 } | null;
 /** Real `node:fs` implementation of the archive seam. */
 export declare const nodeArchiveFs: ArchiveFs;
+export { quarterOf };
+export { readArchiveIndex, rebuildIndex } from './archiveIndex.js';

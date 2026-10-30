@@ -30,6 +30,7 @@ import { buildReminderCard, deliveryRecordsFor } from './delivery.js'
 import { isWithinDnd, shouldDropInsteadOfSummarise } from './dnd.js'
 import { planToChanges } from './tickChanges.js'
 import { emptyState } from './state.js'
+import { quarterOf } from './quarter.js'
 
 /** Loader/display identity; the package name is `dsh-todos-diy`. */
 export const name = 'dsh-todos-diy'
@@ -285,7 +286,10 @@ export function apply(ctx: any, rawConfig: unknown): void {
       }
     }
     runArchive()
-    const dispose = ctx.interval(runArchive, 6 * 60 * 60 * 1000)
+    // F4.16: the first tick after a quarter boundary must move last quarter's
+    // completed tasks, so this runs at the tick cadence. `archiveCompleted` is
+    // a cheap in-memory scan unless there is something to move.
+    const dispose = ctx.interval(runArchive, config.tickIntervalMs)
     return () => dispose()
   }, 'todos-diy: archive')
 

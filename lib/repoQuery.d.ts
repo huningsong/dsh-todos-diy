@@ -16,6 +16,8 @@ export interface QueryContext {
     nextAtFor: (task: Task) => Date | null;
     /** Main-file done + archived quarters, de-duplicated (F4.21). */
     totalDone: number;
+    /** F4.21: `done` counts only completions in the current quarter. */
+    doneInCurrentQuarter?: (task: Task) => boolean;
 }
 /** Encode a list cursor (`createdAt|id`) as opaque base64url. */
 export declare function encodeCursor(task: Task): string;

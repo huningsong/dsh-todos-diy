@@ -107,9 +107,4 @@ export declare function coerceState(raw: unknown): ParseResult;
  * @returns A valid task, or null.
  */
 export declare function coerceTask(raw: unknown): Task | null;
-/**
- * Coerce the settings block.
- * @param raw - Candidate settings.
- * @returns Always-valid settings with documented defaults.
- */
-export declare function coerceSettings(raw: Record<string, unknown>): Settings;
+export { coerceSettings } from './stateSettings.js';

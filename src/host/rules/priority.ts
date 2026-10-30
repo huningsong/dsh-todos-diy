@@ -41,6 +41,8 @@ export interface DeriveOptions {
    * free of calendar maths; when omitted, recurring tasks report no target.
    */
   nextAtFor?: (task: Task) => Date | null
+  /** F4.21: `done` counts only completions in the current quarter. */
+  doneInCurrentQuarter?: (task: Task) => boolean
 }
 
 /** Seconds since epoch, used for the "same second still counts" rules. */
@@ -197,6 +199,7 @@ export function computeCounts(
   for (const task of tasks) {
     const stage = stageOf(task, now)
     if (stage === 'archived') continue
+    if (stage === 'done' && options.doneInCurrentQuarter !== undefined && !options.doneInCurrentQuarter(task)) continue
     counts[stage] += 1
     // F4.21: only paused/done/archived are excluded from the priority summary;
     // an active recurring task takes part via its `nextAt`.
@@ -231,7 +234,9 @@ export function selectView(
 
   if (view === 'done') {
     const items = scoped
-      .filter((task) => task.status === 'done')
+      // F4.21: the current-quarter done view shows only this quarter; older
+      // completions live in the archive switcher.
+      .filter((task) => task.status === 'done' && (options.doneInCurrentQuarter?.(task) ?? true))
       .sort((left, right) => {
         const leftAt = left.doneAt ?? ''
         const rightAt = right.doneAt ?? ''
