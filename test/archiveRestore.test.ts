@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { archiveCompleted, readArchiveIndex, readQuarter } from '../src/host/archive.js'
+import { archiveCompleted, readArchiveIndex, readQuarter, rebuildIndex } from '../src/host/archive.js'
 import { findArchivedTask, restoreArchivedTask } from '../src/host/archiveRestore.js'
 import { storagePaths } from '../src/host/paths.js'
 import { emptyState, SCHEMA_VERSION, type PersistedState } from '../src/host/state.js'
@@ -157,5 +157,29 @@ describe('restoreArchivedTask', () => {
     assert.equal(quarter, null)
     const raw = JSON.parse(fs.files.get(`${DATA_DIR}/archive/completed-2026-Q3.json`) as string)
     assert.deepEqual(raw.tasks, [])
+  })
+})
+
+describe('Review round 4: a newer archive index is never downgraded', () => {
+  it('rebuildIndex reports unsupported and returns no quarters', () => {
+    const fs = createMemoryFs()
+    fs.mkdir(DATA_DIR)
+    fs.mkdir(`${DATA_DIR}/archive`)
+    fs.files.set(`${DATA_DIR}/archive/index.json`, JSON.stringify({ schemaVersion: 99, quarters: [] }))
+    fs.files.set(`${DATA_DIR}/archive/completed-2026-Q3.json`, JSON.stringify({ schemaVersion: 2, quarter: '2026-Q3', tasks: [] }))
+    const index = rebuildIndex(storagePaths(DATA_DIR), fs)
+    assert.equal(index.unsupported, true)
+    assert.equal(index.schemaVersion, 99)
+  })
+
+  it('readArchiveIndex leaves a newer index untouched', () => {
+    const fs = createMemoryFs()
+    fs.mkdir(DATA_DIR)
+    fs.mkdir(`${DATA_DIR}/archive`)
+    const original = JSON.stringify({ schemaVersion: 99, quarters: [], custom: 'keep' })
+    fs.files.set(`${DATA_DIR}/archive/index.json`, original)
+    const index = readArchiveIndex(storagePaths(DATA_DIR), fs)
+    assert.equal(index.unsupported, true)
+    assert.equal(fs.files.get(`${DATA_DIR}/archive/index.json`), original)
   })
 })

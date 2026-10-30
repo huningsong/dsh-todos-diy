@@ -487,3 +487,54 @@ function migrates(document: Record<string, unknown>): { tasks: unknown[]; warnin
   const result = migrateDocumentV2(document, warnings)
   return { tasks: (result['tasks'] as unknown[]) ?? [], warnings }
 }
+
+describe('Review round 4: coercion and high-version archive guards', () => {
+  it('skips a task whose cron cannot be parsed', () => {
+    const state = emptyState(NOW)
+    const bad = makeTask({ id: 'tr_bad', rule: { ...makeTask().rule!, cron: 'not a cron' } })
+    state.tasks.push(bad)
+    const parsed = coerceState(JSON.parse(JSON.stringify(state)))
+    assert.equal(parsed.state?.tasks.length, 0)
+    assert.ok(parsed.warnings.length > 0)
+  })
+
+  it('skips a task whose zone is not resolvable', () => {
+    const state = emptyState(NOW)
+    state.tasks.push(makeTask({ id: 'tr_bad_zone', rule: { ...makeTask().rule!, timeZone: 'Not/AZone' } }))
+    const parsed = coerceState(JSON.parse(JSON.stringify(state)))
+    assert.equal(parsed.state?.tasks.length, 0)
+  })
+
+  it('falls back to Asia/Shanghai for an unusable settings zone', () => {
+    const parsed = coerceState({
+      schemaVersion: SCHEMA_VERSION,
+      meta: {},
+      settings: { timeZone: 'Not/AZone' },
+      tasks: [],
+      deliveries: [],
+    })
+    assert.equal(parsed.state?.settings.timeZone, 'Asia/Shanghai')
+  })
+
+  it('normalizes recurring+done into active with cleared completion markers', () => {
+    const parsed = coerceState({
+      schemaVersion: SCHEMA_VERSION,
+      meta: {},
+      settings: {},
+      tasks: [{
+        id: 'tr_r',
+        title: 'r',
+        kind: 'recurring',
+        status: 'done',
+        pinned: true,
+        doneAt: '2026-11-01T00:00:00.000Z',
+        rule: { preset: 'workdays', cron: '0 9 * * 1-5', timeZone: 'Asia/Shanghai' },
+      }],
+      deliveries: [],
+    })
+    const task = parsed.state?.tasks[0]
+    assert.equal(task?.status, 'active')
+    assert.equal(task?.doneAt, null)
+    assert.equal(task?.pinned, false)
+  })
+})

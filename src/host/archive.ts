@@ -188,6 +188,18 @@ export function rebuildIndex(
   logger?: { warn?: (message: string) => void },
 ): ArchiveIndex {
   const quarters: ArchiveIndexEntry[] = []
+  // F6.8: rebuilding must not downgrade an index written by a newer plugin.
+  if (fs.exists(paths.archiveIndex)) {
+    try {
+      const existing = JSON.parse(fs.readFile(paths.archiveIndex)) as { schemaVersion?: number }
+      if (typeof existing.schemaVersion === 'number' && existing.schemaVersion > SCHEMA_VERSION) {
+        logger?.warn?.(`todos-diy: archive index is newer than this plugin; rebuild skipped`)
+        return { schemaVersion: existing.schemaVersion, quarters: [], unsupported: true }
+      }
+    } catch {
+      // An unreadable index is rebuilt below — that is this function's job.
+    }
+  }
   if (!fs.exists(paths.archiveDir)) return { schemaVersion: SCHEMA_VERSION, quarters }
   let names: string[]
   try {

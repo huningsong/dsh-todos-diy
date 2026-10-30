@@ -215,8 +215,10 @@ export function coerceTask(raw: unknown): Task | null {
   if (statusRaw !== 'active' && statusRaw !== 'paused' && statusRaw !== 'done' && statusRaw !== 'archived') return null
   let status: TaskStatus = statusRaw
   // F1.2: a recurring task can never be `done`; a hand-edited or imported file
-  // must not be able to introduce that state.
-  if (kind === 'recurring' && status === 'done') status = 'active'
+  // must not be able to introduce that state. Clear the completion markers too,
+  // otherwise an "active" task would still carry doneAt/pinned.
+  const wasRecurringDone = kind === 'recurring' && status === 'done'
+  if (wasRecurringDone) status = 'active'
 
   const rule = isRecord(raw['rule']) ? coerceRule(raw['rule']) : null
   const once = isRecord(raw['once']) ? coerceOnce(raw['once']) : null
@@ -240,8 +242,10 @@ export function coerceTask(raw: unknown): Task | null {
     description: str(raw['description'], '').slice(0, 2000),
     kind,
     status,
-    pinned: raw['pinned'] === true,
-    doneAt: nullableIso(raw['doneAt']),
+    // F4.15: a completed task never keeps its pin, and a recurring task has no
+    // completion at all.
+    pinned: wasRecurringDone ? false : raw['pinned'] === true,
+    doneAt: wasRecurringDone ? null : nullableIso(raw['doneAt']),
     archivedQuarter: typeof raw['archivedQuarter'] === 'string' ? raw['archivedQuarter'] : null,
     rule,
     once,

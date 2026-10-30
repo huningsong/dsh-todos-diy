@@ -9,7 +9,7 @@
 
 import { copyFileSync, existsSync, writeFileSync } from 'node:fs'
 
-import { SCHEMA_VERSION } from './state.js'
+import { coerceSettings, SCHEMA_VERSION } from './state.js'
 import { migrateState } from './migrations.js'
 import type { PersistedState, Settings } from './state.js'
 import type { Task } from './rules/types.js'
@@ -125,9 +125,15 @@ export function parseImport(payload: unknown): ImportCandidate {
     }
     tasks.push(task)
   }
-  const settings = document['settings'] !== null && typeof document['settings'] === 'object'
-    ? (document['settings'] as Settings)
-    : null
+  // F9.4/F6.2: settings from a file are untrusted. Run them through the same
+  // coercion the store uses, so a bad zone cannot poison the tick loop.
+  const settingsRaw = document['settings']
+  let settings: Settings | null = null
+  if (settingsRaw !== null && typeof settingsRaw === 'object') {
+    const before = JSON.stringify(settingsRaw)
+    settings = coerceSettings(settingsRaw as Record<string, unknown>)
+    if (JSON.stringify(settings) !== before) warnings.push('settings were normalized; invalid values were replaced')
+  }
   const deliveriesRaw = document['deliveries']
   const deliveries = Array.isArray(deliveriesRaw) ? (deliveriesRaw as PersistedState['deliveries']) : []
   if (skipped > 0) warnings.push(`${String(skipped)} task(s) skipped`)
