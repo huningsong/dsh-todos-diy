@@ -26,4 +26,7 @@ export declare function validateSettingsPatch(body: Record<string, unknown>): {
         weekdaysOnly: boolean;
     };
     retentionDays?: number;
+    nlp?: {
+        enabled: boolean;
+    };
 };

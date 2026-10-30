@@ -45,6 +45,10 @@ export interface RouteContext {
     archiveFs?: ArchiveFs;
     /** Record the browser Notification capability reported by the client. */
     setSystemNotification?: (granted: boolean) => void;
+    /** LLM service for natural-language parsing (F10); absent on old hosts. */
+    llm?: unknown;
+    /** Default-model service used to pick the parse route (F10). */
+    agentDefaultModel?: unknown;
 }
 /** One route registration. */
 export interface RouteDefinition {

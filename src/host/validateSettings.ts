@@ -25,6 +25,7 @@ export function validateSettingsPatch(body: Record<string, unknown>): {
   defaultChannels?: ('overlay' | 'system')[]
   dnd?: { enabled: boolean; start: string; end: string; weekdaysOnly: boolean }
   retentionDays?: number
+  nlp?: { enabled: boolean }
 } {
   const patch: ReturnType<typeof validateSettingsPatch> = {}
   if (body['timeZone'] !== undefined) patch.timeZone = validateTimeZone(body['timeZone'])
@@ -52,6 +53,15 @@ export function validateSettingsPatch(body: Record<string, unknown>): {
       })
     }
     patch.defaultChannels = [...new Set(channels)]
+  }
+  if (body['nlp'] !== undefined) {
+    const raw = body['nlp']
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new ValidationError('invalid_argument', 'nlp must be an object', { field: 'nlp' })
+    }
+    if ((raw as Record<string, unknown>)['enabled'] !== undefined) {
+      patch.nlp = { enabled: (raw as Record<string, unknown>)['enabled'] === true }
+    }
   }
   if (body['dnd'] !== undefined) {
     const raw = body['dnd']

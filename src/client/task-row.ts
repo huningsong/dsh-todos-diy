@@ -9,7 +9,7 @@
 import * as React from 'react'
 
 import type { TaskView } from '../../src/host/taskView'
-import { PinGlyph } from './ui'
+import { CheckGlyph, PinGlyph } from './ui'
 import { formatInZone } from './format'
 import { ruleSummary } from './task-summary'
 
@@ -66,9 +66,11 @@ export function TaskRow(props: TaskRowProps) {
   const due = deadlineText(task, t)
   const isPaused = task.status === 'paused'
   const nextText =
-    task.nextAt === null
-      ? t('task.noNext')
-      : t('task.nextAt', { time: formatInZone(task.nextAt, task.timeZone) })
+    task.kind === 'recurring'
+      ? task.nextAt === null
+        ? t('task.noNext')
+        : t('task.nextAt', { time: formatInZone(task.nextAt, task.timeZone) })
+      : null
 
   const rowClass = `dtd-row${task.pinned ? ' pinned' : ''}`
 
@@ -89,16 +91,21 @@ export function TaskRow(props: TaskRowProps) {
         }
       },
     },
-    h('button', {
-      type: 'button',
-      className: 'dtd-check',
-      'aria-label': t('task.complete'),
-      disabled: props.readOnly === true,
-      onClick: (event: React.MouseEvent) => {
-        event.stopPropagation()
-        props.onComplete()
+    h(
+      'button',
+      {
+        type: 'button',
+        className: 'dtd-check',
+        'aria-label': t('task.complete'),
+        title: t('task.complete'),
+        disabled: props.readOnly === true,
+        onClick: (event: React.MouseEvent) => {
+          event.stopPropagation()
+          props.onComplete()
+        },
       },
-    }),
+      h(CheckGlyph, { size: 10 }),
+    ),
     h(
       'div',
       { className: 'dtd-rowMain' },
@@ -136,6 +143,7 @@ export function TaskRow(props: TaskRowProps) {
           type: 'button',
           className: 'dtd-iconBtn',
           'aria-label': task.pinned ? t('task.unpin') : t('task.pin'),
+          title: task.pinned ? t('task.unpin') : t('task.pin'),
           'aria-pressed': task.pinned,
           onClick: props.onPin,
         },

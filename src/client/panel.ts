@@ -7,8 +7,10 @@
 import * as React from 'react'
 
 import type { TaskView } from '../../src/host/taskView'
-import { api, ApiError, type CountsPayload, type SettingsPayload, type ViewName } from './api'
+import { api, ApiError, type CountsPayload, type NlpParsePayload, type SettingsPayload, type ViewName } from './api'
 import { TaskEditor, draftFromTask, draftToPayload, emptyDraft, type TaskDraft } from './task-editor'
+import { PanelToolbar } from './panel-toolbar'
+import { TaskContextMenu } from './panel-menu'
 import { TaskRow } from './task-row'
 import { SettingsModal } from './settings-modal'
 import { TaskHistoryModal } from './task-history'
@@ -18,18 +20,9 @@ import { usePanelShortcuts } from './panel-shortcuts'
 import { PanelHeader, STAGE_VIEWS, FILTER_VIEWS } from './panel-header'
 import { buildExamples } from './examples'
 import { TaskList } from './task-list'
-import {
-  ContextMenu,
-  Modal,
-  PlusGlyph,
-  SearchGlyph,
-  TodoGlyph,
-  browserToday,
-} from './ui'
+import { Modal, PlusGlyph, SearchGlyph, TodoGlyph, browserToday } from './ui'
 
 const h = React.createElement
-
-
 
 /** Props injected by the slot system. */
 export interface PanelProps {
@@ -55,7 +48,13 @@ export function TodoPanel(props: PanelProps) {
   const [settings, setSettings] = React.useState<SettingsPayload | null>(null)
   const [phase, setPhase] = React.useState<'loading' | 'ready' | 'error'>('loading')
   const [errorCode, setErrorCode] = React.useState<string>('internal_error')
-  const [editor, setEditor] = React.useState<{ draft: TaskDraft; id: string | null; revision: number | null } | null>(null)
+  const [editor, setEditor] = React.useState<{
+    draft: TaskDraft
+    id: string | null
+    revision: number | null
+    fieldStatus?: Record<string, 'explicit' | 'default' | 'missing'>
+    banner?: string
+  } | null>(null)
   const [menu, setMenu] = React.useState<{ x: number; y: number; task: TaskView } | null>(null)
   const [toast, setToast] = React.useState<ToastState | null>(null)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
@@ -231,12 +230,14 @@ export function TodoPanel(props: PanelProps) {
     phase,
     errorCode,
     items,
+    search,
     today,
     t,
     firstRun,
     examples: examples(),
     onRetry: () => void load(view, search),
     onNew: openNew,
+    onClearSearch: () => setSearch(''),
     onUseExample: useExample,
     readOnly,
     onOpen: openEdit,
@@ -270,23 +271,31 @@ export function TodoPanel(props: PanelProps) {
       onNew: openNew,
       onSelect: setView,
     }),
-    h(
-      'div',
-      { className: 'dtd-toolbar' },
-      h(
-        'div',
-        { className: 'dtd-search' },
-        h(SearchGlyph, {}),
-        h('input', {
-          ref: searchRef,
-          type: 'search',
-          value: search,
-          placeholder: t('panel.searchPlaceholder'),
-          'aria-label': t('panel.search'),
-          onChange: (event: React.ChangeEvent<HTMLInputElement>) => setSearch(event.target.value),
+    h(PanelToolbar, {
+      t,
+      search,
+      onSearch: setSearch,
+      searchRef,
+      nlpEnabled: settings?.nlp?.enabled === true,
+      timeZone: settings?.timeZone ?? 'Asia/Shanghai',
+      onParsed: (draft: TaskDraft, result: NlpParsePayload) =>
+        setEditor({
+          draft,
+          id: null,
+          revision: null,
+          fieldStatus: result.fieldStatus,
+          banner:
+            result.missingRequired.length > 0
+              ? t('nlp.missing', { fields: result.missingRequired.join('、') })
+              : t('nlp.banner'),
         }),
-      ),
-    ),
+      onDegraded: (text: string) =>
+        setEditor({
+          draft: { ...emptyDraft(settings?.timeZone ?? 'Asia/Shanghai'), kind: 'once', title: text.slice(0, 200), startAtSource: 'created' },
+          id: null,
+          revision: null,
+        }),
+    }),
     h(TaskList, buildTaskListProps()),
     editor === null
       ? null
@@ -294,6 +303,8 @@ export function TodoPanel(props: PanelProps) {
           initial: editor.draft,
           editingId: editor.id,
           editingRevision: editor.revision,
+          fieldStatus: editor.fieldStatus,
+          banner: editor.banner,
           t,
           onClose: () => setEditor(null),
           onSaved: () => {
@@ -304,36 +315,24 @@ export function TodoPanel(props: PanelProps) {
         }),
     menu === null
       ? null
-      : h(ContextMenu, {
+      : h(TaskContextMenu, {
+          t,
+          task: menu.task,
           x: menu.x,
           y: menu.y,
           onClose: () => setMenu(null),
-          items: [
-            { label: t('task.edit'), onSelect: () => openEdit(menu.task) },
-            {
-              // F4.9: duplicate copies the rule/window and notification settings
-              // but starts with a clean state block and a new id.
-              label: t('task.copy'),
-              onSelect: () =>
-                void mutate(async () => {
-                  const payload = draftToPayloadOf(draftFromTask(menu.task, settings?.timeZone ?? 'Asia/Shanghai'))
-                  delete payload['id']
-                  await api.create({ ...payload, title: `${menu.task.title}${t('task.copySuffix')}` })
-                }),
-            },
-            {
-              // F8.14: one immediate reminder via `/tasks/remind`; this does
-              // not touch the rule or the fired markers.
-              label: t('task.remindNow'),
-              onSelect: () => void mutate(() => api.remind(menu.task.id), t('toast.reminded')),
-            },
-            {
-              // F4.19/F8.14: history is the delivery log filtered to this task.
-              label: t('task.history'),
-              onSelect: () => setHistory(menu.task),
-            },
-            { label: t('task.delete'), danger: true, onSelect: () => setConfirmDelete(menu.task) },
-          ],
+          onEdit: () => openEdit(menu.task),
+          onPin: () =>
+            void mutate(() => api.pin(menu.task.id, !menu.task.pinned), menu.task.pinned ? t('toast.unpinned') : t('toast.pinned')),
+          onDuplicate: () =>
+            void mutate(async () => {
+              const payload = draftToPayloadOf(draftFromTask(menu.task, settings?.timeZone ?? 'Asia/Shanghai'))
+              delete payload['id']
+              await api.create({ ...payload, title: `${menu.task.title}${t('task.copySuffix')}` })
+            }),
+          onRemind: () => void mutate(() => api.remind(menu.task.id), t('toast.reminded')),
+          onHistory: () => setHistory(menu.task),
+          onDelete: () => setConfirmDelete(menu.task),
         }),
     history === null ? null : h(TaskHistoryModal, { task: history, t, onClose: () => setHistory(null) }),
     confirmDelete === null

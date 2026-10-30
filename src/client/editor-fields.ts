@@ -24,6 +24,19 @@ export interface FieldProps {
   draft: TaskDraft
   update: UpdateFn
   t: Translate
+  /** F10.3 provenance per field: default values and missing required fields. */
+  fieldStatus?: Record<string, 'explicit' | 'default' | 'missing'>
+}
+
+/** Small "default"/"needed" badge shown next to a parsed field (F10.3). */
+function statusBadge(props: FieldProps, field: string): React.ReactNode {
+  const status = props.fieldStatus?.[field]
+  if (status !== 'default' && status !== 'missing') return null
+  return h(
+    'span',
+    { className: `dtd-field-badge is-${status}` },
+    props.t(status === 'default' ? 'nlp.default' : 'nlp.needsInput'),
+  )
 }
 
 /** Extra props for the one-off window fields (FIX-04 field-level errors). */
@@ -37,7 +50,8 @@ export interface OnceFieldProps extends FieldProps {
  * @param props - Draft, updater and translator.
  * @returns React child list.
  */
-export function RuleFields({ draft, update, t }: FieldProps): React.ReactNode {
+export function RuleFields(props: FieldProps): React.ReactNode {
+  const { draft, update, t } = props
   const dateChips = (field: 'skipDates' | 'extraWorkdays', label: string): React.ReactNode =>
     h(
       'div',
@@ -120,7 +134,7 @@ export function RuleFields({ draft, update, t }: FieldProps): React.ReactNode {
           h(
             'div',
             { className: 'dtd-field' },
-            h('span', { className: 'dtd-label' }, t('form.time')),
+            h('span', { className: 'dtd-label' }, t('form.time'), statusBadge(props, 'time')),
             h('input', {
               type: 'time',
               className: 'dtd-input',
@@ -133,7 +147,7 @@ export function RuleFields({ draft, update, t }: FieldProps): React.ReactNode {
             ? h(
                 'div',
                 { className: 'dtd-field' },
-                h('span', { className: 'dtd-label' }, t('form.weekdays')),
+                h('span', { className: 'dtd-label' }, t('form.weekdays'), statusBadge(props, 'weekdays')),
                 h(
                   'div',
                   { className: 'dtd-segment' },
@@ -163,7 +177,7 @@ export function RuleFields({ draft, update, t }: FieldProps): React.ReactNode {
             ? h(
                 'div',
                 { className: 'dtd-field' },
-                h('span', { className: 'dtd-label' }, t('form.monthDays')),
+                h('span', { className: 'dtd-label' }, t('form.monthDays'), statusBadge(props, 'monthDays')),
                 h('input', {
                   className: 'dtd-input',
                   value: draft.monthDays.join(','),
@@ -239,7 +253,8 @@ export function RuleFields({ draft, update, t }: FieldProps): React.ReactNode {
  * @param props - Draft, updater and translator.
  * @returns React child list.
  */
-export function OnceFields({ draft, update, t, fieldErrors }: OnceFieldProps): React.ReactNode {
+export function OnceFields(props: OnceFieldProps): React.ReactNode {
+  const { draft, update, t, fieldErrors } = props
   return [
     h(
       'div',
@@ -247,7 +262,7 @@ export function OnceFields({ draft, update, t, fieldErrors }: OnceFieldProps): R
       h(
         'div',
         { className: 'dtd-field' },
-        h('span', { className: 'dtd-label' }, t('form.startAt')),
+        h('span', { className: 'dtd-label' }, t('form.startAt'), statusBadge(props, 'startAt')),
         h('input', {
           type: 'datetime-local',
           className: 'dtd-input',
@@ -267,7 +282,7 @@ export function OnceFields({ draft, update, t, fieldErrors }: OnceFieldProps): R
       h(
         'div',
         { className: 'dtd-field' },
-        h('span', { className: 'dtd-label' }, t('form.endAt')),
+        h('span', { className: 'dtd-label' }, t('form.endAt'), statusBadge(props, 'endAt')),
         h('input', {
           type: 'datetime-local',
           className: 'dtd-input',
@@ -304,7 +319,8 @@ export function OnceFields({ draft, update, t, fieldErrors }: OnceFieldProps): R
  * @param props - Draft, updater and translator.
  * @returns React child list.
  */
-export function BasicFields({ draft, update, t }: FieldProps): React.ReactNode {
+export function BasicFields(props: FieldProps): React.ReactNode {
+  const { draft, update, t } = props
   return [
     h(
       'div',
@@ -332,7 +348,7 @@ export function BasicFields({ draft, update, t }: FieldProps): React.ReactNode {
     h(
       'div',
       { className: 'dtd-field' },
-      h('span', { className: 'dtd-label' }, t('form.name')),
+      h('span', { className: 'dtd-label' }, t('form.name'), statusBadge(props, 'title')),
       h('input', {
         className: 'dtd-input',
         value: draft.title,

@@ -35,6 +35,7 @@ import {
 } from './delivery.js'
 import { occurrenceKey as makeOccurrenceKey } from './rules/occurrence.js'
 import { transferRoutes } from './transferRoutes.js'
+import { createNlpRoutes } from './nlp/routes.js'
 import { archiveRoutes } from './archiveRoutes.js'
 import { isWithinDnd } from './dnd.js'
 
@@ -67,6 +68,10 @@ export interface RouteContext {
   archiveFs?: ArchiveFs
   /** Record the browser Notification capability reported by the client. */
   setSystemNotification?: (granted: boolean) => void
+  /** LLM service for natural-language parsing (F10); absent on old hosts. */
+  llm?: unknown
+  /** Default-model service used to pick the parse route (F10). */
+  agentDefaultModel?: unknown
 }
 
 /** One route registration. */
@@ -336,6 +341,7 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
       }),
     },
     ...transferRoutes(ctx, options),
+    ...createNlpRoutes(ctx),
     {
       kind: 'exact',
       path: `${PREFIX}/settings/get`,

@@ -43,7 +43,7 @@ export const name = 'dsh-todos-diy'
 export const inject = ['timer']
 
 /** Plugin version reported by `/health`; kept in sync with `package.json`. */
-export const PLUGIN_VERSION = '0.2.1'
+export const PLUGIN_VERSION = '0.4.0'
 
 const LOG_PREFIX = 'todos-diy:'
 
@@ -297,6 +297,23 @@ export function apply(ctx: any, rawConfig: unknown): void {
   /** `/health` is exempt from the login gate (§7.8) but stays loopback-only. */
   const loopbackGate = (req: any): 401 | 403 | undefined => loopbackOnly(req)
 
+  /** F10: services resolved through `ctx.inject` so cordis hands us live values. */
+  const nlpServices: { llm?: unknown; agentDefaultModel?: unknown } = {}
+  try {
+    ctx.inject(['llm'], (llmCtx: any) => {
+      nlpServices.llm = llmCtx.llm
+    })
+  } catch {
+    // Older hosts without an LLM service: the parse route degrades.
+  }
+  try {
+    ctx.inject(['agentDefaultModel'], (modelCtx: any) => {
+      nlpServices.agentDefaultModel = modelCtx.agentDefaultModel
+    })
+  } catch {
+    // Optional service.
+  }
+
   const routeContext = {
     repo,
     store,
@@ -309,6 +326,14 @@ export function apply(ctx: any, rawConfig: unknown): void {
     gate,
     loopbackGate,
     setSystemNotification: (granted: boolean) => health.setSystemNotificationCapability(granted),
+    // F10: resolved lazily so the plugin also loads in compositions without an
+    // LLM service (the parse route then degrades to a plain form).
+    get llm() {
+      return nlpServices.llm
+    },
+    get agentDefaultModel() {
+      return nlpServices.agentDefaultModel
+    },
   }
 
   ctx.inject(['webServer'], (webCtx: any) => {

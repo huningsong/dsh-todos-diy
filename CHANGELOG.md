@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0] 2026-10-30 — 自然语言录入（F10）
+
+### Added
+- `POST /parse`：用 `ctx.llm.stream()` 把一句中文/英文解析成任务草稿；返回 `draft/fieldStatus/missingRequired/unsupported/confidence`（F10.1–F10.5）。
+- 任务列表「✨ 自然语言新建」入口；解析结果填入现有编辑器，用户确认后保存（F10.2）。
+- 字段三态徽标：`explicit` / `default`（默认）/ `missing`（需补充）（F10.3）。
+- 单时间句子默认 `endAt=+1h`、`endReminder=false`，并标为默认值（F10.4）。
+- 设置项 `settings.nlp.enabled`（默认关闭）；关闭时 `/parse` 返回 `nlp_disabled`（F10.7）。
+- 模型不可用 / 超时 8s / 非法 JSON → 原文回填普通表单，接口永不 5xx（F10.5）。
+- 能力边界（每 N 天/每 N 小时/每月最后一个工作日/农历等）返回 `unsupported`（F10.8）。
+- 模型路由：`agentDefaultModel.currentSelection()` → 首个可用 provider/model → 降级（F10.10）。
+
+### Changed
+- NF8 隐私口径修订：默认不联网；仅用户手动开启 F10 后发送当次解析文本，不发送任务库/设置/历史。
+- 版本号 `0.4.0`（0.3.0 已规划为周报/月报）；`/health.capabilities.agentTools` 仍为 12。
+- 路由表 28 → 29（新增 `/parse`）。
+
 ## [0.2.1] 2026-10-30 — Agent 体验补齐（F7.14–F7.18）
 
 ### Added

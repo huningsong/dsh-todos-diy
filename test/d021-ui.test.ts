@@ -156,6 +156,6 @@ describe('FIX-05: completing a never-fired recurring task skips the next run', (
 describe('P2-F: search placeholder states the scope', () => {
   it('uses the current-view wording', () => {
     assert.equal((zh as Record<string, string>)['panel.searchPlaceholder'], '在当前视图内搜索')
-    assert.ok(clientSource('panel.ts').includes("t('panel.searchPlaceholder')"))
+    assert.ok(clientSource('panel-toolbar.ts').includes("t('panel.searchPlaceholder')"))
   })
 })

@@ -38,6 +38,10 @@ export interface Settings {
     defaultChannels: ('overlay' | 'system')[];
     dnd: DndSettings;
     retentionDays: number;
+    /** Natural-language parsing (F10.7): off by default, user must opt in. */
+    nlp: {
+        enabled: boolean;
+    };
 }
 /** Facts about a corrupt/lost file that the UI must surface (F6.7). */
 export interface RecoveryRecord {

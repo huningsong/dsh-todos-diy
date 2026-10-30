@@ -15,8 +15,8 @@ const here = dirname(fileURLToPath(import.meta.url))
 const matrix = readFileSync(join(here, '../../docs/testing/AC-覆盖矩阵.md'), 'utf8')
 
 describe('AC coverage matrix', () => {
-  it('lists every acceptance criterion AC-01…AC-50 exactly once', () => {
-    for (let index = 1; index <= 50; index += 1) {
+  it('lists every acceptance criterion AC-01…AC-58 exactly once', () => {
+    for (let index = 1; index <= 58; index += 1) {
       const id = `AC-${String(index).padStart(2, '0')}`
       const occurrences = matrix.split('\n').filter((line) => line.startsWith(`| ${id} |`)).length
       assert.equal(occurrences, 1, `${id} must appear exactly once in the matrix`)

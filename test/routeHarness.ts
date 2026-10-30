@@ -29,6 +29,10 @@ export interface RouteHarnessOptions {
   rejection?: number
   /** Simulate a host with no `connection` service. */
   noConnection?: boolean
+  /** Fake LLM service for the F10 parse route. */
+  llm?: unknown
+  /** Fake default-model service for the F10 parse route. */
+  agentDefaultModel?: unknown
 }
 
 /**
@@ -44,7 +48,7 @@ export function routesFor(now: Date, options: RouteHarnessOptions = {}) {
   store.load()
   const repo = createRepository({ store, now: () => now, debounceMs: 0, holidays })
   const config = { timeZone: 'Asia/Shanghai', tickIntervalMs: 60_000, graceMinutes: 5 }
-  const health = createHealthState('0.2.1', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
+  const health = createHealthState('0.4.0', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
   health.setStorage(store.paths.stateFile, store.stateName, store.lastRecovery)
 
   const ctx: RouteContext = {
@@ -68,6 +72,8 @@ export function routesFor(now: Date, options: RouteHarnessOptions = {}) {
       return options.rejection === undefined ? undefined : (options.rejection as 401 | 403)
     },
     loopbackGate: () => undefined,
+    llm: options.llm,
+    agentDefaultModel: options.agentDefaultModel,
   }
   return { ctx, routes: createRoutes(ctx), repo, store, fs }
 }

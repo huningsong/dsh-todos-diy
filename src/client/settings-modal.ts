@@ -28,11 +28,13 @@ export function SettingsModal(props: {
     defaultChannels: ['overlay'] as ('overlay' | 'system')[],
     dnd: { enabled: false, start: '22:00', end: '08:00', weekdaysOnly: false },
     retentionDays: 90,
+    nlp: { enabled: false },
   }
   const [timeZone, setTimeZone] = React.useState(base.timeZone)
   const [graceMinutes, setGraceMinutes] = React.useState(base.graceMinutes)
   const [dnd, setDnd] = React.useState(base.dnd)
   const [channels, setChannels] = React.useState(base.defaultChannels)
+  const [nlpEnabled, setNlpEnabled] = React.useState(base.nlp?.enabled === true)
   const [error, setError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
 
@@ -45,6 +47,7 @@ export function SettingsModal(props: {
         graceMinutes,
         dnd,
         defaultChannels: channels.includes('overlay') ? channels : ['overlay', ...channels],
+        nlp: { enabled: nlpEnabled },
       })
       props.onSaved(saved)
     } catch (caught) {
@@ -168,6 +171,19 @@ export function SettingsModal(props: {
         }),
         t('form.notify.system'),
       ),
+    ),
+    h(
+      'div',
+      { className: 'dtd-field' },
+      h('label', { className: 'dtd-check-row' },
+        h('input', {
+          type: 'checkbox',
+          checked: nlpEnabled,
+          onChange: (event: React.ChangeEvent<HTMLInputElement>) => setNlpEnabled(event.target.checked),
+        }),
+        t('settings.nlpEnabled'),
+      ),
+      h('span', { className: 'dtd-hint' }, t('settings.nlpHint')),
     ),
     h(
       'div',

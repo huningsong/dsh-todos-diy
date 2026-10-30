@@ -25,6 +25,7 @@ function str(value: unknown, fallback: string): string {
  */
 export function coerceSettings(raw: Record<string, unknown>): Settings {
   const dndRaw = isRecord(raw['dnd']) ? raw['dnd'] : {}
+  const nlpRaw = isRecord(raw['nlp']) ? raw['nlp'] : {}
   const channelsRaw = Array.isArray(raw['defaultChannels']) ? raw['defaultChannels'] : ['overlay']
   const channels = channelsRaw.filter(
     (channel): channel is 'overlay' | 'system' => channel === 'overlay' || channel === 'system',
@@ -42,6 +43,7 @@ export function coerceSettings(raw: Record<string, unknown>): Settings {
       weekdaysOnly: dndRaw['weekdaysOnly'] === true,
     },
     retentionDays: clampInt(raw['retentionDays'], 1, 3650, 90),
+    nlp: { enabled: nlpRaw['enabled'] === true },
   }
 }
 

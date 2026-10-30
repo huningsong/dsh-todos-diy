@@ -21,6 +21,7 @@ export type ErrorCode =
   | 'forbidden'
   | 'internal_error'
   | 'payload_too_large'
+  | 'nlp_disabled'
   | 'unauthorized'
 
 /** A validation failure carrying its envelope code. */

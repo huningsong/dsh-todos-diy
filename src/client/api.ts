@@ -82,6 +82,18 @@ export interface SettingsPayload {
   defaultChannels: ('overlay' | 'system')[]
   dnd: { enabled: boolean; start: string; end: string; weekdaysOnly: boolean }
   retentionDays: number
+  nlp: { enabled: boolean }
+}
+
+/** One parsed draft from `POST /parse` (F10). */
+export interface NlpParsePayload {
+  draft: Record<string, unknown>
+  fieldStatus: Record<string, 'explicit' | 'default' | 'missing'>
+  missingRequired: string[]
+  unsupported: string[]
+  confidence: number
+  degraded: boolean
+  reason?: string
 }
 
 /** One card from `GET /due`. */
@@ -241,6 +253,10 @@ export const api = {
   /** Update settings. */
   updateSettings(patch: Partial<SettingsPayload>): Promise<SettingsPayload> {
     return request<SettingsPayload>('/settings/update', { method: 'POST', body: JSON.stringify(patch) })
+  },
+  /** Parse one natural-language sentence into a draft (F10.1). */
+  parse(text: string): Promise<NlpParsePayload> {
+    return request<NlpParsePayload>('/parse', { method: 'POST', body: JSON.stringify({ text }) })
   },
   /** Poll pending reminder cards; `dndSummary` merges reminders held by DND. */
   due(): Promise<{

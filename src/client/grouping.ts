@@ -6,11 +6,24 @@
  * testable on their own.
  */
 
-import type { TaskView } from '../../src/host/taskView'
+import type { TaskView } from '../../src/host/taskView.js'
 
 /** Grouping for the todo view. */
 const GROUP_ORDER = ['pinned', 'high', 'mid', 'low', 'none', 'paused'] as const
 export type GroupKey = (typeof GROUP_ORDER)[number]
+
+/** Maximum rows visible in one group before the user expands it (UX-19). */
+export const GROUP_PAGE_SIZE = 5
+
+/**
+ * Apply the group-page limit.
+ * @param items - Group items in display order.
+ * @param expanded - Whether the user expanded this group.
+ * @returns All items when expanded or short enough; otherwise the first page.
+ */
+export function visibleGroupItems<T>(items: readonly T[], expanded: boolean): readonly T[] {
+  return expanded || items.length <= GROUP_PAGE_SIZE ? items : items.slice(0, GROUP_PAGE_SIZE)
+}
 
 /**
  * Group the todo items the way the panel renders them (F8.13 / D-21 / D-22).

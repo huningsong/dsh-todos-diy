@@ -46,6 +46,8 @@ export interface Settings {
   defaultChannels: ('overlay' | 'system')[]
   dnd: DndSettings
   retentionDays: number
+  /** Natural-language parsing (F10.7): off by default, user must opt in. */
+  nlp: { enabled: boolean }
 }
 
 /** Facts about a corrupt/lost file that the UI must surface (F6.7). */
@@ -112,6 +114,7 @@ export function defaultSettings(overrides: Partial<Settings> = {}): Settings {
     defaultChannels: overrides.defaultChannels ?? ['overlay'],
     dnd: overrides.dnd ?? { enabled: false, start: '22:00', end: '08:00', weekdaysOnly: false },
     retentionDays: overrides.retentionDays ?? 90,
+    nlp: overrides.nlp ?? { enabled: false },
   }
 }
 

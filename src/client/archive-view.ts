@@ -10,6 +10,7 @@ import * as React from 'react'
 
 import type { TaskView } from '../../src/host/taskView'
 import { api, ApiError } from './api'
+import { CollapsibleRows } from './list-collapse'
 import { TaskRow } from './task-row'
 import { formatInZone } from './ui'
 
@@ -122,10 +123,10 @@ export function ArchiveView(props: ArchiveViewProps) {
     selected === null
       ? props.currentItems.length === 0
         ? h('div', { className: 'dtd-center' }, h('p', null, t('empty.done')))
-        : h(
-            'ul',
-            { className: 'dtd-rows' },
-            props.currentItems.map((task) =>
+        : h(CollapsibleRows, {
+            items: props.currentItems,
+            t,
+            renderItem: (task: TaskView) =>
               h(TaskRow, {
                 key: task.id,
                 task,
@@ -141,8 +142,7 @@ export function ArchiveView(props: ArchiveViewProps) {
                 onDelete: () => undefined,
                 onRemindNow: () => undefined,
               }),
-            ),
-          )
+          })
       : phase === 'loading'
         ? h('div', { className: 'dtd-center' }, h('p', null, t('archive.loading')))
         : phase === 'error'
@@ -150,31 +150,34 @@ export function ArchiveView(props: ArchiveViewProps) {
           : items.length === 0
             ? h('div', { className: 'dtd-center' }, h('p', null, t('archive.empty')))
             : h(
-                'ul',
-                { className: 'dtd-rows' },
-                items.map((task) =>
-                  h(
-                    'li',
-                    { key: task.id, className: 'dtd-row', 'data-testid': 'archive-row' },
+                'div',
+                null,
+                h(CollapsibleRows, {
+                  items,
+                  t,
+                  renderItem: (task: TaskView) =>
                     h(
-                      'div',
-                      { className: 'dtd-rowMain' },
-                      h('div', { className: 'dtd-rowTitle' }, h('span', { className: 't' }, task.title)),
+                      'li',
+                      { key: task.id, className: 'dtd-row', 'data-testid': 'archive-row' },
                       h(
                         'div',
-                        { className: 'dtd-rowSub' },
-                        h('span', null, task.doneAt === null ? '' : formatInZone(task.doneAt, task.timeZone)),
-                        h('span', { className: 'sep' }, '·'),
-                        h('span', null, task.timeZone),
+                        { className: 'dtd-rowMain' },
+                        h('div', { className: 'dtd-rowTitle' }, h('span', { className: 't' }, task.title)),
+                        h(
+                          'div',
+                          { className: 'dtd-rowSub' },
+                          h('span', null, task.doneAt === null ? '' : formatInZone(task.doneAt, task.timeZone)),
+                          h('span', { className: 'sep' }, '·'),
+                          h('span', null, task.timeZone),
+                        ),
+                      ),
+                      h(
+                        'button',
+                        { type: 'button', className: 'dtd-btn small ghost', onClick: () => void restore(task) },
+                        t('archive.restore'),
                       ),
                     ),
-                    h(
-                      'button',
-                      { type: 'button', className: 'dtd-btn small ghost', onClick: () => void restore(task) },
-                      t('archive.restore'),
-                    ),
-                  ),
-                ),
+                }),
                 cursor === null
                   ? null
                   : h(

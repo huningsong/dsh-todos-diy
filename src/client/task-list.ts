@@ -14,6 +14,7 @@ import { groupItems, type GroupKey } from './grouping'
 import type { TaskDraft } from './task-editor'
 import { TaskRow } from './task-row'
 import { TodoGlyph } from './ui'
+import { CollapsibleRows } from './list-collapse'
 import { ArchiveView } from './archive-view'
 
 const h = React.createElement
@@ -24,12 +25,16 @@ export interface TaskListProps {
   phase: 'loading' | 'ready' | 'error'
   errorCode: string
   items: TaskView[]
+  /** Current search query; used to distinguish an empty view from no matches. */
+  search: string
   today: string
   t: (key: string, params?: Record<string, string | number>) => string
   firstRun: boolean
   examples: { key: string; label: string; draft: TaskDraft }[]
   onRetry: () => void
   onNew: () => void
+  /** Clear the search box from the no-match state. */
+  onClearSearch: () => void
   onUseExample: (draft: TaskDraft) => void
   onOpen: (task: TaskView) => void
   onComplete: (task: TaskView) => void
@@ -113,14 +118,17 @@ export function TaskList(props: TaskListProps) {
   }
 
   if (props.items.length === 0) {
+    const searching = props.search.trim() !== ''
     return h(
       'div',
       { className: 'dtd-center', 'data-testid': 'todos-diy-empty' },
       h('span', { className: 'glyph' }, h(TodoGlyph, { size: 40 })),
-      h('h2', null, t(`empty.${view}`)),
-      h('p', null, t('empty.hint')),
-      props.firstRun
-        ? h(
+      h('h2', null, searching ? t('empty.noMatch', { query: props.search.trim() }) : t(`empty.${view}`)),
+      h('p', null, searching ? t('empty.noMatchHint') : t('empty.hint')),
+      searching
+        ? h('button', { type: 'button', className: 'dtd-btn ghost', onClick: props.onClearSearch }, t('empty.clearSearch'))
+        : props.firstRun
+          ? h(
             'div',
             null,
             h('p', { style: { marginTop: 12 } }, t('empty.firstTitle')),
@@ -150,33 +158,29 @@ export function TaskList(props: TaskListProps) {
     )
   }
 
-  // The four stage views and the recurring filter all group by priority;
-  // the paused filter is one flat "已暂停" group.
-  if (view !== 'paused') {
-    return h(
-      'div',
-      { className: 'dtd-body' },
-      groupItems(props.items).map((group) =>
-        h(
-          'div',
-          { className: 'dtd-group', key: group.key },
-          h(
-            'div',
-            { className: 'dtd-groupHead' },
-            h('b', null, group.key === 'pinned' ? `📌 ${t(`group.${group.key}`)}` : t(`group.${group.key}`)),
-            h('span', { className: 'n' }, String(group.items.length)),
-            group.key === 'pinned' ? h('span', { className: 'hint' }, t('group.pinnedHint')) : null,
-          ),
-          h('ul', { className: 'dtd-rows' }, group.items.map((task) => renderRow(task, props))),
-        ),
-      ),
-    )
-  }
-
+  // Every view groups by priority; the paused filter naturally becomes one
+  // "已暂停" group. Each group is paged to five rows until expanded (UX-19).
   return h(
     'div',
     { className: 'dtd-body' },
-    h('ul', { className: 'dtd-rows' }, props.items.map((task) => renderRow(task, props))),
+    groupItems(props.items).map((group) =>
+      h(
+        'div',
+        { className: 'dtd-group', key: `${view}:${props.search}:${group.key}` },
+        h(
+          'div',
+          { className: 'dtd-groupHead' },
+          h('b', null, group.key === 'pinned' ? `📌 ${t(`group.${group.key}`)}` : t(`group.${group.key}`)),
+          h('span', { className: 'n' }, String(group.items.length)),
+          group.key === 'pinned' ? h('span', { className: 'hint' }, t('group.pinnedHint')) : null,
+        ),
+        h(CollapsibleRows, {
+          items: group.items,
+          renderItem: (task: TaskView) => renderRow(task, props),
+          t,
+        }),
+      ),
+    ),
   )
 }
 

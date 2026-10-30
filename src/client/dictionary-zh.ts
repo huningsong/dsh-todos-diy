@@ -22,6 +22,8 @@ export const zh = {
   'group.none': '无优先级',
   'group.paused': '已暂停',
   'group.pinnedHint': '完成后自动取消置顶',
+  'group.showMore': '展开剩余 {n} 条',
+  'group.showLess': '收起',
 
   'priority.high': '高',
   'priority.mid': '中',
@@ -59,6 +61,9 @@ export const zh = {
 
   'empty.todo': '还没有待办任务',
   'empty.done': '还没有已完成的任务',
+  'empty.noMatch': '没有找到匹配“{query}”的任务',
+  'empty.noMatchHint': '清除搜索查看全部任务。',
+  'empty.clearSearch': '清除搜索',
   'empty.hint': '新建一条循环规则或单次任务，到点会在右下角提醒你。',
   'empty.firstTitle': '从这三张卡片开始',
   'empty.example1': '每个工作日 9:00 查看今日待办',
@@ -244,5 +249,18 @@ export const zh = {
   'form.endAtRequired': '结束时间为必填',
   'toast.skippedNext': '已跳过下一次提醒',
   'panel.searchPlaceholder': '在当前视图内搜索',
+  'settings.nlpEnabled': '允许自然语言新建（会把任务文本发送给模型）',
+  'settings.nlpHint': '默认关闭。开启后任务列表上方出现「✨ 自然语言新建」；原始输入不保存到任务数据。',
+  'nlp.placeholder': '一句话描述任务，例如：每周五下午5点提醒我交周报，提前10分钟',
+  'nlp.parse': '解析',
+  'nlp.parsing': '解析中…',
+  'nlp.degraded': '自动解析不可用，已保留原文，请手动补充',
+  'nlp.banner': '已按你的描述填入，请确认后保存',
+  'nlp.missing': '还需补充：{fields}',
+  'nlp.unsupported': '暂不支持：{items}',
+  'nlp.default': '默认',
+  'nlp.needsInput': '需补充',
+  'error.nlp_disabled': '自然语言解析未开启，请到设置中打开',
+  'nlp.open': '自然语言新建',
 }
 

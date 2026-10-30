@@ -22,13 +22,17 @@ export interface TaskEditorProps {
   editingId: string | null
   editingRevision: number | null
   t: (key: string, params?: Record<string, string | number>) => string
+  /** F10.3: per-field provenance from the natural-language parser. */
+  fieldStatus?: Record<string, 'explicit' | 'default' | 'missing'>
+  /** F10.4: banner summarising what still needs input. */
+  banner?: string
   onClose: () => void
   onSaved: (task: TaskView) => void
 }
 
 /** The editor modal. */
 export function TaskEditor(props: TaskEditorProps) {
-  const { t } = props
+  const { t, fieldStatus } = props
   const [draft, setDraft] = React.useState<TaskDraft>(props.initial)
   const [error, setError] = React.useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = React.useState<{ startAt?: string; endAt?: string }>({})
@@ -104,8 +108,8 @@ export function TaskEditor(props: TaskEditorProps) {
   }
 
   const ruleFields = draft.kind === 'recurring'
-    ? h(RuleFields, { draft, update, t })
-    : h(OnceFields, { draft, update, t, fieldErrors })
+    ? h(RuleFields, { draft, update, t, fieldStatus })
+    : h(OnceFields, { draft, update, t, fieldErrors, fieldStatus })
 
   return h(
     Modal,
@@ -122,8 +126,9 @@ export function TaskEditor(props: TaskEditorProps) {
         ),
       ],
     },
+    props.banner === undefined ? null : h('div', { className: 'dtd-nlpBanner', role: 'status' }, props.banner),
     error === null ? null : h('div', { className: 'dtd-error', role: 'alert' }, error),
-    h(BasicFields, { draft, update, t }),
+    h(BasicFields, { draft, update, t, fieldStatus }),
     ruleFields,
     h(
       'div',

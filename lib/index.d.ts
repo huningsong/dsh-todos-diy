@@ -20,7 +20,7 @@ export declare const name = "dsh-todos-diy";
  */
 export declare const inject: string[];
 /** Plugin version reported by `/health`; kept in sync with `package.json`. */
-export declare const PLUGIN_VERSION = "0.2.1";
+export declare const PLUGIN_VERSION = "0.4.0";
 /**
  * Mount the plugin on the host context.
  * @param ctx - Cordis context.

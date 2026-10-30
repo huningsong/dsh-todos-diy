@@ -1,6 +1,6 @@
 # AC 覆盖矩阵（v1.3 / 0.2.0）
 
-> 对应 `docs/requirements/需求-v1.md` 第 9 章 AC-01～AC-50。
+> 对应 `docs/requirements/需求-v1.md` 第 9 章 AC-01～AC-58。
 > 状态：`自动` = 有自动化用例；`脚本` = 独立验收脚本；`手工` = 仅手工 E2E。
 
 | AC | 主题 | 覆盖位置 | 状态 |
@@ -55,6 +55,14 @@
 | AC-48 | list 默认 all（F7.16） | `test/d021.test.ts` | 自动 |
 | AC-49 | remind/deliveries 工具（F7.17） | `test/d021.test.ts` | 自动 |
 | AC-50 | complete skipNext（F7.18） | `test/d021.test.ts` | 自动 |
+| AC-51 | 自然语言预填（F10.1/F10.2） | `test/f10.test.ts` + 手工 UI | 自动+手工 |
+| AC-52 | 单时间默认 endAt（F10.3/F10.4） | `test/f10.test.ts` + 手工 UI | 自动+手工 |
+| AC-53 | 循环语句解析（F10.3） | `test/f10.test.ts` + 真实模型 E2E | 自动+手工 |
+| AC-54 | 模型不可用降级（F10.5） | `test/f10.test.ts` | 自动 |
+| AC-55 | 默认关闭与 nlp_disabled（F10.7） | `test/f10.test.ts` | 自动 |
+| AC-56 | 原文不落盘（F10.6） | `test/f10.test.ts` + 手工检查 | 自动+手工 |
+| AC-57 | 能力边界 unsupported（F10.8） | `test/f10.test.ts` | 自动 |
+| AC-58 | 模型路由回退（F10.10） | `test/f10.test.ts` | 自动 |
 
 ## 说明
 

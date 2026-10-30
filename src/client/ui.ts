@@ -30,6 +30,26 @@ export function TodoGlyph({ size = 18 }: { size?: number }) {
   )
 }
 
+/** Check glyph used by the row's completion button. */
+export function CheckGlyph({ size = 11 }: { size?: number }) {
+  return h(
+    'svg',
+    {
+      width: size,
+      height: size,
+      viewBox: '0 0 16 16',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    },
+    h('path', { d: 'M3.2 8.3l2.2 2.2 7.4-7.4' }),
+  )
+}
+
 /** Bell glyph used by reminder cards. */
 export function BellGlyph({ size = 14 }: { size?: number }) {
   return h(

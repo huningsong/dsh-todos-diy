@@ -21,6 +21,7 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   read_only: 409,
   storage_read_only: 409,
   schema_mismatch: 400,
+  nlp_disabled: 409,
   storage_error: 500,
   forbidden: 403,
   internal_error: 500,
