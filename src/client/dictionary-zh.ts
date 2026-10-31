@@ -262,6 +262,7 @@ export const zh = {
   'nlp.needsInput': '需补充',
   'error.nlp_disabled': '自然语言解析未开启，请到设置中打开',
   'nlp.open': '自然语言新建',
+  'nlp.dialog.hint': '用一句话描述任务，解析后会填入编辑器，确认后再保存。支持 Ctrl/⌘ + Enter 解析。',
   'report.title': '生成报告',
   'report.tab.weekly': '周报',
   'report.tab.monthly': '月报',
@@ -313,5 +314,10 @@ export const zh = {
   'nlp.degraded.retrying': '解析中…',
   'nlp.degraded.dismiss': '关闭提示',
   'task.completeDisabled': '该状态下不可完成',
+  'list.meta': '共 {total} 条 · 已显示 {loaded} 条',
+  'list.loadMore': '加载更多',
+  'list.loadingMore': '加载中…',
+  'list.groupLoaded': '已加载 {loaded}/{total}',
+  'list.groupEmpty': '加载更多以查看',
 }
 

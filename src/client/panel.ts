@@ -22,7 +22,9 @@ import { PanelHeader, STAGE_VIEWS, FILTER_VIEWS } from './panel-header'
 import { buildExamples } from './examples'
 import { TaskList } from './task-list'
 import { SearchResultBar } from './search-result-bar'
-import { resolveSearchTarget, searchActive, type SearchScope } from './search-scope'
+import { groupTotal, resolveSearchTarget, searchActive, type SearchScope } from './search-scope'
+import { createNlpHandlers } from './panel-nlp'
+import { fetchNextPage } from './panel-pagination'
 import { Modal, PlusGlyph, SearchGlyph, TodoGlyph, browserToday } from './ui'
 
 const h = React.createElement
@@ -46,7 +48,9 @@ export function TodoPanel(props: PanelProps) {
   const [searchScope, setSearchScope] = React.useState<SearchScope>(() =>
     window.localStorage.getItem(SEARCH_SCOPE_KEY) === 'view' ? 'view' : 'all',
   )
-  const [searchTruncated, setSearchTruncated] = React.useState(false)
+  const [groupCounts, setGroupCounts] = React.useState<{ pinned: number; high: number; mid: number; low: number; none: number; paused: number } | null>(null)
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = React.useState(false)
   const [items, setItems] = React.useState<TaskView[]>([])
   const [counts, setCounts] = React.useState<CountsPayload>({ notStarted: 0, inProgress: 0, overdue: 0, done: 0, paused: 0, recurring: 0 })
   const [totals, setTotals] = React.useState({ once: 0, recurring: 0, done: 0 })
@@ -65,8 +69,14 @@ export function TodoPanel(props: PanelProps) {
   const [confirmDelete, setConfirmDelete] = React.useState<TaskView | null>(null)
   const [firstRun, setFirstRun] = React.useState(false)
   const [readOnly, setReadOnly] = React.useState(false)
+  const nlpHandlers = createNlpHandlers({
+    t,
+    timeZone: settings?.timeZone ?? 'Asia/Shanghai',
+    setEditor,
+    setDegraded,
+    setNlpHint,
+  })
   const searchRef = React.useRef<HTMLInputElement | null>(null)
-  // FIX-01: only the newest snapshot may update the panel.
   const requestSeqRef = React.useRef(0)
   const abortRef = React.useRef<AbortController | null>(null)
 
@@ -89,14 +99,14 @@ export function TodoPanel(props: PanelProps) {
       if (showSkeleton) setPhase('loading')
       try {
         const effective = resolveSearchTarget(target, searchScope, query)
-        const limit = searchActive(query) ? 200 : undefined
-        const snapshot = await api.snapshot(effective, query, controller.signal, limit)
+        const snapshot = await api.snapshot(effective, query, controller.signal, 200)
         if (seq !== requestSeqRef.current) return
         setItems(snapshot.items)
         setCounts(snapshot.counts)
         setTotals({ once: snapshot.byKind.once, recurring: snapshot.byKind.recurring, done: snapshot.totalDone })
         setNextTransitionAt(snapshot.nextTransitionAt)
-        setSearchTruncated(snapshot.nextCursor !== null)
+        setGroupCounts(snapshot.groupCounts)
+        setNextCursor(snapshot.nextCursor)
         setSettings(snapshot.settings)
         setPhase('ready')
       } catch (caught) {
@@ -112,6 +122,19 @@ export function TodoPanel(props: PanelProps) {
     },
     [view, search, searchScope],
   )
+
+  const loadMore = React.useCallback(async (): Promise<void> => {
+    if (nextCursor === null || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const snapshot = await fetchNextPage({ view, search, searchScope, cursor: nextCursor })
+      setItems((current) => [...current, ...snapshot.items])
+      setGroupCounts(snapshot.groupCounts)
+      setNextCursor(snapshot.nextCursor)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [view, search, searchScope, nextCursor, loadingMore])
 
   React.useEffect(() => {
     return () => {
@@ -172,7 +195,6 @@ export function TodoPanel(props: PanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextTransitionAt, view, search])
 
-  // Refresh when the overlay acks a card.
   React.useEffect(() => {
     const handler = (): void => {
       void load(view, search)
@@ -186,12 +208,10 @@ export function TodoPanel(props: PanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, search])
 
-  /** Open the editor for a new task. */
   const openNew = (): void => {
     setEditor({ draft: emptyDraft(settings?.timeZone ?? 'Asia/Shanghai'), id: null, revision: null })
   }
 
-  /** Open the editor for an existing task. */
   const openEdit = (task: TaskView): void => {
     setEditor({ draft: draftFromTask(task, settings?.timeZone ?? 'Asia/Shanghai'), id: task.id, revision: task.revision })
   }
@@ -220,10 +240,8 @@ export function TodoPanel(props: PanelProps) {
 
   usePanelShortcuts({ items, openNew, searchRef, onComplete })
 
-  /** First-run example cards, bound to the current zone and translator. */
   const examples = (): ReturnType<typeof buildExamples> => buildExamples(settings?.timeZone ?? 'Asia/Shanghai', t)
 
-  /** Create one example task in place. */
   const useExample = (draft: TaskDraft): void => {
     void mutate(async () => {
       await api.create(draftToPayloadOf(draft))
@@ -231,7 +249,6 @@ export function TodoPanel(props: PanelProps) {
     })
   }
 
-  /** Assemble the TaskList props once, so the JSX tree stays readable. */
   const buildTaskListProps = (): React.ComponentProps<typeof TaskList> => ({
     view,
     phase,
@@ -248,6 +265,12 @@ export function TodoPanel(props: PanelProps) {
     searchActive: searchActive(search),
     searchScope,
     onSearchAll: () => setSearchScope('all'),
+    groupCounts: groupCounts ?? undefined,
+    total: groupCounts === null ? undefined : groupTotal(groupCounts),
+    loaded: items.length,
+    hasMore: nextCursor !== null,
+    loadingMore,
+    onLoadMore: () => void loadMore(),
     onUseExample: useExample,
     readOnly,
     onOpen: openEdit,
@@ -292,39 +315,16 @@ export function TodoPanel(props: PanelProps) {
       onSearchScope: setSearchScope,
       nlpEnabled: settings?.nlp?.enabled === true,
       timeZone: settings?.timeZone ?? 'Asia/Shanghai',
-      onParsed: (draft: TaskDraft, result: NlpParsePayload) => {
-        setDegraded(null)
-        setNlpHint(null)
-        setEditor({
-          draft,
-          id: null,
-          revision: null,
-          fieldStatus: result.fieldStatus,
-          banner:
-            result.missingRequired.length > 0
-              ? t('nlp.missing', { fields: result.missingRequired.join('、') })
-              : t('nlp.banner'),
-        })
-      },
-      onDegraded: (context: { text: string; reason: string }) => {
-        const reason = normalizeDegradedReason(context.reason)
-        setDegraded({ text: context.text, reason })
-        setNlpHint(`${t('nlp.degraded.title')} · ${t(degradedReasonKey(reason))}`)
-        setEditor({
-          draft: { ...emptyDraft(settings?.timeZone ?? 'Asia/Shanghai'), kind: 'once', title: context.text.slice(0, 200), startAtSource: 'created' },
-          id: null,
-          revision: null,
-          degraded: { text: context.text, reason },
-        })
-      },
+      onParsed: nlpHandlers.onParsed,
+      onDegraded: nlpHandlers.onDegraded,
       nlpHint,
     }),
     h(SearchResultBar, {
       t,
       scope: searchScope,
       query: search,
-      count: items.length,
-      truncated: searchTruncated,
+      count: groupCounts === null ? items.length : groupTotal(groupCounts),
+      truncated: nextCursor !== null,
     }),
     h(TaskList, buildTaskListProps()),
     h(PanelEditor, {

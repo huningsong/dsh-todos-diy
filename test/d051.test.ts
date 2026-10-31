@@ -123,8 +123,8 @@ describe('F8.17/F10.11: source contracts', () => {
   it('the panel routes every load through resolveSearchTarget', () => {
     const panel = source('panel.ts')
     assert.ok(panel.includes('resolveSearchTarget(target, searchScope, query)'))
-    assert.ok(panel.includes('searchActive(query) ? 200 : undefined'))
-    assert.ok(panel.includes('snapshot.nextCursor !== null'))
+    assert.ok(panel.includes('api.snapshot(effective, query, controller.signal, 200)'))
+    assert.ok(panel.includes('setNextCursor(snapshot.nextCursor)'))
   })
 
   it('the list bypasses ArchiveView while searching and shows stage badges', () => {
@@ -191,5 +191,41 @@ describe('F8.17: /snapshot all-view search crosses stages', () => {
     const body = response.json<{ value: { items: { title: string }[]; counts: Record<string, number> } }>()
     assert.deepEqual(body.value.items.map((item) => item.title).sort(), ['Q4 预算申报', '部门预算执行分析'].sort())
     assert.equal(body.value.counts.overdue, 1, 'counts stay global')
+  })
+})
+
+describe('F8.19 follow-up: group counts cover the full view, not the page', () => {
+  it('reports exact group totals while the page is capped at 50', async () => {
+    const { repo } = (await import('./routeHarness.js')).routesFor(new Date('2026-10-30T12:00:00+08:00'))
+    for (let index = 0; index < 60; index += 1) {
+      await repo.create({
+        title: `批量任务 ${String(index).padStart(2, '0')}`,
+        kind: 'once',
+        once: { startAt: '2026-10-30T09:00:00+08:00', endAt: '2026-10-30T18:00:00+08:00' },
+      })
+    }
+    const page = repo.list({ view: 'inProgress', limit: 50 })
+    assert.equal(page.items.length, 50)
+    assert.notEqual(page.nextCursor, null)
+    assert.equal(page.groupCounts.high, 60)
+    assert.equal(
+      page.groupCounts.pinned + page.groupCounts.high + page.groupCounts.mid + page.groupCounts.low + page.groupCounts.none + page.groupCounts.paused,
+      60,
+    )
+  })
+
+  it('sums the client group counts', async () => {
+    const { groupTotal } = await import('../src/client/search-scope.js')
+    assert.equal(groupTotal({ pinned: 1, high: 96, mid: 192, low: 316, none: 396, paused: 0 }), 1001)
+  })
+
+  it('renders the list meta and load-more affordance', () => {
+    const list = source('task-list.ts')
+    assert.ok(list.includes("t('list.meta', { total, loaded })"))
+    assert.ok(list.includes("t('list.loadMore')"))
+    assert.ok(list.includes('groupCounts?.[group.key]'))
+    const panel = source('panel.ts')
+    assert.ok(panel.includes('fetchNextPage'))
+    assert.ok(panel.includes('total: groupCounts === null ? undefined : groupTotal(groupCounts)'))
   })
 })

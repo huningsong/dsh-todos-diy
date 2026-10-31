@@ -162,6 +162,7 @@ export function createRoutes(ctx: RouteContext): RouteDefinition[] {
           byKind: result.byKind,
           totalDone: result.totalDone,
           prioritySummary: result.prioritySummary,
+          groupCounts: result.groupCounts,
           serverTime: result.serverTime,
           nextTransitionAt: result.nextTransitionAt,
           settings: ctx.repo.settings(),

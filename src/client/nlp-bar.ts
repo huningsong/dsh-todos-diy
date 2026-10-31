@@ -10,6 +10,7 @@ import * as React from 'react'
 
 import { api, ApiError, type NlpParsePayload } from './api'
 import { draftFromParse, emptyDraft, type TaskDraft } from './task-draft'
+import { Modal } from './ui'
 
 const h = React.createElement
 
@@ -39,6 +40,7 @@ export function NlpBar(props: NlpBarProps): React.ReactNode {
       const result = await api.parse(text.trim())
       if (result.degraded) {
         props.onDegraded({ text: text.trim(), reason: result.reason ?? 'unknown' })
+        setOpen(false)
         return
       }
       props.onParsed(draftFromParse(emptyDraft(timeZone), result.draft), result)
@@ -67,27 +69,62 @@ export function NlpBar(props: NlpBarProps): React.ReactNode {
     ),
     open
       ? h(
-          'div',
-          { className: 'dtd-nlpRow' },
-          h('input', {
-            className: 'dtd-input dtd-nlpInput',
-            value: text,
-            placeholder: t('nlp.placeholder'),
-            'aria-label': t('nlp.placeholder'),
-            onChange: (event: React.ChangeEvent<HTMLInputElement>) => setText(event.target.value),
-            onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
-              if (event.key === 'Enter') void submit()
+          Modal,
+          {
+            title: t('nlp.open'),
+            onClose: () => {
+              if (!busy) setOpen(false)
             },
-          }),
+            footer: [
+              h(
+                'button',
+                {
+                  key: 'cancel',
+                  type: 'button',
+                  className: 'dtd-btn ghost',
+                  disabled: busy,
+                  onClick: () => setOpen(false),
+                },
+                t('form.cancel'),
+              ),
+              h(
+                'button',
+                {
+                  key: 'parse',
+                  type: 'button',
+                  className: 'dtd-btn',
+                  disabled: busy || text.trim() === '',
+                  onClick: () => void submit(),
+                },
+                busy ? t('nlp.parsing') : t('nlp.parse'),
+              ),
+            ],
+          },
           h(
-            'button',
-            { type: 'button', className: 'dtd-btn', disabled: busy, onClick: () => void submit() },
-            busy ? t('nlp.parsing') : t('nlp.parse'),
+            'div',
+            { className: 'dtd-field' },
+            h('span', { className: 'dtd-label' }, t('nlp.dialog.hint')),
+            h('textarea', {
+              className: 'dtd-textarea dtd-nlpTextarea',
+              value: text,
+              rows: 6,
+              autoFocus: true,
+              placeholder: t('nlp.placeholder'),
+              'aria-label': t('nlp.placeholder'),
+              onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => setText(event.target.value),
+              onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault()
+                  void submit()
+                }
+              },
+            }),
           ),
+          error === null ? null : h('p', { className: 'dtd-error', role: 'alert' }, error),
         )
       : null,
-    (props.hint ?? error) === null || (props.hint ?? error) === undefined
-      ? null
-      : h('span', { className: 'dtd-hint', role: 'status' }, props.hint ?? error),
+    !open && (props.hint ?? error) !== null && (props.hint ?? error) !== undefined
+      ? h('span', { className: 'dtd-hint', role: 'status' }, props.hint ?? error)
+      : null,
   )
 }

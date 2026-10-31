@@ -42,3 +42,12 @@ export function stageLabelKey(stage: string): string {
   if (stage === 'paused') return 'filter.paused'
   return `tab.${stage}`
 }
+
+/**
+ * Total rows in one view/search from the exact per-group counts.
+ * @param counts - `groupCounts` from `/snapshot`.
+ * @returns Sum of every group.
+ */
+export function groupTotal(counts: { pinned: number; high: number; mid: number; low: number; none: number; paused: number }): number {
+  return counts.pinned + counts.high + counts.mid + counts.low + counts.none + counts.paused
+}

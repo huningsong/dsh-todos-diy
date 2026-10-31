@@ -146,8 +146,10 @@ export const CSS = `
 .dtd-nlpToggle:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .dtd-nlpRow{display:flex;align-items:center;gap:8px;flex:1;min-width:280px}
 .dtd-nlpInput{flex:1;min-width:0}
+.dtd-nlpTextarea{min-height:160px}
 .dtd-nlpBanner{padding:8px 12px;border-radius:10px;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary);font-size:12.5px;line-height:19px}
 .dtd-field-badge{display:inline-flex;align-items:center;height:16px;margin-left:6px;padding:0 6px;border-radius:8px;font-size:10.5px;line-height:16px;font-weight:400}
+.dtd-listMeta{display:flex;align-items:center;gap:10px;padding:0 0 8px;font-size:12px;color:var(--dsw-alias-label-tertiary)}
 .dtd-scope{display:flex;border:.5px solid var(--dsw-alias-border-l3);border-radius:14px;overflow:hidden;flex:none}
 .dtd-scopeBtn{height:28px;padding:0 10px;border:0;background:0 0;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer}
 .dtd-scopeBtn[aria-pressed="true"]{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary)}

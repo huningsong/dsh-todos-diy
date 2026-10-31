@@ -122,7 +122,7 @@ describe('FIX-01: panel guards against stale snapshot responses', () => {
   })
 
   it('passes an AbortSignal to api.snapshot', () => {
-    assert.ok(clientSource('panel.ts').includes('api.snapshot(effective, query, controller.signal, limit)'))
+    assert.ok(clientSource('panel.ts').includes('api.snapshot(effective, query, controller.signal, 200)'))
     assert.ok(clientSource('api.ts').includes('signal?: AbortSignal'))
   })
 

@@ -56,12 +56,23 @@ export interface ListQuery {
   includeArchived?: boolean
 }
 
+/** Full per-group counts for one view/search (F8.19 follow-up). */
+export interface GroupCounts {
+  pinned: number
+  high: number
+  mid: number
+  low: number
+  none: number
+  paused: number
+}
+
 /** Result of `Repository.list`. */
 export interface ListResult {
   items: Task[]
   nextCursor: string | null
   counts: Counts
   prioritySummary: { high: number; mid: number; low: number; none: number }
+  groupCounts: GroupCounts
   byKind: { once: number; recurring: number }
   totalDone: number
   serverTime: string

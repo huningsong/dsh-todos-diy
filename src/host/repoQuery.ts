@@ -6,7 +6,7 @@
  * NF5 budget.
  */
 
-import { stageOf } from './rules/priority.js'
+import { derivePriority, stageOf } from './rules/priority.js'
 import type { DeriveOptions } from './rules/priority.js'
 import { selectView, sortTasksForView } from './rules/priority.js'
 import type { Task } from './rules/types.js'
@@ -130,6 +130,24 @@ export function queryTasks(allTasks: readonly Task[], query: ListQuery, ctx: Que
     items = sortTasksForView(items, ctx.now, derive)
   }
 
+  // F8.19 follow-up: exact per-group totals over the *whole* filtered result,
+  // independent of the page slice. This is what fixes '高优先级 50' below the
+  // real 96 while only 50 rows are loaded.
+  const groupCounts = { pinned: 0, high: 0, mid: 0, low: 0, none: 0, paused: 0 }
+  for (const task of items) {
+    if (task.status === 'paused') {
+      groupCounts.paused += 1
+      continue
+    }
+    if (task.pinned) {
+      groupCounts.pinned += 1
+      continue
+    }
+    const key = derivePriority(task, ctx.now, derive).key
+    if (key === 'paused') groupCounts.paused += 1
+    else groupCounts[key] += 1
+  }
+
   const limit = Math.min(200, Math.max(1, Math.trunc(query.limit ?? 50)))
   const cursor = query.cursor === undefined ? null : decodeCursor(query.cursor)
   if (cursor !== null) {
@@ -144,6 +162,7 @@ export function queryTasks(allTasks: readonly Task[], query: ListQuery, ctx: Que
     nextCursor,
     counts,
     prioritySummary,
+    groupCounts,
     byKind,
     totalDone: ctx.totalDone + counts.done,
     serverTime: ctx.now.toISOString(),

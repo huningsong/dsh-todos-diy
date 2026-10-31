@@ -262,6 +262,7 @@ export const en = {
   'nlp.needsInput': 'needed',
   'error.nlp_disabled': 'Natural-language parsing is off; enable it in settings',
   'nlp.open': 'Quick add',
+  'nlp.dialog.hint': 'Describe the task in one sentence; it will fill the editor for your review. Ctrl/⌘ + Enter parses.',
   'report.title': 'Generate report',
   'report.tab.weekly': 'Weekly',
   'report.tab.monthly': 'Monthly',
@@ -313,4 +314,9 @@ export const en = {
   'nlp.degraded.retrying': 'Parsing…',
   'nlp.degraded.dismiss': 'Dismiss',
   'task.completeDisabled': 'Cannot complete in this state',
+  'list.meta': '{total} total · showing {loaded}',
+  'list.loadMore': 'Load more',
+  'list.loadingMore': 'Loading…',
+  'list.groupLoaded': 'showing {loaded}/{total}',
+  'list.groupEmpty': 'Load more to view',
 }

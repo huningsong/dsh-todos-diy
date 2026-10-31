@@ -57,6 +57,7 @@ export interface SnapshotPayload {
   byKind: { once: number; recurring: number }
   totalDone: number
   prioritySummary: { high: number; mid: number; low: number; none: number }
+  groupCounts: { pinned: number; high: number; mid: number; low: number; none: number; paused: number }
   serverTime: string
   nextTransitionAt: string | null
   settings: SettingsPayload
@@ -169,10 +170,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** Typed view of the plugin API. */
 export const api = {
   /** Read one snapshot of the given view. */
-  snapshot(view: ViewName, search: string, signal?: AbortSignal, limit?: number): Promise<SnapshotPayload> {
+  snapshot(view: ViewName, search: string, signal?: AbortSignal, limit?: number, cursor?: string): Promise<SnapshotPayload> {
     const params = new URLSearchParams({ view })
     if (search.trim() !== '') params.set('q', search.trim())
     if (limit !== undefined) params.set('limit', String(limit))
+    if (cursor !== undefined) params.set('cursor', cursor)
     return request<SnapshotPayload>(`/snapshot?${params.toString()}`, signal === undefined ? undefined : { signal })
   },
   /** Create one task. */
