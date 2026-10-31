@@ -88,6 +88,14 @@ try {
   for (const entry of required) {
     if (!listing.includes(entry)) fail(`tarball is missing ${entry}`)
   }
+  // Release package must contain runtime files only. Documentation and test
+  // sources stay in the repository, never in the published tarball.
+  const forbiddenPrefixes = ['package/docs/', 'package/test/', 'package/tests/', 'package/requirements/', 'package/scripts/']
+  for (const entry of listing) {
+    if (forbiddenPrefixes.some((prefix) => entry.startsWith(prefix))) {
+      fail(`tarball contains non-release file: ${entry}`)
+    }
+  }
 } catch (error) {
   fail(`npm pack failed: ${String(error)}`)
 } finally {
