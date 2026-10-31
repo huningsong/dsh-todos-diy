@@ -43,7 +43,7 @@ export const name = 'dsh-todos-diy'
 export const inject = ['timer']
 
 /** Plugin version reported by `/health`; kept in sync with `package.json`. */
-export const PLUGIN_VERSION = '0.5.2'
+export const PLUGIN_VERSION = '0.5.3'
 
 const LOG_PREFIX = 'todos-diy:'
 

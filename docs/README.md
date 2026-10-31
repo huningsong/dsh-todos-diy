@@ -32,6 +32,7 @@
 | **R6** | 2026-10-31 | v1.7：F11 周报/月报（CompletionEvent + schema v3 + `/reports` + ReportModal） | `requirements/评估-周报月报.md`、`planning/0.5.0版本规划.md` | v0.5.0：**786 tests / 228 suites / 0 fail**；AC-REP-01–08 全过；verify-pack OK | **已实现（0.5.0）** |
 | **R7** | 2026-10-31 | v1.8：F8.17 搜索范围 + F10.11 NLP 降级提示 | `planning/0.5.1需求设计.md`（设计评审 3 轮通过） | v0.5.1：**817 tests / 242 suites / 0 fail**；AC-59/AC-60 全过 | **已实现（0.5.1）** |
 | **R8** | 2026-10-31 | v1.10：F8.20 列表分页与全量分组计数 + F10.1 输入弹窗 | 用户反馈（1000 条列表分页） | v0.5.2：**825 tests / 244 suites / 0 fail**；AC-61 全过 | **已实现（0.5.2）** |
+| **R9** | 2026-10-31 | 0.5.3 补丁：NLP 输入弹窗焦点修复 | 用户反馈（输入第一个字符后失焦） | v0.5.3：**825 tests / 244 suites / 0 fail**；`verify-pack: OK` | **已发布（0.5.3）** |
 
 ## 关键入口
 

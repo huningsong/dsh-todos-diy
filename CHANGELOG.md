@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.3] 2026-10-31 — NLP 输入弹窗焦点修复
+
+### Fixed
+- **F10.1 / UX-22 NLP 输入弹窗**：修复 Modal 在父组件每次重渲染时重新聚焦关闭按钮、导致输入框输入第一个字符后失去焦点的问题。`onClose` 改为 ref，focus effect 只依赖 `title`，并优先聚焦 `textarea`，不再抢输入光标。
+- 新增 `test/d052-nlp-modal.test.ts` 焦点回归契约；825 tests / 244 suites / 0 fail。
+
+### Changed
+- 版本号 `0.5.3`；无 API、数据模型、UI 文案变更。
+
 ## [0.5.2] 2026-10-31 — 列表分页与全量分组计数
 
 ### Fixed
