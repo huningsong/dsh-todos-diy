@@ -160,16 +160,22 @@ export function Modal(props: {
   wide?: boolean
 }) {
   const panelRef = React.useRef<HTMLDivElement | null>(null)
+  // Keep the latest close handler without re-running the focus effect: an
+  // inline `onClose` identity changes on every parent render (e.g. while the
+  // NLP textarea is typed into) and re-focusing on each keystroke would steal
+  // the caret after the first character.
+  const onCloseRef = React.useRef(props.onClose)
+  onCloseRef.current = props.onClose
   React.useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     const first = panelRef.current?.querySelector<HTMLElement>(
-      'input, textarea, select, button, [tabindex]:not([tabindex="-1"])',
+      'input, textarea, select, [tabindex]:not([tabindex="-1"]), button',
     )
     first?.focus()
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        props.onClose()
+        onCloseRef.current()
         return
       }
       if (event.key !== 'Tab' || panelRef.current === null) return
@@ -192,7 +198,7 @@ export function Modal(props: {
       document.removeEventListener('keydown', onKeyDown, true)
       previous?.focus?.()
     }
-  }, [props.onClose, props.title])
+  }, [props.title])
 
   return h(
     'div',

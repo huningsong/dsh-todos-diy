@@ -35,6 +35,13 @@ describe('NLP entry modal', () => {
     assert.ok(bar.includes('metaKey || event.ctrlKey'))
   })
 
+  it('keeps focus in the textarea while typing', () => {
+    const ui = source('ui.ts')
+    assert.ok(ui.includes('onCloseRef'))
+    assert.ok(ui.includes("'input, textarea, select, [tabindex]:not([tabindex=\"-1\"]), button'"))
+    assert.equal(ui.includes('}, [props.onClose, props.title])'), false)
+  })
+
   it('has dialog hint in both languages', () => {
     assert.ok((zh as Record<string, string>)['nlp.dialog.hint']?.includes('编辑器'))
     assert.ok((en as Record<string, string>)['nlp.dialog.hint']?.includes('editor'))
