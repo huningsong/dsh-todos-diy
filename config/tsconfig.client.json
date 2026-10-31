@@ -20,6 +20,7 @@
   "include": [
     "../src/client/**/*.ts",
     "../src/host/taskView.ts",
-    "../src/host/rules/types.ts"
+    "../src/host/rules/types.ts",
+    "../src/client/**/*.tsx"
   ]
 }
