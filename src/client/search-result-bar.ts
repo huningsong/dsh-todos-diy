@@ -16,7 +16,6 @@ export interface SearchResultBarProps {
   query: string
   count: number
   truncated: boolean
-  onSearchAll: () => void
 }
 
 /** One-line result summary, only rendered while a search is active. */
@@ -34,9 +33,8 @@ export function SearchResultBar(props: SearchResultBarProps): React.ReactNode {
         n: props.count,
       }),
     ),
-    props.truncated ? h('span', { className: 'dtd-searchLimit' }, t('nlp.searchLimit')) : null,
-    props.scope === 'view'
-      ? h('button', { type: 'button', className: 'dtd-linkBtn', onClick: props.onSearchAll }, t('nlp.searchAll'))
+    props.truncated
+      ? h('span', { className: 'dtd-searchLimit' }, `· ${t('nlp.searchLimit')}`)
       : null,
   )
 }

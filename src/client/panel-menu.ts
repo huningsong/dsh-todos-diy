@@ -36,9 +36,9 @@ export function TaskContextMenu(props: TaskContextMenuProps): React.ReactNode {
     onClose: props.onClose,
     items: [
       { label: t('task.edit'), onSelect: props.onEdit },
-      { label: props.task.pinned ? t('task.unpin') : t('task.pin'), onSelect: props.onPin },
+      { label: props.task.pinned ? t('task.unpin') : t('task.pin'), onSelect: props.onPin, disabled: props.canPin === false },
       { label: t('task.copy'), onSelect: props.onDuplicate },
-      { label: t('task.remindNow'), onSelect: props.onRemind },
+      { label: t('task.remindNow'), onSelect: props.onRemind, disabled: props.canRemind === false },
       { label: t('task.history'), onSelect: props.onHistory },
       { label: t('task.delete'), danger: true, onSelect: props.onDelete },
     ],

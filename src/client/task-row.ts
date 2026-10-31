@@ -103,10 +103,11 @@ export function TaskRow(props: TaskRowProps) {
         type: 'button',
         className: 'dtd-check',
         'aria-label': t('task.complete'),
-        title: t('task.complete'),
-        disabled: props.readOnly === true,
+        disabled: props.readOnly === true || !canComplete,
+        title: canComplete ? t('task.complete') : t('task.completeDisabled'),
         onClick: (event: React.MouseEvent) => {
           event.stopPropagation()
+          if (!canComplete) return
           props.onComplete()
         },
       },

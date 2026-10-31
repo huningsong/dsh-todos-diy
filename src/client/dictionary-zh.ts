@@ -312,5 +312,6 @@ export const zh = {
   'nlp.degraded.retry': '重试解析',
   'nlp.degraded.retrying': '解析中…',
   'nlp.degraded.dismiss': '关闭提示',
+  'task.completeDisabled': '该状态下不可完成',
 }
 

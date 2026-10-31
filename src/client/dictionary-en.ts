@@ -312,4 +312,5 @@ export const en = {
   'nlp.degraded.retry': 'Retry parsing',
   'nlp.degraded.retrying': 'Parsing…',
   'nlp.degraded.dismiss': 'Dismiss',
+  'task.completeDisabled': 'Cannot complete in this state',
 }

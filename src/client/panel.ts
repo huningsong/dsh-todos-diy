@@ -325,7 +325,6 @@ export function TodoPanel(props: PanelProps) {
       query: search,
       count: items.length,
       truncated: searchTruncated,
-      onSearchAll: () => setSearchScope('all'),
     }),
     h(TaskList, buildTaskListProps()),
     h(PanelEditor, {

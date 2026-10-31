@@ -69,7 +69,7 @@ describe('UX-20: completion button is recognizable', () => {
   it('renders a check glyph and a visible hover title', () => {
     const row = clientSource('task-row.ts')
     assert.ok(row.includes('CheckGlyph'))
-    assert.ok(row.includes("title: t('task.complete')"))
+    assert.ok(row.includes("t('task.complete')"))
     assert.ok(clientSource('ui.ts').includes('CheckGlyph'))
   })
 

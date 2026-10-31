@@ -30,7 +30,7 @@
 | **R4** | 2026-10-30 | v1.4：F7.14–F7.18（get / 幂等 / list all / remind-deliveries / skipNext） | `reviews/round3/试用意见评估.md` 的 P1 项 | v0.2.1：**705 tests / 205 suites / 0 fail**；AC-46–AC-50 全过；verify-pack OK | **已实现（0.2.1）** |
 | **R5** | 2026-10-30 | v1.6：F10 自然语言录入（`/parse` + 预填 + 三态 + 降级 + 默认关闭） | `requirements/评估-自然语言录入.md`（按 D-25 重写） | v0.4.0：**759 tests / 219 suites / 0 fail**；AC-51–AC-58 全过；真实模型 E2E 通过 | **已实现（0.4.0）** |
 | **R6** | 2026-10-31 | v1.7：F11 周报/月报（CompletionEvent + schema v3 + `/reports` + ReportModal） | `requirements/评估-周报月报.md`、`planning/0.5.0版本规划.md` | v0.5.0：**786 tests / 228 suites / 0 fail**；AC-REP-01–08 全过；verify-pack OK | **已实现（0.5.0）** |
-| **R7** | 2026-10-31 | v1.8：F8.17 搜索范围 + F10.11 NLP 降级提示 | `planning/0.5.1需求设计.md`（设计评审 3 轮通过） | v0.5.1：**816 tests / 242 suites / 0 fail**；AC-59/AC-60 全过 | **已实现（0.5.1）** |
+| **R7** | 2026-10-31 | v1.8：F8.17 搜索范围 + F10.11 NLP 降级提示 | `planning/0.5.1需求设计.md`（设计评审 3 轮通过） | v0.5.1：**817 tests / 242 suites / 0 fail**；AC-59/AC-60 全过 | **已实现（0.5.1）** |
 
 ## 关键入口
 

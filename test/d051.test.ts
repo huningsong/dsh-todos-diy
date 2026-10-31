@@ -143,6 +143,12 @@ describe('F8.17/F10.11: source contracts', () => {
     assert.ok(editor.includes('mergeParsedDraft'))
   })
 
+  it('disables invalid row actions and keeps the six-item menu', () => {
+    assert.ok(source('task-row.ts').includes('!canComplete'))
+    assert.ok(source('panel-menu.ts').includes('disabled: props.canPin === false'))
+    assert.ok(source('panel-menu.ts').includes('disabled: props.canRemind === false'))
+  })
+
   it('the toolbar has both scope buttons and a controlled hint', () => {
     const toolbar = source('panel-toolbar.ts')
     assert.ok(toolbar.includes("'nlp.searchScope.all'"))
