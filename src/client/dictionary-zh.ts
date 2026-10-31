@@ -301,7 +301,7 @@ export const zh = {
   'nlp.searchScope.view': '当前视图',
   'nlp.searchResult.all': '在全部任务中搜索「{query}」· 当前显示 {n} 条',
   'nlp.searchResult.view': '在当前视图中搜索「{query}」· 当前显示 {n} 条',
-  'nlp.searchLimit': '仅显示前 200 条，请补充关键词',
+  'nlp.searchLimit': '已显示 {n} 条，仍有更多匹配，请补充关键词',
   'nlp.searchAll': '在全部任务中搜索',
   'empty.noMatchHintAll': '请尝试更短的关键词。',
   'empty.noMatchHintView': '当前视图没有匹配，试试在全部任务中搜索。',

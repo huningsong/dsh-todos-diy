@@ -11,7 +11,7 @@
 | 文档 | 内容 | 建议阅读顺序 |
 |---|---|---|
 | [docs/README.md](docs/README.md) | 文档总索引与轮次记录（R1/R2/R3） | **第 1 遍：先看总索引** |
-| [CHANGELOG.md](CHANGELOG.md) | 版本变更记录（0.1.0 → 0.2.0） | 发版前查 |
+| [CHANGELOG.md](CHANGELOG.md) | 版本变更记录（0.1.0 → 0.5.2） | 发版前查 |
 | [docs/planning/版本计划.md](docs/planning/版本计划.md) | 版本路线、0.2.0 D-25 批次、排期与发布门 | 开发/发版前 |
 | [docs/planning/研发交接-0.2.0.md](docs/planning/研发交接-0.2.0.md) | 研发可直接执行的本轮需求设计、B0–B3C 任务与验收门 | **研发开工前先读** |
 | [docs/planning/0.2.0升级后回归清单与需求变更.md](docs/planning/0.2.0升级后回归清单与需求变更.md) | 0.2.0 回归清单、P1 的 0.2.1 需求变更方案 | 升级/发版前 |
@@ -177,7 +177,7 @@ src/client/           # 客户端半 TypeScript → esbuild 打包
   overlay.ts          #   提醒浮层
   dictionary*.ts      #   zh / en 字典
   api.ts              #   fetch 封装
-test/                 # node:test 单测（572 用例）
+test/                 # node:test 单测（824 用例）
 docs/                 # 文档：需求/决策/评审/版本计划/测试/指南/市场
   README.md           #   文档总索引与轮次记录
   requirements/       #   需求 v1.3、D-25 方案与评估

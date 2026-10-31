@@ -325,6 +325,7 @@ export function TodoPanel(props: PanelProps) {
       query: search,
       count: groupCounts === null ? items.length : groupTotal(groupCounts),
       truncated: nextCursor !== null,
+      loaded: items.length,
     }),
     h(TaskList, buildTaskListProps()),
     h(PanelEditor, {

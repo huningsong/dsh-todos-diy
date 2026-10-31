@@ -301,7 +301,7 @@ export const en = {
   'nlp.searchScope.view': 'Current view',
   'nlp.searchResult.all': 'Searching all tasks for "{query}" · showing {n}',
   'nlp.searchResult.view': 'Searching this view for "{query}" · showing {n}',
-  'nlp.searchLimit': 'Showing the first 200 — add a keyword',
+  'nlp.searchLimit': 'Showing {n} — more matches remain; add a keyword',
   'nlp.searchAll': 'Search all tasks',
   'empty.noMatchHintAll': 'Try a shorter keyword.',
   'empty.noMatchHintView': 'No match in this view — try searching all tasks.',

@@ -16,6 +16,8 @@ export interface SearchResultBarProps {
   query: string
   count: number
   truncated: boolean
+  /** Rows currently loaded (the truncation hint must reflect load-more). */
+  loaded?: number
 }
 
 /** One-line result summary, only rendered while a search is active. */
@@ -34,7 +36,7 @@ export function SearchResultBar(props: SearchResultBarProps): React.ReactNode {
       }),
     ),
     props.truncated
-      ? h('span', { className: 'dtd-searchLimit' }, `· ${t('nlp.searchLimit')}`)
+      ? h('span', { className: 'dtd-searchLimit' }, `· ${t('nlp.searchLimit', { n: props.loaded ?? props.count })}`)
       : null,
   )
 }
