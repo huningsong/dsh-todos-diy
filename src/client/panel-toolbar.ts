@@ -9,6 +9,7 @@ import * as React from 'react'
 import type { NlpParsePayload } from './api'
 import { NlpBar } from './nlp-bar'
 import type { TaskDraft } from './task-draft'
+import type { SearchScope } from './search-scope'
 import { SearchGlyph } from './ui'
 
 const h = React.createElement
@@ -19,10 +20,13 @@ export interface PanelToolbarProps {
   search: string
   onSearch: (value: string) => void
   searchRef: React.RefObject<HTMLInputElement | null>
+  searchScope: SearchScope
+  onSearchScope: (scope: SearchScope) => void
   nlpEnabled: boolean
   timeZone: string
   onParsed: (draft: TaskDraft, result: NlpParsePayload) => void
-  onDegraded: (text: string) => void
+  onDegraded: (context: { text: string; reason: string }) => void
+  nlpHint?: string | null
 }
 
 /** The search + quick-add row. */
@@ -39,10 +43,27 @@ export function PanelToolbar(props: PanelToolbarProps): React.ReactNode {
         ref: props.searchRef,
         type: 'search',
         value: props.search,
-        placeholder: t('panel.searchPlaceholder'),
+        placeholder: t(props.searchScope === 'all' ? 'search.placeholderAll' : 'search.placeholderView'),
         'aria-label': t('panel.search'),
         onChange: (event: React.ChangeEvent<HTMLInputElement>) => props.onSearch(event.target.value),
       }),
+    ),
+    h(
+      'div',
+      { className: 'dtd-scope', role: 'group', 'aria-label': t('nlp.searchScope.label') },
+      (['all', 'view'] as const).map((scope) =>
+        h(
+          'button',
+          {
+            key: scope,
+            type: 'button',
+            className: 'dtd-scopeBtn',
+            'aria-pressed': props.searchScope === scope,
+            onClick: () => props.onSearchScope(scope),
+          },
+          t(scope === 'all' ? 'nlp.searchScope.all' : 'nlp.searchScope.view'),
+        ),
+      ),
     ),
     props.nlpEnabled
       ? h(NlpBar, {
@@ -50,6 +71,7 @@ export function PanelToolbar(props: PanelToolbarProps): React.ReactNode {
           timeZone: props.timeZone,
           onParsed: props.onParsed,
           onDegraded: props.onDegraded,
+          hint: props.nlpHint ?? null,
         })
       : null,
   )

@@ -1,6 +1,6 @@
 # AC 覆盖矩阵（v1.3 / 0.2.0）
 
-> 对应 `docs/requirements/需求-v1.md` 第 9 章 AC-01～AC-58 + AC-REP-01～AC-REP-08。
+> 对应 `docs/requirements/需求-v1.md` 第 9 章 AC-01～AC-60 + AC-REP-01～AC-REP-08。
 > 状态：`自动` = 有自动化用例；`脚本` = 独立验收脚本；`手工` = 仅手工 E2E。
 
 | AC | 主题 | 覆盖位置 | 状态 |
@@ -71,6 +71,8 @@
 | AC-REP-06 | 空数据不报错（F11.8） | `test/reports.test.ts`、`test/report-ui.test.ts` | 自动 |
 | AC-REP-07 | 报告接口只读（F11.3） | `test/reports.test.ts` | 自动 |
 | AC-REP-08 | schema v2→v3（F11.2） | `test/reports.test.ts` | 自动 |
+| AC-59 | 搜索范围（F8.17） | `test/d051.test.ts` + 手工 UI | 自动+手工 |
+| AC-60 | NLP 降级提示（F10.11） | `test/d051.test.ts`、`test/f10.test.ts` + 手工 UI | 自动+手工 |
 
 ## 说明
 

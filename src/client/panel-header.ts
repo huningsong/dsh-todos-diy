@@ -27,6 +27,8 @@ export interface PanelHeaderProps {
   onSettings: () => void
   onReport: () => void
   onNew: () => void
+  /** F8.17: global search results span filters, so the chips lose highlight. */
+  filtersDimmed?: boolean
   onSelect: (view: ViewName) => void
 }
 
@@ -110,7 +112,7 @@ export function PanelHeader(props: PanelHeaderProps) {
             key,
             type: 'button',
             className: 'dtd-chip',
-            'aria-pressed': view === key ? 'true' : 'false',
+            'aria-pressed': view === key && props.filtersDimmed !== true ? 'true' : 'false',
             onClick: () => props.onSelect(key),
           },
           t(`filter.${key}`),

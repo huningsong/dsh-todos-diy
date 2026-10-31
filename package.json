@@ -1,6 +1,6 @@
 {
   "name": "dsh-todos-diy",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "DSH 工作待办提醒插件：循环规则、单次起止语义、六视图阶段统计与提醒浮层 · Work todo reminders for DeepSeek Harness",
   "type": "module",
   "main": "./lib/index.js",

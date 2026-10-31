@@ -148,6 +148,17 @@ export const CSS = `
 .dtd-nlpInput{flex:1;min-width:0}
 .dtd-nlpBanner{padding:8px 12px;border-radius:10px;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary);font-size:12.5px;line-height:19px}
 .dtd-field-badge{display:inline-flex;align-items:center;height:16px;margin-left:6px;padding:0 6px;border-radius:8px;font-size:10.5px;line-height:16px;font-weight:400}
+.dtd-scope{display:flex;border:.5px solid var(--dsw-alias-border-l3);border-radius:14px;overflow:hidden;flex:none}
+.dtd-scopeBtn{height:28px;padding:0 10px;border:0;background:0 0;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer}
+.dtd-scopeBtn[aria-pressed="true"]{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary)}
+.dtd-searchResult{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px clamp(20px,4vw,48px) 0;font-size:12px;color:var(--dsw-alias-label-tertiary)}
+.dtd-searchLimit{color:var(--dsw-alias-state-warn-primary)}
+.dtd-linkBtn{border:0;background:0 0;color:var(--dsw-alias-state-business-primary);font:inherit;font-size:12px;cursor:pointer;padding:0;text-decoration:underline}
+.dtd-emptyActions{display:flex;gap:8px;margin-top:12px}
+.dtd-nlpBanner.is-warning{background:var(--dsw-alias-state-warn-tertiary, #fff4e5);color:var(--dsw-alias-label-primary);border:.5px solid var(--dsw-alias-state-warn-primary)}
+.dtd-degradedReason{margin-top:4px;font-size:12.5px;color:var(--dsw-alias-state-warn-primary)}
+.dtd-degradedActions{display:flex;gap:8px;margin-top:8px}
+.dtd-badge.stage{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);border:.5px solid var(--dsw-alias-border-l3)}
 .dtd-field-badge.is-default{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);border:.5px solid var(--dsw-alias-border-l3)}
 .dtd-field-badge.is-missing{background:var(--dsw-alias-state-warn-tertiary, #fff4e5);color:var(--dsw-alias-state-warn-primary)}
 .dtd-field-error{margin-top:4px;font-size:12px;line-height:17px;color:var(--dsw-alias-state-error-primary)}

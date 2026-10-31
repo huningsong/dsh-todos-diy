@@ -122,14 +122,14 @@ describe('FIX-01: panel guards against stale snapshot responses', () => {
   })
 
   it('passes an AbortSignal to api.snapshot', () => {
-    assert.ok(clientSource('panel.ts').includes('api.snapshot(target, query, controller.signal)'))
+    assert.ok(clientSource('panel.ts').includes('api.snapshot(effective, query, controller.signal, limit)'))
     assert.ok(clientSource('api.ts').includes('signal?: AbortSignal'))
   })
 
   it('shows the loading skeleton on an explicit view/search switch', () => {
     const source = clientSource('panel.ts')
-    assert.ok(source.includes("void load(view, '', true)"))
     assert.ok(source.includes('void load(view, search, true)'))
+    assert.ok(source.includes('resolveSearchTarget(target, searchScope, query)'))
   })
 })
 
@@ -153,9 +153,10 @@ describe('FIX-05: completing a never-fired recurring task skips the next run', (
   })
 })
 
-describe('P2-F: search placeholder states the scope', () => {
-  it('uses the current-view wording', () => {
-    assert.equal((zh as Record<string, string>)['panel.searchPlaceholder'], '在当前视图内搜索')
-    assert.ok(clientSource('panel-toolbar.ts').includes("t('panel.searchPlaceholder')"))
+describe('P2-F/F8.17: search placeholder follows the scope', () => {
+  it('has both scope wordings and uses the dynamic key', () => {
+    assert.equal((zh as Record<string, string>)['search.placeholderAll'], '搜索全部任务')
+    assert.equal((zh as Record<string, string>)['search.placeholderView'], '在当前视图内搜索')
+    assert.ok(clientSource('panel-toolbar.ts').includes("t(props.searchScope === 'all' ? 'search.placeholderAll' : 'search.placeholderView')"))
   })
 })

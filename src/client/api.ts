@@ -6,7 +6,7 @@
  * no token is ever read or stored by this code.
  */
 
-import type { TaskView } from '../../src/host/taskView'
+import type { TaskView } from '../../src/host/taskView.js'
 
 /** Base path of the plugin API. */
 const BASE = '/api/dsh-todos-diy'
@@ -37,7 +37,7 @@ export class ApiError extends Error {
 }
 
 /** The six selectable views (F4.10 / F4.21). */
-export type ViewName = 'notStarted' | 'inProgress' | 'overdue' | 'done' | 'recurring' | 'paused'
+export type ViewName = 'all' | 'notStarted' | 'inProgress' | 'overdue' | 'done' | 'recurring' | 'paused'
 
 /** Mutually exclusive counts for the six views. */
 export interface CountsPayload {
@@ -86,7 +86,7 @@ export interface SettingsPayload {
 }
 
 /** One report from `GET /reports` (F11). */
-export type ReportPayload = import('../../src/host/reports').ReportData
+export type ReportPayload = import('../../src/host/reports.js').ReportData
 
 /** One parsed draft from `POST /parse` (F10). */
 export interface NlpParsePayload {
@@ -169,9 +169,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** Typed view of the plugin API. */
 export const api = {
   /** Read one snapshot of the given view. */
-  snapshot(view: ViewName, search: string, signal?: AbortSignal): Promise<SnapshotPayload> {
+  snapshot(view: ViewName, search: string, signal?: AbortSignal, limit?: number): Promise<SnapshotPayload> {
     const params = new URLSearchParams({ view })
     if (search.trim() !== '') params.set('q', search.trim())
+    if (limit !== undefined) params.set('limit', String(limit))
     return request<SnapshotPayload>(`/snapshot?${params.toString()}`, signal === undefined ? undefined : { signal })
   },
   /** Create one task. */
@@ -262,8 +263,12 @@ export const api = {
     return request<ReportPayload>(`/reports?kind=${kind}&anchor=${anchor}`)
   },
   /** Parse one natural-language sentence into a draft (F10.1). */
-  parse(text: string): Promise<NlpParsePayload> {
-    return request<NlpParsePayload>('/parse', { method: 'POST', body: JSON.stringify({ text }) })
+  parse(text: string, signal?: AbortSignal): Promise<NlpParsePayload> {
+    return request<NlpParsePayload>('/parse', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+      ...(signal === undefined ? {} : { signal }),
+    })
   },
   /** Poll pending reminder cards; `dndSummary` merges reminders held by DND. */
   due(): Promise<{

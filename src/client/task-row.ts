@@ -11,6 +11,7 @@ import * as React from 'react'
 import type { TaskView } from '../../src/host/taskView'
 import { CheckGlyph, PinGlyph } from './ui'
 import { formatInZone } from './format'
+import { stageLabelKey } from './search-scope'
 import { ruleSummary } from './task-summary'
 
 export { ruleSummary } from './task-summary'
@@ -33,6 +34,8 @@ export interface TaskRowProps {
   onRemindNow: () => void
   /** Read-only mode: row actions are hidden and the checkbox does nothing. */
   readOnly?: boolean
+  /** F8.17: show the stage badge (used by cross-stage search results). */
+  showStage?: boolean
 }
 
 /**
@@ -65,6 +68,9 @@ export function TaskRow(props: TaskRowProps) {
   const { task, t } = props
   const due = deadlineText(task, t)
   const isPaused = task.status === 'paused'
+  const canComplete = task.status === 'active'
+  const canPause = task.status === 'active' || task.status === 'paused'
+  const canPin = task.status !== 'done' && task.status !== 'archived'
   const nextText =
     task.kind === 'recurring'
       ? task.nextAt === null
@@ -115,6 +121,7 @@ export function TaskRow(props: TaskRowProps) {
         task.pinned ? h(PinGlyph, { size: 12, filled: true }) : null,
         h('span', { className: 't' }, task.title),
         h('span', { className: `dtd-badge ${task.priority.key}` }, t(`priority.${task.priority.key}`)),
+        props.showStage === true ? h('span', { className: 'dtd-badge stage' }, t(stageLabelKey(task.stage))) : null,
         task.overdue ? h('span', { className: 'dtd-badge overdue' }, t('task.overdue', { n: task.overdueDays ?? 0 })) : null,
       ),
       h(
@@ -145,6 +152,7 @@ export function TaskRow(props: TaskRowProps) {
           'aria-label': task.pinned ? t('task.unpin') : t('task.pin'),
           title: task.pinned ? t('task.unpin') : t('task.pin'),
           'aria-pressed': task.pinned,
+          disabled: !canPin,
           onClick: props.onPin,
         },
         h(PinGlyph, { size: 13, filled: task.pinned }),
@@ -155,6 +163,7 @@ export function TaskRow(props: TaskRowProps) {
           type: 'button',
           className: 'dtd-iconBtn',
           'aria-label': isPaused ? t('task.resume') : t('task.pause'),
+          disabled: !canPause,
           onClick: isPaused ? props.onResume : props.onPause,
         },
         isPaused ? '▶' : '⏸',

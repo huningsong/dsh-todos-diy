@@ -48,7 +48,7 @@ export function routesFor(now: Date, options: RouteHarnessOptions = {}) {
   store.load()
   const repo = createRepository({ store, now: () => now, debounceMs: 0, holidays })
   const config = { timeZone: 'Asia/Shanghai', tickIntervalMs: 60_000, graceMinutes: 5 }
-  const health = createHealthState('0.5.0', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
+  const health = createHealthState('0.5.1', { ...config, defaultChannels: ['overlay'], deliveriesRetention: 1000 }, [])
   health.setStorage(store.paths.stateFile, store.stateName, store.lastRecovery)
 
   const ctx: RouteContext = {

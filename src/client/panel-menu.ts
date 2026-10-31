@@ -22,6 +22,9 @@ export interface TaskContextMenuProps {
   onRemind: () => void
   onHistory: () => void
   onDelete: () => void
+  /** F8.14 + F8.17: keep all six items but disable invalid ones. */
+  canPin?: boolean
+  canRemind?: boolean
 }
 
 /** The row menu. */

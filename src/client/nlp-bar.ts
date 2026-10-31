@@ -9,7 +9,7 @@
 import * as React from 'react'
 
 import { api, ApiError, type NlpParsePayload } from './api'
-import { emptyDraft, type TaskDraft } from './task-draft'
+import { draftFromParse, emptyDraft, type TaskDraft } from './task-draft'
 
 const h = React.createElement
 
@@ -18,47 +18,9 @@ export interface NlpBarProps {
   t: (key: string, params?: Record<string, string | number>) => string
   timeZone: string
   onParsed: (draft: TaskDraft, result: NlpParsePayload) => void
-  onDegraded: (text: string) => void
-}
-
-/**
- * Merge a parse payload into a complete draft.
- * @param base - Empty draft for defaults.
- * @param raw - Draft fields from the host.
- * @returns A TaskDraft safe for the editor.
- */
-export function draftFromParse(base: TaskDraft, raw: Record<string, unknown>): TaskDraft {
-  const draft: TaskDraft = { ...base }
-  const assign = <K extends keyof TaskDraft>(key: K): void => {
-    const value = raw[key as string]
-    if (value !== undefined && value !== null) draft[key] = value as TaskDraft[K]
-  }
-  for (const key of [
-    'kind',
-    'title',
-    'description',
-    'preset',
-    'time',
-    'timeZone',
-    'weekdays',
-    'monthDays',
-    'cron',
-    'holidayCalendar',
-    'monthlyOverflow',
-    'skipDates',
-    'extraWorkdays',
-    'startAt',
-    'startAtSource',
-    'endAt',
-    'channels',
-    'advanceMinutes',
-    'sound',
-    'endReminder',
-    'template',
-  ] as const) {
-    assign(key)
-  }
-  return draft
+  onDegraded: (context: { text: string; reason: string }) => void
+  /** Controlled degraded hint owned by the panel (F10.11). */
+  hint?: string | null
 }
 
 /** The quick-add bar. */
@@ -67,24 +29,23 @@ export function NlpBar(props: NlpBarProps): React.ReactNode {
   const [open, setOpen] = React.useState(false)
   const [text, setText] = React.useState('')
   const [busy, setBusy] = React.useState(false)
-  const [hint, setHint] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
 
   const submit = async (): Promise<void> => {
     if (text.trim() === '' || busy) return
     setBusy(true)
-    setHint(null)
+    setError(null)
     try {
       const result = await api.parse(text.trim())
       if (result.degraded) {
-        setHint(t('nlp.degraded'))
-        props.onDegraded(text.trim())
+        props.onDegraded({ text: text.trim(), reason: result.reason ?? 'unknown' })
         return
       }
       props.onParsed(draftFromParse(emptyDraft(timeZone), result.draft), result)
       setText('')
       setOpen(false)
     } catch (caught) {
-      setHint(caught instanceof ApiError ? t(`error.${caught.code}`) : String(caught))
+      setError(caught instanceof ApiError ? t(`error.${caught.code}`) : String(caught))
     } finally {
       setBusy(false)
     }
@@ -125,6 +86,8 @@ export function NlpBar(props: NlpBarProps): React.ReactNode {
           ),
         )
       : null,
-    hint === null ? null : h('span', { className: 'dtd-hint', role: 'status' }, hint),
+    (props.hint ?? error) === null || (props.hint ?? error) === undefined
+      ? null
+      : h('span', { className: 'dtd-hint', role: 'status' }, props.hint ?? error),
   )
 }

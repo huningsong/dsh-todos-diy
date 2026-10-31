@@ -16,6 +16,7 @@ import { TaskRow } from './task-row'
 import { TodoGlyph } from './ui'
 import { CollapsibleRows } from './list-collapse'
 import { ArchiveView } from './archive-view'
+import type { SearchScope } from './search-scope'
 
 const h = React.createElement
 
@@ -49,6 +50,12 @@ export interface TaskListProps {
   onRestoreArchived?: (task: TaskView) => void
   /** True when the data file belongs to a newer plugin; all writes are blocked. */
   readOnly?: boolean
+  /** F8.17: a search is active (list must render results, not ArchiveView). */
+  searchActive?: boolean
+  /** F8.17: search scope, used for the stage badge and the empty-state CTA. */
+  searchScope?: SearchScope
+  /** F8.17: switch the scope to "all tasks" from the empty state. */
+  onSearchAll?: () => void
 }
 
 /**
@@ -73,6 +80,7 @@ function renderRow(task: TaskView, props: TaskListProps): React.ReactElement {
     onDuplicate: () => props.onDuplicate(task),
     onDelete: () => props.onDelete(task),
     onRemindNow: () => props.onRemindNow(task),
+    showStage: props.searchActive === true && props.searchScope === 'all',
   })
 }
 
@@ -102,7 +110,7 @@ export function TaskList(props: TaskListProps) {
 
   // The done view owns its own empty state: the quarter switcher must stay
   // reachable even when the current quarter has no completed tasks (F4.17).
-  if (view === 'done') {
+  if (view === 'done' && props.searchActive !== true) {
     return h(
       'div',
       { className: 'dtd-body' },
@@ -124,9 +132,16 @@ export function TaskList(props: TaskListProps) {
       { className: 'dtd-center', 'data-testid': 'todos-diy-empty' },
       h('span', { className: 'glyph' }, h(TodoGlyph, { size: 40 })),
       h('h2', null, searching ? t('empty.noMatch', { query: props.search.trim() }) : t(`empty.${view}`)),
-      h('p', null, searching ? t('empty.noMatchHint') : t('empty.hint')),
+      h('p', null, searching ? t(props.searchScope === 'view' ? 'empty.noMatchHintView' : 'empty.noMatchHintAll') : t('empty.hint')),
       searching
-        ? h('button', { type: 'button', className: 'dtd-btn ghost', onClick: props.onClearSearch }, t('empty.clearSearch'))
+        ? h(
+            'div',
+            { className: 'dtd-emptyActions' },
+            props.searchScope === 'view' && props.onSearchAll !== undefined
+              ? h('button', { type: 'button', className: 'dtd-btn', onClick: props.onSearchAll }, t('nlp.searchAll'))
+              : null,
+            h('button', { type: 'button', className: 'dtd-btn ghost', onClick: props.onClearSearch }, t('empty.clearSearch')),
+          )
         : props.firstRun
           ? h(
             'div',

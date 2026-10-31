@@ -225,3 +225,40 @@ export function validateDraft(
   }
   return { fieldErrors: {} }
 }
+
+/**
+ * Merge a `/parse` draft payload into a complete `TaskDraft`.
+ * @param base - Empty draft for defaults.
+ * @param raw - Draft fields from the host.
+ * @returns A TaskDraft safe for the editor.
+ */
+export function draftFromParse(base: TaskDraft, raw: Record<string, unknown>): TaskDraft {
+  const draft: TaskDraft = { ...base }
+  for (const key of [
+    'kind',
+    'title',
+    'description',
+    'preset',
+    'time',
+    'timeZone',
+    'weekdays',
+    'monthDays',
+    'cron',
+    'holidayCalendar',
+    'monthlyOverflow',
+    'skipDates',
+    'extraWorkdays',
+    'startAt',
+    'startAtSource',
+    'endAt',
+    'channels',
+    'advanceMinutes',
+    'sound',
+    'endReminder',
+    'template',
+  ] as const) {
+    const value = raw[key]
+    if (value !== undefined && value !== null) draft[key] = value as never
+  }
+  return draft
+}

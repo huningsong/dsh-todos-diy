@@ -233,7 +233,7 @@ export function ContextMenu(props: {
   x: number
   y: number
   onClose: () => void
-  items: { label: string; onSelect: () => void; danger?: boolean }[]
+  items: { label: string; onSelect: () => void; danger?: boolean; disabled?: boolean }[]
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null)
   React.useEffect(() => {
@@ -269,6 +269,7 @@ export function ContextMenu(props: {
           type: 'button',
           role: 'menuitem',
           className: item.danger === true ? 'danger' : undefined,
+          disabled: item.disabled === true,
           onClick: () => {
             props.onClose()
             item.onSelect()

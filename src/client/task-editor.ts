@@ -9,10 +9,12 @@ import type { TaskView } from '../../src/host/taskView'
 
 const h = React.createElement
 import { api, ApiError } from './api'
-import { draftFromTask, draftToPayload, validateDraft, type TaskDraft } from './task-draft'
+import { draftFromParse, draftFromTask, draftToPayload, validateDraft, type TaskDraft } from './task-draft'
+import { degradedReasonKey, mergeParsedDraft, missingRequiredOf, type NlpDegradedContext } from './nlp-degraded'
 
 export { emptyDraft, draftFromTask, draftToPayload, toLocalInput, validateDraft, type TaskDraft } from './task-draft'
 import { Modal } from './ui'
+import { emptyDraft } from './task-draft'
 import { BasicFields, OnceFields, RuleFields } from './editor-fields'
 import { requestNotificationPermission } from './notify-permission'
 
@@ -26,17 +28,70 @@ export interface TaskEditorProps {
   fieldStatus?: Record<string, 'explicit' | 'default' | 'missing'>
   /** F10.4: banner summarising what still needs input. */
   banner?: string
+  /** F10.11: degraded context (shows the warning banner + retry). */
+  degraded?: NlpDegradedContext
+  onRetryParse?: (text: string, signal: AbortSignal) => Promise<import('./api').NlpParsePayload>
+  onDegradedSuccess?: () => void
   onClose: () => void
   onSaved: (task: TaskView) => void
 }
 
+/** Empty draft in the same zone as the current one. */
+function emptyDraftFor(draft: TaskDraft): TaskDraft {
+  return emptyDraft(draft.timeZone)
+}
+
 /** The editor modal. */
 export function TaskEditor(props: TaskEditorProps) {
-  const { t, fieldStatus } = props
+  const { t } = props
   const [draft, setDraft] = React.useState<TaskDraft>(props.initial)
+  const [fieldStatus, setFieldStatus] = React.useState<Record<string, 'explicit' | 'default' | 'missing'> | undefined>(props.fieldStatus)
   const [error, setError] = React.useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = React.useState<{ startAt?: string; endAt?: string }>({})
   const [saving, setSaving] = React.useState(false)
+  const [degradedState, setDegradedState] = React.useState<NlpDegradedContext | null>(props.degraded ?? null)
+  const [degradedDismissed, setDegradedDismissed] = React.useState(false)
+  const [retrying, setRetrying] = React.useState(false)
+  const [bannerOverride, setBannerOverride] = React.useState<string | null>(null)
+  const initialRef = React.useRef<TaskDraft>(props.initial)
+  const retryAbortRef = React.useRef<AbortController | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      retryAbortRef.current?.abort()
+    }
+  }, [])
+
+  const retryParse = async (): Promise<void> => {
+    if (degradedState === null || props.onRetryParse === undefined) return
+    setRetrying(true)
+    setError(null)
+    const controller = new AbortController()
+    retryAbortRef.current = controller
+    try {
+      const result = await props.onRetryParse(degradedState.text, controller.signal)
+      if (controller.signal.aborted) return
+      if (result.degraded) {
+        setDegradedState({ text: degradedState.text, reason: (result.reason ?? 'unknown') as NlpDegradedContext['reason'] })
+        return
+      }
+      const parsed = draftFromParse(emptyDraftFor(draft), result.draft)
+      const merged = mergeParsedDraft(draft, parsed, initialRef.current)
+      setDraft(merged.draft)
+      const status = { ...result.fieldStatus }
+      for (const key of merged.retained) status[key as string] = 'explicit'
+      setFieldStatus(status)
+      const missing = missingRequiredOf(merged.draft)
+      setBannerOverride(missing.length > 0 ? t('nlp.missing', { fields: missing.join('、') }) : t('nlp.banner'))
+      setDegradedState(null)
+      props.onDegradedSuccess?.()
+    } catch (caught) {
+      if (controller.signal.aborted) return
+      setError(caught instanceof ApiError ? t(`error.${caught.code}`) : String(caught))
+    } finally {
+      setRetrying(false)
+    }
+  }
   const [preview, setPreview] = React.useState<string[]>([])
 
   const update = <K extends keyof TaskDraft>(key: K, value: TaskDraft[K]): void => {
@@ -126,7 +181,26 @@ export function TaskEditor(props: TaskEditorProps) {
         ),
       ],
     },
-    props.banner === undefined ? null : h('div', { className: 'dtd-nlpBanner', role: 'status' }, props.banner),
+    degradedState !== null && !degradedDismissed
+      ? h(
+          'div',
+          { className: 'dtd-nlpBanner is-warning', role: 'alert' },
+          h('div', null, t('nlp.degraded.title')),
+          h('div', { className: 'dtd-degradedReason' }, t(degradedReasonKey(degradedState.reason))),
+          h(
+            'div',
+            { className: 'dtd-degradedActions' },
+            h(
+              'button',
+              { type: 'button', className: 'dtd-btn', disabled: retrying, onClick: () => void retryParse() },
+              retrying ? t('nlp.degraded.retrying') : t('nlp.degraded.retry'),
+            ),
+            h('button', { type: 'button', className: 'dtd-btn ghost', onClick: () => setDegradedDismissed(true) }, t('nlp.degraded.dismiss')),
+          ),
+        )
+      : (bannerOverride ?? props.banner) === undefined
+        ? null
+        : h('div', { className: 'dtd-nlpBanner', role: 'status' }, bannerOverride ?? props.banner),
     error === null ? null : h('div', { className: 'dtd-error', role: 'alert' }, error),
     h(BasicFields, { draft, update, t, fieldStatus }),
     ruleFields,
