@@ -94,3 +94,15 @@ describe('UX-21: pin is discoverable from the more menu', () => {
     assert.ok(panel.includes('api.pin(menu.task.id'))
   })
 })
+
+describe('F8.9/F8.20: group expansion with pagination', () => {
+  it('defaults groups open for paginated lists and remembers manual choices', () => {
+    const collapse = clientSource('list-collapse.ts')
+    assert.ok(collapse.includes('defaultExpanded'))
+    assert.ok(collapse.includes('storageKey'))
+    assert.ok(collapse.includes('localStorage'))
+    const list = clientSource('task-list.ts')
+    assert.ok(list.includes('defaultExpanded: props.hasMore === true'))
+    assert.ok(list.includes('storageKey: `dsh-todos-diy.group.'))
+  })
+})

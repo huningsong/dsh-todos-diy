@@ -27,6 +27,8 @@ export interface PanelToolbarProps {
   onParsed: (draft: TaskDraft, result: NlpParsePayload) => void
   onDegraded: (context: { text: string; reason: string }) => void
   nlpHint?: string | null
+  /** Open settings when the feature is disabled (F10.12 discoverability). */
+  onOpenSettings: () => void
 }
 
 /** The search + quick-add row. */
@@ -73,6 +75,18 @@ export function PanelToolbar(props: PanelToolbarProps): React.ReactNode {
           onDegraded: props.onDegraded,
           hint: props.nlpHint ?? null,
         })
-      : null,
+      : h(
+          'button',
+          {
+            type: 'button',
+            className: 'dtd-nlpToggle dtd-nlpToggleOff',
+            title: t('nlp.disabledHint'),
+            'aria-label': t('nlp.disabledHint'),
+            'data-testid': 'nlp-disabled-entry',
+            onClick: props.onOpenSettings,
+          },
+          '✨ ',
+          t('nlp.openDisabled'),
+        ),
   )
 }

@@ -226,6 +226,8 @@ export function TaskList(props: TaskListProps) {
               items: group.items,
               renderItem: (task: TaskView) => renderRow(task, props),
               t,
+              defaultExpanded: props.hasMore === true,
+              storageKey: `dsh-todos-diy.group.${view}.${props.search}.${group.key}`,
             }),
       ),
     ),

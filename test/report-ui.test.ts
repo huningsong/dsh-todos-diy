@@ -67,6 +67,23 @@ describe('AC-REP-05: one renderer for preview/copy/export', () => {
     assert.ok(markdown.includes('- [x] 交周报 ×3'))
   })
 
+  it('caps long sections while keeping the full count', () => {
+    const report: ReportData = {
+      ...EMPTY,
+      completed: Array.from({ length: 60 }, (_, index) => ({
+        id: `t${String(index)}`,
+        title: `任务 ${String(index)}`,
+        kind: 'once' as const,
+        count: 1,
+        completedAt: '2026-10-28T02:00:00.000Z',
+      })),
+    }
+    const markdown = renderReportMarkdown(report, t)
+    assert.ok(markdown.includes('## 本周完成（60）'))
+    assert.ok(markdown.includes('其余 10 条已省略'))
+    assert.equal((markdown.match(/^- \[x\]/gm) ?? []).length, 50)
+  })
+
   it('keeps empty sections with 无', () => {
     const markdown = renderReportMarkdown(EMPTY, t)
     assert.ok(markdown.includes('## 本周完成（0）\n- 无'))

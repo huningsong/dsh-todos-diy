@@ -26,6 +26,7 @@ export interface PanelEditorProps {
   editor: PanelEditorState | null
   onClose: () => void
   onSaved: () => void
+  onNotice?: (message: string) => void
   onRetryParse: (text: string, signal: AbortSignal) => Promise<NlpParsePayload>
   onDegradedSuccess: () => void
 }
@@ -45,5 +46,6 @@ export function PanelEditor(props: PanelEditorProps): React.ReactNode {
     onDegradedSuccess: props.onDegradedSuccess,
     onClose: props.onClose,
     onSaved: props.onSaved,
+    onNotice: props.onNotice,
   })
 }

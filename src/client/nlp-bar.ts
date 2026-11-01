@@ -120,6 +120,7 @@ export function NlpBar(props: NlpBarProps): React.ReactNode {
               },
             }),
           ),
+          h('p', { className: 'dtd-hint dtd-modelNotice', role: 'note' }, t('nlp.modelNotice')),
           error === null ? null : h('p', { className: 'dtd-error', role: 'alert' }, error),
         )
       : null,

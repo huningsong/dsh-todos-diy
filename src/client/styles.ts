@@ -43,6 +43,11 @@ export const CSS = `
 
 /* ── toolbar ────────────────────────────────────────────── */
 .dtd-toolbar{display:flex;align-items:center;gap:10px;padding:14px clamp(20px,4vw,48px) 6px}
+.dtd-featureHintsItems{display:flex;flex-direction:column;gap:12px}
+.dtd-featureHintItem{display:flex;flex-direction:column;gap:4px;padding:12px;border:.5px solid var(--dsw-alias-border-l3);border-radius:10px;background:var(--dsw-alias-bg-layer-2);font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary)}
+.dtd-featureHintItem b{color:var(--dsw-alias-label-primary);font-weight:500}
+.dtd-featureHintState{color:var(--dsw-alias-state-business-primary);font-size:11px}
+
 .dtd-search{flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;color:var(--dsw-alias-label-tertiary)}
 .dtd-search:focus-within{border-color:var(--dsw-alias-state-business-primary)}
 .dtd-search input{flex:1;min-width:0;border:0;background:0 0;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;outline:none}
@@ -144,9 +149,14 @@ export const CSS = `
 .dtd-nlp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dtd-nlpToggle{display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:16px;border:.5px solid var(--dsw-alias-border-l3);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}
 .dtd-nlpToggle:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.dtd-nlpToggleOff{color:var(--dsw-alias-label-tertiary);border-style:dashed}
 .dtd-nlpRow{display:flex;align-items:center;gap:8px;flex:1;min-width:280px}
 .dtd-nlpInput{flex:1;min-width:0}
 .dtd-nlpTextarea{min-height:160px}
+.dtd-modelNotice{margin:8px 0 0;color:var(--dsw-alias-label-secondary)}
+.dtd-notifyStatusRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}
+.dtd-notifyStatus{margin-top:0}
+.dtd-notifyStatus.is-error{color:var(--dsw-alias-state-error-primary)}
 .dtd-nlpBanner{padding:8px 12px;border-radius:10px;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary);font-size:12.5px;line-height:19px}
 .dtd-field-badge{display:inline-flex;align-items:center;height:16px;margin-left:6px;padding:0 6px;border-radius:8px;font-size:10.5px;line-height:16px;font-weight:400}
 .dtd-listMeta{display:flex;align-items:center;gap:10px;padding:0 0 8px;font-size:12px;color:var(--dsw-alias-label-tertiary)}

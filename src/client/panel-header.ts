@@ -26,6 +26,7 @@ export interface PanelHeaderProps {
   readOnly: boolean
   onSettings: () => void
   onReport: () => void
+  onFeatureHelp: () => void
   onNew: () => void
   /** F8.17: global search results span filters, so the chips lose highlight. */
   filtersDimmed?: boolean
@@ -64,6 +65,16 @@ export function PanelHeader(props: PanelHeaderProps) {
             onClick: props.onReport,
           },
           t('report.title'),
+        ),
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'dtd-btn ghost',
+            'aria-label': t('featureHints.title'),
+            onClick: props.onFeatureHelp,
+          },
+          t('featureHints.title'),
         ),
         h(
           'button',

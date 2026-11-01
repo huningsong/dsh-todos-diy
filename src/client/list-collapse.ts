@@ -21,6 +21,10 @@ export interface CollapsibleRowsProps {
   t: (key: string, params?: Record<string, string | number>) => string
   /** Extra class name for the wrapper. */
   className?: string
+  /** Expand on first render; used when a paginated list needs its groups open. */
+  defaultExpanded?: boolean
+  /** Optional key for remembering the user's expand/collapse choice. */
+  storageKey?: string
 }
 
 /**
@@ -32,8 +36,32 @@ export interface CollapsibleRowsProps {
  * @returns The group body and optional expand/collapse control.
  */
 export function CollapsibleRows(props: CollapsibleRowsProps): React.ReactElement {
-  const { items, renderItem, t, className } = props
-  const [expanded, setExpanded] = React.useState(false)
+  const { items, renderItem, t, className, defaultExpanded, storageKey } = props
+  const [expanded, setExpanded] = React.useState(() => {
+    if (storageKey !== undefined && typeof window !== 'undefined') {
+      try {
+        const stored = window.localStorage.getItem(storageKey)
+        if (stored === '1') return true
+        if (stored === '0') return false
+      } catch {
+        // Storage is optional; fall back to the default.
+      }
+    }
+    return defaultExpanded === true
+  })
+  const toggle = (): void => {
+    setExpanded((current) => {
+      const next = !current
+      if (storageKey !== undefined && typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(storageKey, next ? '1' : '0')
+        } catch {
+          // Storage is optional.
+        }
+      }
+      return next
+    })
+  }
   const visible = visibleGroupItems(items, expanded)
   const hidden = items.length - visible.length
 
@@ -51,7 +79,7 @@ export function CollapsibleRows(props: CollapsibleRowsProps): React.ReactElement
               type: 'button',
               className: 'dtd-btn ghost small',
               'aria-expanded': expanded,
-              onClick: () => setExpanded((current) => !current),
+              onClick: toggle,
             },
             expanded ? t('group.showLess') : t('group.showMore', { n: hidden }),
           ),

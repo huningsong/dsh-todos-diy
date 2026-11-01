@@ -26,6 +26,16 @@ const PHASE_KEYS: Record<string, string> = {
   advance: 'overlay.phase.advance',
 }
 
+/**
+ * Whether the DSH window is in the background for system-notification
+ * purposes. Electron/WebView builds can keep `visibilityState` as "visible"
+ * after the window is minimized, but `hasFocus()` becomes false; treating
+ * both as background fixes the "minimized but no system notification" case.
+ */
+function isBackgroundWindow(): boolean {
+  return document.visibilityState === 'hidden' || document.hasFocus() === false
+}
+
 /** Props injected by the slot system. */
 export interface OverlayProps {
   t: (key: string, params?: Record<string, string | number>) => string
@@ -67,7 +77,7 @@ export function ReminderOverlay(props: OverlayProps) {
       // Only cards actually rendered may raise a system notification: a
       // DND-held row is folded into the summary and must not buzz individually
       // (F5.6). The summary itself raises one notification instead.
-      if (result.dndSummary !== undefined && document.visibilityState === 'hidden') {
+      if (result.dndSummary !== undefined && isBackgroundWindow()) {
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           try {
             new Notification(t('overlay.summary', { n: result.dndSummary.count }), {
@@ -83,14 +93,31 @@ export function ReminderOverlay(props: OverlayProps) {
         if (!card.channels.includes('system')) continue
         if (typeof Notification === 'undefined') continue
         if (Notification.permission !== 'granted') continue
-        if (document.visibilityState !== 'hidden') continue
+        if (!isBackgroundWindow()) continue
         if (notified.current.has(card.occurrenceKey)) continue
         notified.current.add(card.occurrenceKey)
+        const report = (ok: boolean, error: string | null): void => {
+          void api.reportSystem(card.occurrenceKey, ok, error)
+        }
         try {
-          new Notification(card.title, { body: card.text, tag: card.occurrenceKey })
-          await api.reportSystem(card.occurrenceKey, true)
+          const notification = new Notification(card.title, { body: card.text, tag: card.occurrenceKey })
+          let settled = false
+          notification.onshow = () => {
+            settled = true
+            report(true, null)
+          }
+          notification.onerror = () => {
+            settled = true
+            report(false, 'not-shown')
+          }
+          // Some Electron/WebView builds construct Notification objects without
+          // firing onshow/onerror. Do not claim success until the browser
+          // actually reports that it displayed the notification.
+          window.setTimeout(() => {
+            if (!settled) report(false, 'no-show-event')
+          }, 3000)
         } catch (caught) {
-          await api.reportSystem(card.occurrenceKey, false, caught instanceof Error ? 'not-supported' : 'unknown')
+          report(false, caught instanceof Error ? 'not-supported' : 'unknown')
         }
       }
     } catch (caught) {
@@ -109,11 +136,20 @@ export function ReminderOverlay(props: OverlayProps) {
       // Coming back to the page is the moment a held card matters most.
       void poll()
     }
+    // A minimized Electron window may not emit visibilitychange; blur/focus
+    // are the reliable desktop signals that the page left/entered the foreground.
+    const onWindowState = (): void => {
+      void poll()
+    }
     document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('blur', onWindowState)
+    window.addEventListener('focus', onWindowState)
     window.addEventListener('dsh-todos-diy:changed', onVisible)
     return () => {
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('blur', onWindowState)
+      window.removeEventListener('focus', onWindowState)
       window.removeEventListener('dsh-todos-diy:changed', onVisible)
     }
   }, [poll])

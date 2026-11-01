@@ -33,10 +33,11 @@
 | **R7** | 2026-10-31 | v1.8：F8.17 搜索范围 + F10.11 NLP 降级提示 | `planning/0.5.1需求设计.md`（设计评审 3 轮通过） | v0.5.1：**817 tests / 242 suites / 0 fail**；AC-59/AC-60 全过 | **已实现（0.5.1）** |
 | **R8** | 2026-10-31 | v1.10：F8.20 列表分页与全量分组计数 + F10.1 输入弹窗 | 用户反馈（1000 条列表分页） | v0.5.2：**825 tests / 244 suites / 0 fail**；AC-61 全过 | **已实现（0.5.2）** |
 | **R9** | 2026-10-31 | 0.5.3 补丁：NLP 输入弹窗焦点修复 | 用户反馈（输入第一个字符后失焦） | v0.5.3：**825 tests / 244 suites / 0 fail**；`verify-pack: OK` | **已发布（0.5.3）** |
+| **R10** | 2026-11-01 | v1.18：F5.9–F5.12 / F8.19 / F10.12–F10.13 体验批次 | 第五、六轮体验测试 | v0.6.0：**848 tests / 252 suites / 0 fail**；`verify-pack: OK` | **已发布（0.6.0）** |
 
 ## 关键入口
 
-- 需求基线：[requirements/需求-v1.md](requirements/需求-v1.md)（v1.9）
+- 需求基线：[requirements/需求-v1.md](requirements/需求-v1.md)（v1.18）
 - 决策记录：[decisions/待讨论-缺口清单.md](decisions/待讨论-缺口清单.md)
 - 本轮评审：[reviews/round2/评审-本轮需求.md](reviews/round2/评审-本轮需求.md)
 - 版本计划：[planning/版本计划.md](planning/版本计划.md)

@@ -16,7 +16,7 @@ export { emptyDraft, draftFromTask, draftToPayload, toLocalInput, validateDraft,
 import { Modal } from './ui'
 import { emptyDraft } from './task-draft'
 import { BasicFields, OnceFields, RuleFields } from './editor-fields'
-import { requestNotificationPermission } from './notify-permission'
+import { getNotificationPermission, getNotificationPlatform, requestNotificationPermission, sendTestNotification, type SystemNotificationStatus } from './notify-permission'
 
 /** Props for the editor. */
 export interface TaskEditorProps {
@@ -34,6 +34,8 @@ export interface TaskEditorProps {
   onDegradedSuccess?: () => void
   onClose: () => void
   onSaved: (task: TaskView) => void
+  /** F5.9: optional non-blocking notice (e.g. system notification denied). */
+  onNotice?: (message: string) => void
 }
 
 /** Empty draft in the same zone as the current one. */
@@ -53,6 +55,9 @@ export function TaskEditor(props: TaskEditorProps) {
   const [degradedDismissed, setDegradedDismissed] = React.useState(false)
   const [retrying, setRetrying] = React.useState(false)
   const [bannerOverride, setBannerOverride] = React.useState<string | null>(null)
+  const [systemNotification, setSystemNotification] = React.useState<SystemNotificationStatus>(() => getNotificationPermission())
+  const [testingNotification, setTestingNotification] = React.useState(false)
+  const notificationPlatform = getNotificationPlatform()
   const initialRef = React.useRef<TaskDraft>(props.initial)
   const retryAbortRef = React.useRef<AbortController | null>(null)
 
@@ -123,6 +128,23 @@ export function TaskEditor(props: TaskEditorProps) {
     }
   }, [draft])
 
+  const testSystemNotification = async (): Promise<void> => {
+    setTestingNotification(true)
+    try {
+      const result = await sendTestNotification(t('form.notify.testTitle'), t('form.notify.testBody'))
+      setSystemNotification(result.status)
+      if (result.shown) {
+        props.onNotice?.(t('form.notify.testSent'))
+      } else if (result.status !== 'granted') {
+        props.onNotice?.(t(`form.notify.systemStatus.${result.status}`))
+      } else {
+        props.onNotice?.(t('form.notify.testMissing'))
+      }
+    } finally {
+      setTestingNotification(false)
+    }
+  }
+
   const save = async (): Promise<void> => {
     setError(null)
     // FIX-04: field-level messages instead of a generic "参数不合法".
@@ -137,7 +159,13 @@ export function TaskEditor(props: TaskEditorProps) {
     try {
       // F9.3 / UX-12: only ask for the notification permission when the user
       // actually chooses the system channel, never on mount.
-      if (draft.channels.includes('system')) await requestNotificationPermission()
+      if (draft.channels.includes('system')) {
+        const permission = await requestNotificationPermission()
+        setSystemNotification(permission)
+        if (permission !== 'granted') {
+          props.onNotice?.(t(`form.notify.systemStatus.${permission}`))
+        }
+      }
       const payload = draftToPayload(draft)
       const saved =
         props.editingId === null
@@ -230,6 +258,21 @@ export function TaskEditor(props: TaskEditorProps) {
         }),
         t('form.notify.system'),
       ),
+      h(
+        'div',
+        { className: 'dtd-notifyStatusRow' },
+        h(
+          'span',
+          { className: `dtd-hint dtd-notifyStatus${systemNotification === 'denied' ? ' is-error' : ''}`, role: 'status' },
+          t(`form.notify.systemStatus.${systemNotification}`),
+        ),
+        h(
+          'button',
+          { type: 'button', className: 'dtd-btn ghost small', disabled: testingNotification, onClick: () => void testSystemNotification() },
+          testingNotification ? t('form.notify.testing') : t('form.notify.test'),
+        ),
+      ),
+      h('span', { className: 'dtd-hint dtd-notifyGuide' }, t(`form.notify.guide.${notificationPlatform}`)),
     ),
     h(
       'div',

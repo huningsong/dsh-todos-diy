@@ -47,3 +47,34 @@ describe('NLP entry modal', () => {
     assert.ok((en as Record<string, string>)['nlp.dialog.hint']?.includes('editor'))
   })
 })
+
+describe('F10.12: NLP entry is discoverable while disabled', () => {
+  it('shows a settings CTA instead of hiding the entry', () => {
+    const toolbar = source('panel-toolbar.ts')
+    assert.ok(toolbar.includes("'nlp-disabled-entry'"))
+    assert.ok(toolbar.includes("t('nlp.openDisabled')"))
+    assert.ok(toolbar.includes('onOpenSettings'))
+  })
+
+  it('has CTA and hint text in both languages', () => {
+    assert.equal((zh as Record<string, string>)['nlp.openDisabled'], '自然语言新建（设置中开启）')
+    assert.ok((zh as Record<string, string>)['nlp.disabledHint']?.includes('设置'))
+    assert.equal((en as Record<string, string>)['nlp.openDisabled'], 'Quick add (enable in settings)')
+    assert.ok((en as Record<string, string>)['nlp.disabledHint']?.includes('settings'))
+  })
+})
+
+describe('F10.13: model-call notice', () => {
+  it('shows a model notice inside the input dialog', () => {
+    const bar = source('nlp-bar.ts')
+    assert.ok(bar.includes("t('nlp.modelNotice')"))
+    assert.ok(bar.includes("role: 'note'"))
+  })
+
+  it('states model sending and data boundaries in both languages', () => {
+    assert.ok((zh as Record<string, string>)['nlp.modelNotice']?.includes('模型服务'))
+    assert.ok((zh as Record<string, string>)['nlp.modelNotice']?.includes('任务库'))
+    assert.ok((en as Record<string, string>)['nlp.modelNotice']?.includes('model service'))
+    assert.ok((en as Record<string, string>)['nlp.modelNotice']?.includes('Task data'))
+  })
+})

@@ -11,6 +11,7 @@ import { PanelEditor } from './panel-editor'
 import { degradedReasonKey, normalizeDegradedReason, type NlpDegradedContext } from './nlp-degraded'
 import { PanelToolbar } from './panel-toolbar'
 import { ReportModal } from './report-modal'
+import { FeatureHints } from './feature-hints'
 import { TaskContextMenu } from './panel-menu'
 import { TaskRow } from './task-row'
 import { SettingsModal } from './settings-modal'
@@ -69,6 +70,7 @@ export function TodoPanel(props: PanelProps) {
   const [confirmDelete, setConfirmDelete] = React.useState<TaskView | null>(null)
   const [firstRun, setFirstRun] = React.useState(false)
   const [readOnly, setReadOnly] = React.useState(false)
+  const [featureHelpOpen, setFeatureHelpOpen] = React.useState(false)
   const nlpHandlers = createNlpHandlers({
     t,
     timeZone: settings?.timeZone ?? 'Asia/Shanghai',
@@ -302,6 +304,7 @@ export function TodoPanel(props: PanelProps) {
       readOnly,
       onSettings: () => setSettingsOpen(true),
       onReport: () => setReportOpen(true),
+      onFeatureHelp: () => setFeatureHelpOpen(true),
       onNew: openNew,
       onSelect: setView,
       filtersDimmed: searchActive(search) && searchScope === 'all',
@@ -318,6 +321,7 @@ export function TodoPanel(props: PanelProps) {
       onParsed: nlpHandlers.onParsed,
       onDegraded: nlpHandlers.onDegraded,
       nlpHint,
+      onOpenSettings: () => setSettingsOpen(true),
     }),
     h(SearchResultBar, {
       t,
@@ -339,6 +343,7 @@ export function TodoPanel(props: PanelProps) {
         void load(view, search)
         window.dispatchEvent(new CustomEvent('dsh-todos-diy:changed'))
       },
+      onNotice: (message) => showToast(message),
       onRetryParse: (text: string, signal: AbortSignal) => api.parse(text, signal),
       onDegradedSuccess: () => {
         setDegraded(null)
@@ -371,6 +376,17 @@ export function TodoPanel(props: PanelProps) {
     history === null ? null : h(TaskHistoryModal, { task: history, t, onClose: () => setHistory(null) }),
     h(PanelConfirmDelete, { t, task: confirmDelete, onCancel: () => setConfirmDelete(null), onConfirm: (target) => { setConfirmDelete(null); onDelete(target) } }),
     reportOpen ? h(ReportModal, { t, timeZone: settings?.timeZone ?? 'Asia/Shanghai', onClose: () => setReportOpen(false) }) : null,
+    featureHelpOpen
+      ? h(FeatureHints, {
+          t,
+          nlpEnabled: settings?.nlp?.enabled === true,
+          onOpenSettings: () => {
+            setFeatureHelpOpen(false)
+            setSettingsOpen(true)
+          },
+          onClose: () => setFeatureHelpOpen(false),
+        })
+      : null,
     settingsOpen
       ? h(SettingsModal, {
           t,

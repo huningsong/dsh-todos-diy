@@ -7,6 +7,9 @@
 
 import type { ReportData, ReportItem } from '../host/reports.js'
 
+/** Maximum rows rendered per report section; counts remain complete. */
+export const REPORT_SECTION_LIMIT = 50
+
 /** Translator signature used by the renderer. */
 export type Translate = (key: string, params?: Record<string, string | number>) => string
 
@@ -76,11 +79,16 @@ export function renderReportMarkdown(report: ReportData, t: Translate): string {
   const heading = '# ' + (kind === 'weekly'
     ? t('report.title.weekly', { start: startDate, end: endDate })
     : t('report.title.monthly', { start: startDate, end: endDate }))
-  const section = (key: string, items: ReportItem[], checked = false): string[] => [
-    `## ${t(key, { n: items.length })}`,
-    ...(items.length === 0 ? [`- ${t('report.none')}`] : items.map((item) => row(item, t, timeZone, checked))),
-    '',
-  ]
+  const section = (key: string, items: ReportItem[], checked = false): string[] => {
+    const shown = items.slice(0, REPORT_SECTION_LIMIT)
+    const hidden = items.length - shown.length
+    return [
+      `## ${t(key, { n: items.length })}`,
+      ...(items.length === 0 ? [`- ${t('report.none')}`] : shown.map((item) => row(item, t, timeZone, checked))),
+      ...(hidden > 0 ? [`- ${t('report.truncated', { n: hidden })}`] : []),
+      '',
+    ]
+  }
   const lines: string[] = [heading, '']
   lines.push(...section(`report.section.completed.${kind}`, report.completed, true))
   lines.push(...section('report.section.overdue', report.overdue))

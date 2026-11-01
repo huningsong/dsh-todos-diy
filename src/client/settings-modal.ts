@@ -9,6 +9,7 @@
 import * as React from 'react'
 
 import { api, ApiError, type SettingsPayload } from './api'
+import { getNotificationPlatform } from './notify-permission'
 import { Modal } from './ui'
 
 const h = React.createElement
@@ -35,6 +36,7 @@ export function SettingsModal(props: {
   const [dnd, setDnd] = React.useState(base.dnd)
   const [channels, setChannels] = React.useState(base.defaultChannels)
   const [nlpEnabled, setNlpEnabled] = React.useState(base.nlp?.enabled === true)
+  const notificationPlatform = getNotificationPlatform()
   const [error, setError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
 
@@ -171,6 +173,7 @@ export function SettingsModal(props: {
         }),
         t('form.notify.system'),
       ),
+      h('span', { className: 'dtd-hint dtd-notifyGuide' }, t(`form.notify.guide.${notificationPlatform}`)),
     ),
     h(
       'div',
