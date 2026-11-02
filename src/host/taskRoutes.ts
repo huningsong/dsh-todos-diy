@@ -196,7 +196,7 @@ export function taskRoutes(
         const now = ctx.now()
         const key = `${task.id}@${now.toISOString()}#remind`
         const occurrence: Occurrence = { taskId: task.id, at: now, phase: null, key, kind: task.kind }
-        await ctx.repo.recordDeliveries(deliveryRecordsFor(task, occurrence, now))
+        await ctx.repo.recordDeliveries(deliveryRecordsFor(task, occurrence, now, ctx.repo.settings()))
         ok(res, { id: task.id, occurrenceKey: key })
       }),
     },

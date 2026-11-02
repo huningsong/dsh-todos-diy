@@ -55,6 +55,7 @@ export function FeatureHints(props: FeatureHintsProps): React.ReactNode {
         'div',
         { className: 'dtd-featureHintItem' },
         h('b', null, '🔔 ', t('featureHints.system')),
+        h('span', null, t('featureHints.systemHint')),
         h('span', null, t(`form.notify.guide.${platform}`)),
       ),
     ),

@@ -11,7 +11,7 @@
  */
 import type { Task } from './rules/types.js';
 /** Current on-disk schema version. Bump together with a migration. */
-export declare const SCHEMA_VERSION = 3;
+export declare const SCHEMA_VERSION = 4;
 /** One completion record (F11.2 / schema v3).
  *
  * Unlike `Task.doneAt` (one-off tasks only), this keeps the history needed to
@@ -57,6 +57,10 @@ export interface Settings {
     retentionDays: number;
     /** Natural-language parsing (F10.7): off by default, user must opt in. */
     nlp: {
+        enabled: boolean;
+    };
+    /** F5.13/UX-30: global desktop-notification intent; default off. */
+    desktopNotifications: {
         enabled: boolean;
     };
 }

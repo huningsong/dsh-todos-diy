@@ -7,6 +7,7 @@
  */
 
 import { migrateDocumentV2, migrateIndexV2 } from './migrationV2.js'
+import { migrateDocumentV4, migrateIndexV4 } from './migrationV4.js'
 
 /**
  * Upgrade a main/quarter document to v3.
@@ -42,11 +43,13 @@ export function migrateIndexToCurrent(raw: Record<string, unknown>): Record<stri
   if (version < 2) next = migrateIndexV2(next)
   const afterV2 = typeof next['schemaVersion'] === 'number' ? next['schemaVersion'] : 2
   if (afterV2 < 3) next = migrateIndexV3(next)
+  const afterV3 = typeof next['schemaVersion'] === 'number' ? next['schemaVersion'] : 3
+  if (afterV3 < 4) next = migrateIndexV4(next)
   return next
 }
 
 /**
- * Bring a main/quarter document of any known version up to v3.
+ * Bring a main/quarter document of any known version up to the current schema.
  * @param raw - Document.
  * @param warnings - Warning sink.
  * @returns Document at `SCHEMA_VERSION`.
@@ -60,5 +63,7 @@ export function migrateDocumentToCurrent(
   if (version < 2) next = migrateDocumentV2(next, warnings)
   const afterV2 = typeof next['schemaVersion'] === 'number' ? next['schemaVersion'] : 2
   if (afterV2 < 3) next = migrateDocumentV3(next, warnings)
+  const afterV3 = typeof next['schemaVersion'] === 'number' ? next['schemaVersion'] : 3
+  if (afterV3 < 4) next = migrateDocumentV4(next, warnings)
   return next
 }

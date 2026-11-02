@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0] 2026-11-02 — 桌面系统通知全局开关
+
+### Added
+- `settings.desktopNotifications.enabled`：设置级一次性开关，默认关闭；开启后所有任务在 DSH 后台/最小化时统一使用桌面系统通知（F5.13 / F9.7 / UX-30）。
+- 设置页新增桌面通知权限状态、macOS/Windows 系统设置路径和「测试桌面系统通知」按钮。
+- 任务编辑器移除任务级系统通知复选框；`Task.notify.channels` 保留为兼容字段，不再控制桌面通知（F5.14）。
+- `schemaVersion 3→4`：v3→v4 迁移补 `desktopNotifications.enabled=false`；主文件、归档 quarter、`archive/index.json`、`POST /import` 共用迁移链。
+
+### Changed
+- 新任务 `notify.channels` 固定为 `["overlay"]`；旧任务 system 值保留但不参与桌面通知判断。
+- 快捷功能说明改为「设置中开启一次，全局生效」。
+- 版本号 `0.7.0`。
+
+
 ## [0.6.0] 2026-11-01 — 体验批次：功能发现、系统通知诊断与列表收口
 
 ### Added

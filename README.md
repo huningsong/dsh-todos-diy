@@ -11,7 +11,7 @@
 | 文档 | 内容 | 建议阅读顺序 |
 |---|---|---|
 | [docs/README.md](docs/README.md) | 文档总索引与轮次记录（R1/R2/R3） | **第 1 遍：先看总索引** |
-| [CHANGELOG.md](CHANGELOG.md) | 版本变更记录（0.1.0 → 0.6.0） | 发版前查 |
+| [CHANGELOG.md](CHANGELOG.md) | 版本变更记录（0.1.0 → 0.7.0） | 发版前查 |
 | [docs/planning/版本计划.md](docs/planning/版本计划.md) | 版本路线、0.2.0 D-25 批次、排期与发布门 | 开发/发版前 |
 | [docs/planning/研发交接-0.2.0.md](docs/planning/研发交接-0.2.0.md) | 研发可直接执行的本轮需求设计、B0–B3C 任务与验收门 | **研发开工前先读** |
 | [docs/planning/0.2.0升级后回归清单与需求变更.md](docs/planning/0.2.0升级后回归清单与需求变更.md) | 0.2.0 回归清单、P1 的 0.2.1 需求变更方案 | 升级/发版前 |
@@ -24,16 +24,17 @@
 | [需求-v1.md](docs/requirements/需求-v1.md) | 第一版需求与技术框架：目标、角色场景、术语、DSH 实测约束、F1–F9 功能需求、非功能需求、技术框架（选型/数据模型/调度/API/UI）、边界条件、验收标准、测试策略、里程碑、附录 A/B/C | 第 2 遍：作为实现依据通读 |
 | [docs/requirements/评估-周报月报.md](docs/requirements/评估-周报月报.md) | 周报/月报 MVP 设计、循环任务完成历史缺口与待拍板项 | 产品规划时看 |
 | [docs/planning/0.5.0版本规划.md](docs/planning/0.5.0版本规划.md) | 0.5.0（周报/月报）的范围、F11 需求、数据/API/UI 设计与排期 | 本轮规划 |
+| [docs/planning/0.7.0版本规划.md](docs/planning/0.7.0版本规划.md) | 0.7.0（桌面系统通知全局开关）的范围、F5/F9 需求、数据/API/UI 设计与排期 | 0.7.0 已实现 |
 | [docs/planning/开发进度盘点-2026-10-31.md](docs/planning/开发进度盘点-2026-10-31.md) | 当前版本、已完成/未开发/未测试功能与发布遗留 | 进度盘点 |
 | [待讨论-缺口清单.md](docs/decisions/待讨论-缺口清单.md) | 35 项决策：P0 8 项（**已全部拍板**）、P1 15 项（D-09–D-22、D-24）、P2 11 项 + D-25；每项含问题、选项、推荐、影响 | **第 1 遍：讨论用，先看这个** |
 | [评审-独立意见.md](docs/reviews/round1/评审-独立意见.md) | 独立评审意见：P0 16 项、P1 11 项、P2 8 项、两份文档之间的冲突清单、「我认为还差的功能点」 | 第 3 遍：核对与修订（**已并入 v1**） |
-| [UX-决策记录.md](docs/decisions/UX-决策记录.md) | 29 条体验类决策（实现方按「默认可用/减少误操作/减少打扰/可解释」原则代为决策）+ 6 项仍需用户拍板的非 UX 问题 | 开发前速览 |
+| [UX-决策记录.md](docs/decisions/UX-决策记录.md) | 30 条体验类决策（实现方按「默认可用/减少误操作/减少打扰/可解释」原则代为决策）+ 6 项仍需用户拍板的非 UX 问题 | 开发前速览 |
 | [开发会话提示词.md](docs/guides/开发会话提示词.md) | **可直接粘贴到新开发会话的完整提示词**：读文档顺序、技术事实、已拍板决策、M0–M7 开发顺序、交付格式 | 开新会话时用 |
 
 ## 当前状态
 
-- 版本：`0.6.0`（D-25 模型 + Agent 体验补齐 + NLP F10 + 周报/月报 F11 + 搜索/分页/NLP 降级收口 + 快捷功能说明与系统通知诊断；848 个单测通过；schemaVersion 3）
-- 状态：`0.6.0` 可安装使用；P2 体验项进入 0.7.0 批次
+- 版本：`0.7.0`（D-25 模型 + Agent 体验补齐 + NLP F10 + 周报/月报 F11 + 桌面系统通知全局开关；851 个单测通过；schemaVersion 4）
+- 状态：`0.7.0` 可安装使用；P2 体验项进入 0.8.0 批次
 - 决策编号：统一 `D-01`…`D-25`；决策记录见 [待讨论-缺口清单.md](docs/decisions/待讨论-缺口清单.md) 顶部表格
 - 基线：本机 DSH `0.2.1-rc.3`（macOS 桌面版）、Node `22.23.2`、pnpm `11.28.5`
 - 插件命名：包名 `dsh-todos-diy`，避免与本机已安装的 `dsh-todo-reminder@0.3.0`、`dsh-todos@0.1.3` 冲突
@@ -177,7 +178,7 @@ src/client/           # 客户端半 TypeScript → esbuild 打包
   overlay.ts          #   提醒浮层
   dictionary*.ts      #   zh / en 字典
   api.ts              #   fetch 封装
-test/                 # node:test 单测（824 用例）
+test/                 # node:test 单测（851 用例）
 docs/                 # 文档：需求/决策/评审/版本计划/测试/指南/市场
   README.md           #   文档总索引与轮次记录
   requirements/       #   需求 v1.3、D-25 方案与评估
@@ -234,5 +235,5 @@ MIT，见 [LICENSE](LICENSE)。
 | DEV-07 | F1.4 / F6.4 | 投递记录上限 1000 行，90 天保留期未实现（未 ack 的浮层记录永久保留）。 | UX-01 要求浮层不自动消失，与保留期冲突时优先 UX-01。 |
 | DEV-08 | NF6 | 1000 条任务单次 tick 实测约 57ms，未达到 ≤20ms 目标（已加 cron 解析缓存，从 68ms 优化到 57ms）。 | 瓶颈是 `Intl` 时区换算与每 tick 的 `nextWakeAt` 诊断字段；60s 一次 tick 的实际 CPU 占用约 0.1%，功能不受影响。 |
 | DEV-09 | F4.15 边界 | `coerceTask` 对**已处于 done 的 once 任务**只归一 `recurring+done`，手改/导入的 `done + pinned=true` 仍会被保留。正常路径 `complete` 会原子清 pinned。 | 仅在 `done` 手工写入场景触发；F4.15 的验收路径（用户点完成）不经过 coerce。 |
-| DEV-10 | F6.8 边缘 | `schemaVersion > 2` 的归档 quarter 文件在 `rebuildIndex` 计数与 `restore` 时仍按 v2 结构处理（不覆盖文件，但可能按旧结构读取）。index 本身已拒绝降级。 | 归档索引已完整保护；quarter 的高版本兼容留到 v2 真正出现时处理。 |
+| DEV-10 | F6.8 边缘 | 归档 quarter 文件在 `rebuildIndex` 计数与 `restore` 时按当前 `SCHEMA_VERSION` 处理；高于当前版本的文件不覆盖，`index` 本身已拒绝降级。 | 归档索引已完整保护；quarter 的高版本兼容按 `SCHEMA_VERSION` 统一处理，0.7.0 为 v4。 |
 | DEV-11 | F5.6 边缘 | DND 摘要的**系统通知**未按 occurrence 去重，理论上每次轮询会重发同一 tag 的通知（浏览器通常按 tag 替换）。 | 影响仅限页面隐藏时的重复通知；浮层摘要本身只显示一次。 |

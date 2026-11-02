@@ -29,4 +29,7 @@ export declare function validateSettingsPatch(body: Record<string, unknown>): {
     nlp?: {
         enabled: boolean;
     };
+    desktopNotifications?: {
+        enabled: boolean;
+    };
 };

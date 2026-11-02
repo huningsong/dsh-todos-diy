@@ -9,7 +9,7 @@
 import * as React from 'react'
 
 import { api, ApiError, type SettingsPayload } from './api'
-import { getNotificationPlatform } from './notify-permission'
+import { getNotificationPermission, getNotificationPlatform, requestNotificationPermission, sendTestNotification, type SystemNotificationStatus } from './notify-permission'
 import { Modal } from './ui'
 
 const h = React.createElement
@@ -30,26 +30,58 @@ export function SettingsModal(props: {
     dnd: { enabled: false, start: '22:00', end: '08:00', weekdaysOnly: false },
     retentionDays: 90,
     nlp: { enabled: false },
+    desktopNotifications: { enabled: false },
   }
   const [timeZone, setTimeZone] = React.useState(base.timeZone)
   const [graceMinutes, setGraceMinutes] = React.useState(base.graceMinutes)
   const [dnd, setDnd] = React.useState(base.dnd)
-  const [channels, setChannels] = React.useState(base.defaultChannels)
   const [nlpEnabled, setNlpEnabled] = React.useState(base.nlp?.enabled === true)
+  const [desktopNotifications, setDesktopNotifications] = React.useState(base.desktopNotifications?.enabled === true)
+  const [notificationStatus, setNotificationStatus] = React.useState<SystemNotificationStatus>(() => getNotificationPermission())
+  const [notificationMessage, setNotificationMessage] = React.useState<string | null>(null)
+  const [testingNotification, setTestingNotification] = React.useState(false)
   const notificationPlatform = getNotificationPlatform()
   const [error, setError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
+
+  const testDesktopNotification = async (): Promise<void> => {
+    setTestingNotification(true)
+    try {
+      const result = await sendTestNotification(t('form.notify.testTitle'), t('form.notify.testBody'))
+      setNotificationStatus(result.status)
+      setNotificationMessage(
+        result.shown
+          ? t('form.notify.testSent')
+          : result.status === 'granted'
+            ? t('form.notify.testMissing')
+            : t(`form.notify.systemStatus.${result.status}`),
+      )
+    } finally {
+      setTestingNotification(false)
+    }
+  }
 
   const save = async (): Promise<void> => {
     setSaving(true)
     setError(null)
     try {
+      let desktopEnabled = desktopNotifications
+      if (desktopEnabled) {
+        const permission = await requestNotificationPermission()
+        setNotificationStatus(permission)
+        if (permission !== 'granted') {
+          setDesktopNotifications(false)
+          setError(t(`form.notify.systemStatus.${permission}`))
+          return
+        }
+      }
       const saved = await api.updateSettings({
         timeZone,
         graceMinutes,
         dnd,
-        defaultChannels: channels.includes('overlay') ? channels : ['overlay', ...channels],
+        defaultChannels: ['overlay'],
         nlp: { enabled: nlpEnabled },
+        desktopNotifications: { enabled: desktopEnabled },
       })
       props.onSaved(saved)
     } catch (caught) {
@@ -158,21 +190,31 @@ export function SettingsModal(props: {
       { className: 'dtd-field' },
       h('span', { className: 'dtd-label' }, t('settings.channels')),
       h('label', { className: 'dtd-check-row' }, h('input', { type: 'checkbox', checked: true, disabled: true }), t('form.notify.overlay')),
-      h(
-        'label',
-        { className: 'dtd-check-row' },
+      h('span', { className: 'dtd-hint' }, t('form.notify.overlayHint')),
+    ),
+    h(
+      'div',
+      { className: 'dtd-field' },
+      h('label', { className: 'dtd-check-row' },
         h('input', {
           type: 'checkbox',
-          checked: channels.includes('system'),
-          onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-            setChannels(
-              event.target.checked
-                ? [...new Set([...channels, 'system' as const])]
-                : channels.filter((channel) => channel !== 'system'),
-            ),
+          checked: desktopNotifications,
+          onChange: (event: React.ChangeEvent<HTMLInputElement>) => setDesktopNotifications(event.target.checked),
         }),
-        t('form.notify.system'),
+        t('settings.desktopNotifications'),
       ),
+      h('span', { className: 'dtd-hint' }, t('settings.desktopNotificationsHint')),
+      h('span', { className: 'dtd-hint dtd-notifyStatus', role: 'status' }, t(`form.notify.systemStatus.${notificationStatus}`)),
+      h(
+        'div',
+        { className: 'dtd-notifyStatusRow' },
+        h(
+          'button',
+          { type: 'button', className: 'dtd-btn ghost small', disabled: testingNotification, onClick: () => void testDesktopNotification() },
+          testingNotification ? t('form.notify.testing') : t('form.notify.test'),
+        ),
+      ),
+      notificationMessage === null ? null : h('span', { className: 'dtd-hint', role: 'status' }, notificationMessage),
       h('span', { className: 'dtd-hint dtd-notifyGuide' }, t(`form.notify.guide.${notificationPlatform}`)),
     ),
     h(

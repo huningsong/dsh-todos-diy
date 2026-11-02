@@ -25,7 +25,7 @@ export declare function migrateIndexV3(raw: Record<string, unknown>): Record<str
  */
 export declare function migrateIndexToCurrent(raw: Record<string, unknown>): Record<string, unknown>;
 /**
- * Bring a main/quarter document of any known version up to v3.
+ * Bring a main/quarter document of any known version up to the current schema.
  * @param raw - Document.
  * @param warnings - Warning sink.
  * @returns Document at `SCHEMA_VERSION`.

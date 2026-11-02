@@ -85,7 +85,7 @@ export function extraToolDefinitions(deps: ExtraToolDeps): RawToolDefinition[] {
             key: `${task.id}@${stamp.toISOString()}#remind`,
             kind: task.kind,
           }
-          await repo.recordDeliveries(deliveryRecordsFor(task, occurrence, stamp))
+          await repo.recordDeliveries(deliveryRecordsFor(task, occurrence, stamp, repo.settings()))
           return { id: task.id, occurrenceKey: occurrence.key, deliveredAt: stamp.toISOString() }
         } catch (error) {
           return translate(error)

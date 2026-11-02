@@ -26,6 +26,7 @@ export function validateSettingsPatch(body: Record<string, unknown>): {
   dnd?: { enabled: boolean; start: string; end: string; weekdaysOnly: boolean }
   retentionDays?: number
   nlp?: { enabled: boolean }
+  desktopNotifications?: { enabled: boolean }
 } {
   const patch: ReturnType<typeof validateSettingsPatch> = {}
   if (body['timeZone'] !== undefined) patch.timeZone = validateTimeZone(body['timeZone'])
@@ -62,6 +63,21 @@ export function validateSettingsPatch(body: Record<string, unknown>): {
     if ((raw as Record<string, unknown>)['enabled'] !== undefined) {
       patch.nlp = { enabled: (raw as Record<string, unknown>)['enabled'] === true }
     }
+  }
+  if (body['desktopNotifications'] !== undefined) {
+    const raw = body['desktopNotifications']
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new ValidationError('invalid_argument', 'desktopNotifications must be an object', {
+        field: 'desktopNotifications',
+      })
+    }
+    const enabled = (raw as Record<string, unknown>)['enabled']
+    if (enabled !== undefined && typeof enabled !== 'boolean') {
+      throw new ValidationError('invalid_argument', 'desktopNotifications.enabled must be a boolean', {
+        field: 'desktopNotifications.enabled',
+      })
+    }
+    if (enabled !== undefined) patch.desktopNotifications = { enabled }
   }
   if (body['dnd'] !== undefined) {
     const raw = body['dnd']

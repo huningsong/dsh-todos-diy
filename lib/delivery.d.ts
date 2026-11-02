@@ -13,7 +13,7 @@
  * `POST /deliveries/report`.
  */
 import type { Occurrence, Task } from './rules/types.js';
-import type { DeliveryRecord } from './state.js';
+import type { DeliveryRecord, Settings } from './state.js';
 /** One card the overlay renders (`GET /due`). */
 export interface ReminderCard {
     occurrenceKey: string;
@@ -72,19 +72,22 @@ export declare function phaseLabel(phase: Occurrence['phase']): string;
  * @param occurrence - The occurrence that fired.
  * @returns Card payload for `/due`.
  */
-export declare function buildReminderCard(task: Task, occurrence: Occurrence): ReminderCard;
+export declare function buildReminderCard(task: Task, occurrence: Occurrence, settings: Pick<Settings, 'desktopNotifications'>): ReminderCard;
+/** Global channels for one occurrence (F5.13 / UX-30). */
+export declare function effectiveChannels(settings: Pick<Settings, 'desktopNotifications'>): ('overlay' | 'system')[];
 /**
  * Build the `deliveries` rows for one fired occurrence.
  *
- * `overlay` is always recorded as `ok`. A task that also lists `system` gets a
- * `skipped` row with `error: 'page-visible'` as a placeholder; the client
+ * `overlay` is always recorded as `ok`. When the global desktop-notification
+ * switch is on, a `skipped` system row is added as a placeholder; the client
  * replaces it with the real outcome through `/deliveries/report`.
  * @param task - Owning task.
  * @param occurrence - The occurrence that fired.
  * @param now - Delivery instant.
+ * @param settings - Current global settings.
  * @returns One or two records.
  */
-export declare function deliveryRecordsFor(task: Task, occurrence: Occurrence, now: Date): DeliveryRecord[];
+export declare function deliveryRecordsFor(task: Task, occurrence: Occurrence, now: Date, settings: Pick<Settings, 'desktopNotifications'>): DeliveryRecord[];
 /**
  * Deliveries that still need the user's attention.
  *

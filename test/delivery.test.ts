@@ -20,6 +20,8 @@ import type { Occurrence } from '../src/host/rules/types.js'
 import { makeOnceTask, makeTask } from './fixtures.js'
 
 const NOW = new Date('2026-10-30T09:00:00+08:00')
+const SETTINGS_OFF = { desktopNotifications: { enabled: false } }
+const SETTINGS_ON = { desktopNotifications: { enabled: true } }
 
 /** Build one occurrence at the given instant. */
 function occurrenceOf(taskId: string, iso: string, phase: Occurrence['phase'] = null): Occurrence {
@@ -63,7 +65,7 @@ describe('phaseLabel', () => {
 describe('buildReminderCard', () => {
   it('carries title, local time, offset and rendered text', () => {
     const task = makeTask({ id: 'tr_a', title: '季度材料', description: '含考勤汇总' })
-    const card = buildReminderCard(task, occurrenceOf('tr_a', '2026-11-05T06:00:00Z'))
+    const card = buildReminderCard(task, occurrenceOf('tr_a', '2026-11-05T06:00:00Z'), SETTINGS_OFF)
     assert.equal(card.title, '季度材料')
     assert.equal(card.localTime, '2026-11-05T14:00')
     assert.equal(card.utcOffset, 'UTC+08:00')
@@ -77,14 +79,14 @@ describe('buildReminderCard', () => {
       title: 'X',
       notify: { channels: ['overlay'], template: '{title}｜{time}', advanceMinutes: 0, sound: false, endReminder: true },
     })
-    const card = buildReminderCard(task, occurrenceOf('tr_b', '2026-11-05T06:00:00Z'))
+    const card = buildReminderCard(task, occurrenceOf('tr_b', '2026-11-05T06:00:00Z'), SETTINGS_OFF)
     assert.equal(card.text.split('\n').length, 1)
     assert.match(card.text, /^X｜/)
   })
 
   it('labels a one-off start node', () => {
     const task = makeOnceTask('2026-11-05T14:00:00+08:00', '2026-11-05T18:00:00+08:00', { id: 'tr_c' })
-    const card = buildReminderCard(task, occurrenceOf('tr_c', '2026-11-05T06:00:00Z', 'start'))
+    const card = buildReminderCard(task, occurrenceOf('tr_c', '2026-11-05T06:00:00Z', 'start'), SETTINGS_OFF)
     assert.equal(card.phase, 'start')
   })
 })
@@ -92,21 +94,29 @@ describe('buildReminderCard', () => {
 describe('deliveryRecordsFor', () => {
   it('always writes one overlay record', () => {
     const task = makeTask({ id: 'tr_a', notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 0, sound: false, endReminder: true } })
-    const records = deliveryRecordsFor(task, occurrenceOf('tr_a', '2026-10-30T01:00:00Z'), NOW)
+    const records = deliveryRecordsFor(task, occurrenceOf('tr_a', '2026-10-30T01:00:00Z'), NOW, SETTINGS_OFF)
     assert.equal(records.length, 1)
     assert.equal(records[0]?.channel, 'overlay')
     assert.equal(records[0]?.status, 'ok')
   })
 
-  it('adds a skipped placeholder for the system channel', () => {
+  it('adds a system placeholder when the global switch is on', () => {
     const task = makeTask({
       id: 'tr_a',
-      notify: { channels: ['overlay', 'system'], template: '{title}', advanceMinutes: 0, sound: false, endReminder: true },
+      notify: { channels: ['overlay'], template: '{title}', advanceMinutes: 0, sound: false, endReminder: true },
     })
-    const records = deliveryRecordsFor(task, occurrenceOf('tr_a', '2026-10-30T01:00:00Z'), NOW)
+    const records = deliveryRecordsFor(task, occurrenceOf('tr_a', '2026-10-30T01:00:00Z'), NOW, SETTINGS_ON)
     assert.equal(records.length, 2)
     assert.equal(records[1]?.channel, 'system')
     assert.equal(records[1]?.status, 'skipped')
+  })
+
+  it('keeps a legacy task system channel off when the global switch is off', () => {
+    const task = makeTask({
+      id: 'tr_legacy',
+      notify: { channels: ['overlay', 'system'], template: '{title}', advanceMinutes: 0, sound: false, endReminder: true },
+    })
+    assert.equal(deliveryRecordsFor(task, occurrenceOf('tr_legacy', '2026-10-30T01:00:00Z'), NOW, SETTINGS_OFF).length, 1)
   })
 })
 

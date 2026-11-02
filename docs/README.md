@@ -34,10 +34,11 @@
 | **R8** | 2026-10-31 | v1.10：F8.20 列表分页与全量分组计数 + F10.1 输入弹窗 | 用户反馈（1000 条列表分页） | v0.5.2：**825 tests / 244 suites / 0 fail**；AC-61 全过 | **已实现（0.5.2）** |
 | **R9** | 2026-10-31 | 0.5.3 补丁：NLP 输入弹窗焦点修复 | 用户反馈（输入第一个字符后失焦） | v0.5.3：**825 tests / 244 suites / 0 fail**；`verify-pack: OK` | **已发布（0.5.3）** |
 | **R10** | 2026-11-01 | v1.18：F5.9–F5.12 / F8.19 / F10.12–F10.13 体验批次 | 第五、六轮体验测试 | v0.6.0：**848 tests / 252 suites / 0 fail**；`verify-pack: OK` | **已发布（0.6.0）** |
+| **R11** | 2026-11-02 | v1.20：F5.13/F5.14/F9.7 桌面系统通知全局开关；schema v3→v4 | round5 评审 + 用户确认 | v0.7.0：**851 tests / 250 suites / 0 fail**；`verify-pack: OK` | **已实现（0.7.0）** |
 
 ## 关键入口
 
-- 需求基线：[requirements/需求-v1.md](requirements/需求-v1.md)（v1.18）
+- 需求基线：[requirements/需求-v1.md](requirements/需求-v1.md)（v1.20）
 - 决策记录：[decisions/待讨论-缺口清单.md](decisions/待讨论-缺口清单.md)
 - 本轮评审：[reviews/round2/评审-本轮需求.md](reviews/round2/评审-本轮需求.md)
 - 版本计划：[planning/版本计划.md](planning/版本计划.md)
@@ -47,7 +48,8 @@
 - 第二轮体验评估：[reviews/round3/第二轮体验问题评估.md](reviews/round3/第二轮体验问题评估.md)
 - 第三轮体验评估：[reviews/round3/第三轮体验问题评估.md](reviews/round3/第三轮体验问题评估.md)
 - 周报/月报评估：[requirements/评估-周报月报.md](requirements/评估-周报月报.md)
-- 0.3.0 版本规划：[planning/0.3.0版本规划.md](planning/0.3.0版本规划.md)
+- 0.7.0 版本规划：[planning/0.7.0版本规划.md](planning/0.7.0版本规划.md)
+- 0.7.0 评审答复：[reviews/round5/评审答复-0.7.0版本规划.md](reviews/round5/评审答复-0.7.0版本规划.md)
 - 开发进度盘点：[planning/开发进度盘点-2026-10-31.md](planning/开发进度盘点-2026-10-31.md)
 - 0.2.1 体验修复方案：[planning/0.2.1体验修复方案.md](planning/0.2.1体验修复方案.md)
 - 测试记录：[testing/测试记录.md](testing/测试记录.md)

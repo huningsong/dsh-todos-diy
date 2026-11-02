@@ -84,6 +84,7 @@ export interface SettingsPayload {
   dnd: { enabled: boolean; start: string; end: string; weekdaysOnly: boolean }
   retentionDays: number
   nlp: { enabled: boolean }
+  desktopNotifications: { enabled: boolean }
 }
 
 /** One report from `GET /reports` (F11). */

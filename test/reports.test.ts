@@ -210,7 +210,7 @@ describe('AC-REP-08: v2→v3 migration', () => {
     const result = migrateState({ schemaVersion: 2, tasks: [], deliveries: [] })
     assert.equal(result.ok, true)
     if (result.ok) {
-      assert.deepEqual(result.applied, ['v2→v3: completion-event log (F11.2)'])
+      assert.deepEqual(result.applied, ['v2→v3: completion-event log (F11.2)', 'v3→v4: desktop notification setting (F5.13)'])
       assert.deepEqual(result.state['completionEvents'], [])
     }
   })

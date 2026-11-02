@@ -49,9 +49,12 @@ export function buildTask(input: CreateTaskInput, settings: Settings, now: Date)
     once = validateOnce(input.once, zone, now, endReminder)
   }
   const notify = validateNotify(input.notify, {
-    channels: settings.defaultChannels,
+    channels: ['overlay'],
     template: DEFAULT_TEMPLATE,
   })
+  // F5.14: desktop notifications are a global setting, never a per-task
+  // channel; legacy clients that send `system` are normalized away.
+  notify.channels = ['overlay']
   return {
     id: newTaskId(now),
     title,

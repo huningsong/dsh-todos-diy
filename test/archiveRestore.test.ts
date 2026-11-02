@@ -193,7 +193,7 @@ describe('Review fixes: high-version archive protection (A-03)', () => {
       schemaVersion: 3,
       quarters: [{ quarter: '2026-Q3', file: 'completed-2026-Q3.json', count: 1, start: '', end: '' }],
     }))
-    const quarter = { schemaVersion: 4, quarter: '2026-Q3', tasks: [{ ...makeTask({ kind: 'once' }), id: 'tr_newer' }] }
+    const quarter = { schemaVersion: 5, quarter: '2026-Q3', tasks: [{ ...makeTask({ kind: 'once' }), id: 'tr_newer' }] }
     fs.writeFile(`${paths.archiveDir}/completed-2026-Q3.json`, JSON.stringify(quarter))
     const before = fs.readFile(`${paths.archiveDir}/completed-2026-Q3.json`)
     const result = restoreArchivedTask(emptyState(NOW), 'tr_newer', paths, fs, NOW)
@@ -205,7 +205,7 @@ describe('Review fixes: high-version archive protection (A-03)', () => {
     const fs = createMemoryFs()
     const paths = storagePaths(DATA_DIR)
     fs.mkdir(paths.archiveDir)
-    fs.writeFile(`${paths.archiveDir}/completed-2026-Q3.json`, JSON.stringify({ schemaVersion: 4, quarter: '2026-Q3', tasks: [] }))
+    fs.writeFile(`${paths.archiveDir}/completed-2026-Q3.json`, JSON.stringify({ schemaVersion: 5, quarter: '2026-Q3', tasks: [] }))
     const index = rebuildIndex(paths, fs)
     assert.equal(index.quarters.length, 0)
   })

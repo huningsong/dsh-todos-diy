@@ -343,7 +343,6 @@ export function TodoPanel(props: PanelProps) {
         void load(view, search)
         window.dispatchEvent(new CustomEvent('dsh-todos-diy:changed'))
       },
-      onNotice: (message) => showToast(message),
       onRetryParse: (text: string, signal: AbortSignal) => api.parse(text, signal),
       onDegradedSuccess: () => {
         setDegraded(null)

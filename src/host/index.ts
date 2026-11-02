@@ -125,7 +125,7 @@ function createTick(deps: SchedulerDeps): (now?: Date) => Promise<void> {
         const records = plan.fire.flatMap((occurrence) => {
           const task = tasks.find((candidate) => candidate.id === occurrence.taskId)
           if (task === undefined) return []
-          return deliveryRecordsFor(task, occurrence, now).map((record) =>
+          return deliveryRecordsFor(task, occurrence, now, settings).map((record) =>
             heldByDnd ? { ...record, error: 'dnd-held' } : record,
           )
         })
